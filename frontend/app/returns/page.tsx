@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import api from '@/lib/api';
-import { Return, Issue } from '@/types';
+import { Return, Issue, Role } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,6 +17,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Plus } from 'lucide-react';
 import { formatDateTime } from '@/lib/utils';
+import { useCurrentUser } from '@/hooks/use-current-user';
 
 const returnSchema = z.object({
   issueId: z.number().min(1, 'Issue is required'),
@@ -29,6 +30,8 @@ export default function ReturnsPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const queryClient = useQueryClient();
+  const { user: currentUser } = useCurrentUser();
+  const isManager = currentUser?.role === Role.QC_MANAGER;
 
   const { data: returns } = useQuery<Return[]>({
     queryKey: ['returns'],
@@ -105,12 +108,16 @@ export default function ReturnsPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-text mb-2">Tool Returns</h1>
-            <p className="text-secondary-600">Return issued tools</p>
+            <p className="text-secondary-600">
+              {isManager ? 'View tool returns' : 'Return issued tools'}
+            </p>
           </div>
-          <Button onClick={handleOpenForm} className="shadow-md">
-            <Plus className="w-4 h-4 mr-2" />
-            Return Tool
-          </Button>
+          {!isManager && (
+            <Button onClick={handleOpenForm} className="shadow-md">
+              <Plus className="w-4 h-4 mr-2" />
+              Return Tool
+            </Button>
+          )}
         </div>
 
         {/* Returns List */}

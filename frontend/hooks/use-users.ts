@@ -102,3 +102,22 @@ export function useDeactivateUser() {
     },
   });
 }
+
+export function useDeleteUser() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: number): Promise<void> => {
+      const response = await api.delete(`/users/${id}`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      toast.success('User deleted successfully');
+    },
+    onError: (error: any) => {
+      const message = error.response?.data?.message || 'Failed to delete user';
+      toast.error(message);
+    },
+  });
+}

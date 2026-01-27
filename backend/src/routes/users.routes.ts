@@ -5,6 +5,7 @@ import {
   getUserById,
   updateUser,
   deactivateUser,
+  deleteUser,
 } from '../controllers/users.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { body } from 'express-validator';
@@ -32,5 +33,6 @@ router.get('/', getAllUsers);
 router.get('/:id', getUserById);
 router.patch('/:id', updateUser);
 router.patch('/:id/deactivate', deactivateUser);
+router.delete('/:id', deleteUser);
 
 export default router;

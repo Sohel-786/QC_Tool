@@ -57,7 +57,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-secondary-50">
-      <Sidebar userRole={user.role} />
+      <Sidebar userRole={user.role} currentUser={user} />
       <div className="ml-64">
         <Header user={user} />
         <main className="min-h-[calc(100vh-4rem)]">{children}</main>

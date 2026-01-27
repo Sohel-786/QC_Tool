@@ -124,3 +124,51 @@ export const deactivateUser = async (req: Request, res: Response, next: NextFunc
     next(error);
   }
 };
+
+export const deleteUser = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const userId = parseInt(id);
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return next(new NotFoundError(`User with ID ${id} not found`));
+    }
+
+    // Check if user has been used in any transactions
+    // Check if user has issued any tools
+    const issuedCount = await prisma.issue.count({
+      where: { issuedBy: userId },
+    });
+
+    // Check if user has returned any tools
+    const returnedCount = await prisma.return.count({
+      where: { returnedBy: userId },
+    });
+
+    // Check if user has audit logs
+    const auditLogCount = await prisma.auditLog.count({
+      where: { userId: userId },
+    });
+
+    if (issuedCount > 0 || returnedCount > 0 || auditLogCount > 0) {
+      return next(
+        new ValidationError(
+          'Cannot delete user. This user has been used in transactions (issues, returns, or audit logs).'
+        )
+      );
+    }
+
+    // Delete the user
+    await prisma.user.delete({
+      where: { id: userId },
+    });
+
+    res.json({
+      success: true,
+      message: 'User deleted successfully',
+    });
+  } catch (error: any) {
+    next(error);
+  }
+};

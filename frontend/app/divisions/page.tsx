@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import api from '@/lib/api';
-import { Division } from '@/types';
+import { Division, Role } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Plus, Edit2, Search } from 'lucide-react';
+import { useCurrentUser } from '@/hooks/use-current-user';
 
 const divisionSchema = z.object({
   code: z.string().min(1, 'Division code is required'),
@@ -28,6 +29,8 @@ export default function DivisionsPage() {
   const [editingDivision, setEditingDivision] = useState<Division | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const queryClient = useQueryClient();
+  const { user: currentUser } = useCurrentUser();
+  const isManager = currentUser?.role === Role.QC_MANAGER;
 
   const { data: divisions } = useQuery<Division[]>({
     queryKey: ['divisions'],
@@ -152,14 +155,16 @@ export default function DivisionsPage() {
                           {division.code}
                         </p>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleOpenForm(division)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </Button>
+                      {!isManager && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleOpenForm(division)}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </Button>
+                      )}
                     </div>
                     <div className="flex items-center justify-between">
                       <span

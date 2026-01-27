@@ -3,7 +3,8 @@ const nextConfig = {
   reactStrictMode: true,
   output: 'standalone',
   images: {
-    domains: ['localhost'],
+    domains: ['localhost', 'ui-avatars.com'],
+    unoptimized: true,
   },
   async rewrites() {
     return [

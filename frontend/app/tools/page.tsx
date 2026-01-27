@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import api from '@/lib/api';
-import { Tool, ToolStatus } from '@/types';
+import { Tool, ToolStatus, Role } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Plus, Edit2, Search } from 'lucide-react';
+import { useCurrentUser } from '@/hooks/use-current-user';
 
 const toolSchema = z.object({
   toolCode: z.string().min(1, 'Tool code is required'),
@@ -30,6 +31,8 @@ export default function ToolsPage() {
   const [editingTool, setEditingTool] = useState<Tool | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const queryClient = useQueryClient();
+  const { user: currentUser } = useCurrentUser();
+  const isManager = currentUser?.role === Role.QC_MANAGER;
 
   const { data: tools } = useQuery<Tool[]>({
     queryKey: ['tools'],
@@ -168,14 +171,16 @@ export default function ToolsPage() {
                           {tool.toolCode}
                         </p>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleOpenForm(tool)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </Button>
+                      {!isManager && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleOpenForm(tool)}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </Button>
+                      )}
                     </div>
                     {tool.description && (
                       <p className="text-sm text-secondary-500 mb-3 line-clamp-2">

@@ -12,8 +12,8 @@ import { Dialog } from '@/components/ui/dialog';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Plus, Edit2, Search } from 'lucide-react';
-import { useUsers, useCreateUser, useUpdateUser } from '@/hooks/use-users';
+import { Plus, Edit2, Search, Trash2 } from 'lucide-react';
+import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from '@/hooks/use-users';
 
 const userSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters'),
@@ -92,6 +92,22 @@ export default function UsersPage() {
     }
   };
 
+  const handleDeleteClick = (user: User) => {
+    setUserToDelete(user);
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (userToDelete) {
+      deleteUser.mutate(userToDelete.id, {
+        onSuccess: () => {
+          setDeleteConfirmOpen(false);
+          setUserToDelete(null);
+        },
+      });
+    }
+  };
+
   const filteredUsers = users?.filter((user) =>
     user.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -158,14 +174,23 @@ export default function UsersPage() {
                           {user.role.replace('_', ' ')}
                         </p>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleOpenForm(user)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </Button>
+                      <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleOpenForm(user)}
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteClick(user)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
                     <div className="flex items-center justify-between">
                       <span
@@ -292,6 +317,46 @@ export default function UsersPage() {
               </Button>
             </div>
           </form>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog
+          isOpen={deleteConfirmOpen}
+          onClose={() => {
+            setDeleteConfirmOpen(false);
+            setUserToDelete(null);
+          }}
+          title="Delete User"
+          size="sm"
+        >
+          <div className="space-y-4">
+            <p className="text-secondary-600">
+              Are you sure you want to delete <strong>{userToDelete?.firstName} {userToDelete?.lastName}</strong>?
+            </p>
+            <p className="text-sm text-red-600">
+              Note: Users who have been used in transactions (issues, returns, or audit logs) cannot be deleted.
+            </p>
+            <div className="flex space-x-3 pt-4">
+              <Button
+                variant="destructive"
+                onClick={handleDeleteConfirm}
+                disabled={deleteUser.isPending}
+                className="flex-1"
+              >
+                {deleteUser.isPending ? 'Deleting...' : 'Delete'}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setDeleteConfirmOpen(false);
+                  setUserToDelete(null);
+                }}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
         </Dialog>
       </motion.div>
     </div>

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import api from '@/lib/api';
-import { Issue, Tool, Division } from '@/types';
+import { Issue, Tool, Division, Role } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,6 +17,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Plus, Search } from 'lucide-react';
 import { formatDateTime } from '@/lib/utils';
+import { useCurrentUser } from '@/hooks/use-current-user';
 
 const issueSchema = z.object({
   toolId: z.number().min(1, 'Tool is required'),
@@ -100,12 +101,16 @@ export default function IssuesPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-text mb-2">Tool Issues</h1>
-            <p className="text-secondary-600">Issue tools to divisions</p>
+            <p className="text-secondary-600">
+              {isManager ? 'View tool issues' : 'Issue tools to divisions'}
+            </p>
           </div>
-          <Button onClick={handleOpenForm} className="shadow-md">
-            <Plus className="w-4 h-4 mr-2" />
-            Issue Tool
-          </Button>
+          {!isManager && (
+            <Button onClick={handleOpenForm} className="shadow-md">
+              <Plus className="w-4 h-4 mr-2" />
+              Issue Tool
+            </Button>
+          )}
         </div>
 
         {/* Issues List */}
