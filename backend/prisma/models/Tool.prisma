@@ -1,0 +1,20 @@
+enum ToolStatus {
+  AVAILABLE
+  ISSUED
+  MISSING
+}
+
+model Tool {
+  id          Int         @id @default(autoincrement())
+  toolCode    String      @unique
+  toolName    String
+  description String?
+  status      ToolStatus  @default(AVAILABLE)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  issues Issue[]
+
+  @@map("tools")
+}

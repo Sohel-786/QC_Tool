@@ -1,0 +1,17 @@
+model Return {
+  id         Int      @id @default(autoincrement())
+  issueId    Int
+  returnedBy Int
+  returnImage String
+  remarks    String?
+  returnedAt DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  issue Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  returnedByUser User @relation("ReturnedBy", fields: [returnedBy], references: [id], onDelete: Cascade)
+
+  @@map("returns")
+  @@index([issueId])
+  @@index([returnedBy])
+}

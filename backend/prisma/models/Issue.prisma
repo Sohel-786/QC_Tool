@@ -1,0 +1,23 @@
+model Issue {
+  id        Int      @id @default(autoincrement())
+  issueNo   String   @unique
+  toolId    Int
+  divisionId Int
+  issuedBy  Int
+  issuedTo  String?
+  remarks   String?
+  isReturned Boolean @default(false)
+  issuedAt  DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  tool      Tool      @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  division  Division  @relation(fields: [divisionId], references: [id], onDelete: Cascade)
+  issuedByUser User   @relation("IssuedBy", fields: [issuedBy], references: [id], onDelete: Cascade)
+  returns   Return[]
+
+  @@map("issues")
+  @@index([toolId])
+  @@index([divisionId])
+  @@index([issuedBy])
+}
