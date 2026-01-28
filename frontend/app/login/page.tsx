@@ -208,6 +208,16 @@ export default function LoginPage() {
                   )}
                 </Button>
               </motion.div>
+
+              {/* Authentication error message */}
+              {loginMutation.isError && (
+                <p className="text-sm text-red-600 text-center">
+                  {(loginMutation.error as any)?.response?.status === 401
+                    ? 'Invalid username or password. Please verify your credentials and try again.'
+                    : (loginMutation.error as any)?.response?.data?.message ||
+                      'Unable to sign you in at the moment. Please try again.'}
+                </p>
+              )}
             </form>
           </motion.div>
         </div>

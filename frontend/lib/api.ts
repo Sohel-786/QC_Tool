@@ -21,8 +21,14 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401) {
-      // Redirect to login on unauthorized
-      if (typeof window !== "undefined") {
+      const requestUrl: string | undefined = error.config?.url;
+
+      // For login itself, just bubble the error (no full page reload)
+      const isLoginRequest =
+        requestUrl?.includes("/auth/login") || requestUrl?.endsWith("/auth/login");
+
+      if (!isLoginRequest && typeof window !== "undefined") {
+        // Redirect to login on unauthorized for protected API calls
         window.location.href = "/login";
       }
     }

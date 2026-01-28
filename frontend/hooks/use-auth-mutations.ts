@@ -30,7 +30,7 @@ export function useLogin() {
         localStorage.setItem('user', JSON.stringify(data.user));
         queryClient.setQueryData(['user'], data.user);
         toast.success('Login successful!');
-        
+
         // Redirect based on user role
         // Small delay to ensure localStorage is set and cookie is available
         setTimeout(() => {
@@ -40,7 +40,14 @@ export function useLogin() {
       }
     },
     onError: (error: any) => {
-      const message = error.response?.data?.message || 'Login failed. Please try again.';
+      const status = error.response?.status;
+      const backendMessage = error.response?.data?.message;
+
+      const message =
+        status === 401
+          ? 'Invalid username or password. Please check your credentials and try again.'
+          : backendMessage || 'Login failed. Please try again.';
+
       toast.error(message);
     },
   });

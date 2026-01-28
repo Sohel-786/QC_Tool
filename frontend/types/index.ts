@@ -25,6 +25,9 @@ export interface Tool {
   toolCode: string;
   toolName: string;
   description?: string;
+  image?: string;
+  serialNumber?: string;
+  categoryId?: number | null;
   status: ToolStatus;
   createdAt: string;
   updatedAt: string;
@@ -53,10 +56,13 @@ export interface Issue {
   tool?: Tool;
   division?: Division;
   user?: User;
+  // For reports and history views where backend includes the relation explicitly
+  issuedByUser?: User;
 }
 
 export interface Return {
   id: number;
+  returnCode?: string;
   issueId: number;
   returnedBy: number;
   returnImage: string;

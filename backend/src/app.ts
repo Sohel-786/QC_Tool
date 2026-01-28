@@ -25,6 +25,7 @@ import issueRoutes from './routes/issues.routes';
 import returnRoutes from './routes/returns.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 import reportRoutes from './routes/reports.routes';
+import toolCategoryRoutes from './routes/toolCategories.routes';
 
 console.log('✅ All route modules loaded');
 
@@ -135,6 +136,15 @@ app.use(
     next();
   },
   toolRoutes,
+);
+
+app.use(
+  '/tool-categories',
+  (req, res, next) => {
+    console.log('📍 Entering /tool-categories route');
+    next();
+  },
+  toolCategoryRoutes,
 );
 
 app.use(

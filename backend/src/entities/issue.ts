@@ -122,16 +122,13 @@ const Issue = {
   },
 
   generateIssueNo: async (): Promise<string> => {
-    const year = new Date().getFullYear();
-    const count = await prisma.issue.count({
-      where: {
-        issueNo: {
-          startsWith: `ISSUE-${year}-`,
-        },
-      },
-    });
-    const sequence = String(count + 1).padStart(4, '0');
-    return `ISSUE-${year}-${sequence}`;
+    const count = await prisma.issue.count();
+    const sequence = String(count + 1).padStart(3, '0');
+    return `OUTWARD-${sequence}`;
+  },
+
+  getCount: async (): Promise<number> => {
+    return prisma.issue.count();
   },
 };
 

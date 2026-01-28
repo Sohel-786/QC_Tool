@@ -1,13 +1,20 @@
 import { Request, Response, NextFunction } from 'express';
 import Division from '../entities/division';
-import { ConflictError, NotFoundError, ValidationError } from '../utils/errors';
+import { BadRequestError, ConflictError, NotFoundError, ValidationError } from '../utils/errors';
+import { generateNextCode } from '../utils/codeGenerator';
 
 export const createDivision = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { code, name, isActive } = req.body;
+    let { code, name, isActive } = req.body;
 
-    if (!code || !name) {
-      return next(new ValidationError('Division code and name are required'));
+    if (!name) {
+      return next(new ValidationError('Division name is required'));
+    }
+
+    // Auto-generate division code if not provided
+    if (!code) {
+      const divisionCount = await Division.getCount();
+      code = generateNextCode('DIV', divisionCount);
     }
 
     const codeExists = await Division.codeExists(code);
@@ -98,6 +105,53 @@ export const updateDivision = async (req: Request, res: Response, next: NextFunc
     res.json({
       success: true,
       data: updatedDivision,
+    });
+  } catch (error: any) {
+    next(error);
+  }
+};
+
+export const deleteDivision = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const divisionId = parseInt(id);
+
+    if (Number.isNaN(divisionId)) {
+      return next(new ValidationError('Invalid division id'));
+    }
+
+    const division = await Division.findById(divisionId);
+    if (!division) {
+      return next(new NotFoundError(`Division with ID ${id} not found`));
+    }
+
+    const issuesCount = await Division.countIssuesByDivisionId(divisionId);
+    if (issuesCount > 0) {
+      return next(
+        new BadRequestError(
+          'This division is in use by outward (issue) records and cannot be deleted',
+        ),
+      );
+    }
+
+    await Division.delete(divisionId);
+
+    res.json({
+      success: true,
+      message: 'Division deleted successfully',
+    });
+  } catch (error: any) {
+    next(error);
+  }
+};
+
+export const getNextDivisionCode = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const divisionCount = await Division.getCount();
+    const nextCode = generateNextCode('DIV', divisionCount);
+    res.json({
+      success: true,
+      data: { nextCode },
     });
   } catch (error: any) {
     next(error);

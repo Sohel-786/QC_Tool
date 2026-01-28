@@ -5,6 +5,7 @@ import {
   getActiveIssues,
   getIssueById,
   getIssueByIssueNo,
+  getNextIssueCode,
 } from '../controllers/issues.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { body } from 'express-validator';
@@ -16,8 +17,9 @@ router.use(authMiddleware());
 
 router.get('/', getAllIssues);
 router.get('/active', getActiveIssues);
-router.get('/:id', getIssueById);
+router.get('/next-code', getNextIssueCode);
 router.get('/issue-no/:issueNo', getIssueByIssueNo);
+router.get('/:id', getIssueById);
 
 // Create requires QC_USER role
 router.post(

@@ -28,6 +28,7 @@ type ReturnForm = z.infer<typeof returnSchema>;
 
 export default function ReturnsPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [nextInwardCode, setNextInwardCode] = useState<string>("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const queryClient = useQueryClient();
   const { user: currentUser } = useCurrentUser();
@@ -74,15 +75,24 @@ export default function ReturnsPage() {
     },
   });
 
-  const handleOpenForm = () => {
+  const handleOpenForm = async () => {
     reset();
     setImageFile(null);
+    try {
+      const response = await api.get("/returns/next-code");
+      const nextCode = response.data?.data?.nextCode || "";
+      setNextInwardCode(nextCode);
+    } catch (error) {
+      console.error("Failed to fetch next inward code:", error);
+      setNextInwardCode("");
+    }
     setIsFormOpen(true);
   };
 
   const handleCloseForm = () => {
     setIsFormOpen(false);
     reset();
+    setNextInwardCode("");
     setImageFile(null);
   };
 
@@ -148,6 +158,12 @@ export default function ReturnsPage() {
                           <h3 className="font-semibold text-lg text-text mb-2">
                             {return_.issue?.tool?.toolName}
                           </h3>
+                          {return_.returnCode && (
+                            <p className="text-sm text-secondary-600 mb-1">
+                              <span className="font-medium">Inward No:</span>{" "}
+                              {return_.returnCode}
+                            </p>
+                          )}
                           <p className="text-sm text-secondary-600 mb-1">
                             <span className="font-medium">Issue No:</span>{" "}
                             {return_.issue?.issueNo}
@@ -190,13 +206,28 @@ export default function ReturnsPage() {
           isOpen={isFormOpen}
           onClose={handleCloseForm}
           title="Return Tool"
-          size="lg"
+          size="xl"
         >
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div>
-              <Label htmlFor="issueId">Issue *</Label>
-              <Select
-                id="issueId"
+            {nextInwardCode && (
+              <div>
+                <Label htmlFor="inwardCode">Inward Number *</Label>
+                <Input
+                  id="inwardCode"
+                  value={nextInwardCode}
+                  disabled={true}
+                  className="mt-1 bg-secondary-50"
+                />
+                <p className="text-xs text-secondary-500 mt-1">
+                  Auto-generated serial number
+                </p>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="issueId">Issue *</Label>
+                <Select
+                  id="issueId"
                 {...register("issueId", { valueAsNumber: true })}
                 className="mt-1"
               >
@@ -210,30 +241,31 @@ export default function ReturnsPage() {
                     </option>
                   ))}
               </Select>
-              {errors.issueId && (
-                <p className="text-sm text-red-600 mt-1">
-                  {errors.issueId.message}
-                </p>
-              )}
-            </div>
-            <div>
-              <Label htmlFor="image">Return Image *</Label>
-              <Input
-                id="image"
-                type="file"
-                accept="image/*"
-                onChange={(e) => {
-                  if (e.target.files && e.target.files[0]) {
-                    setImageFile(e.target.files[0]);
-                  }
-                }}
-                className="mt-1"
-              />
-              {!imageFile && (
-                <p className="text-sm text-red-600 mt-1">
-                  Return image is required
-                </p>
-              )}
+                {errors.issueId && (
+                  <p className="text-sm text-red-600 mt-1">
+                    {errors.issueId.message}
+                  </p>
+                )}
+              </div>
+              <div>
+                <Label htmlFor="image">Return Image *</Label>
+                <Input
+                  id="image"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      setImageFile(e.target.files[0]);
+                    }
+                  }}
+                  className="mt-1"
+                />
+                {!imageFile && (
+                  <p className="text-sm text-red-600 mt-1">
+                    Return image is required
+                  </p>
+                )}
+              </div>
             </div>
             <div>
               <Label htmlFor="remarks">Remarks (Optional)</Label>
@@ -241,7 +273,7 @@ export default function ReturnsPage() {
                 id="remarks"
                 {...register("remarks")}
                 className="mt-1"
-                rows={4}
+                rows={3}
               />
             </div>
             <div className="flex space-x-3 pt-4">

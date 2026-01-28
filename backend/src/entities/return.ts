@@ -1,6 +1,7 @@
 import { prisma } from "../external-libraries/dbClient";
 
 type CreateReturnInput = {
+  returnCode: string; // Always set when creating new return
   issueId: number;
   returnedBy: number;
   returnImage: string;
@@ -89,6 +90,10 @@ const Return = {
       },
       orderBy: { returnedAt: 'desc' },
     });
+  },
+
+  getCount: async (): Promise<number> => {
+    return prisma.return.count();
   },
 };
 

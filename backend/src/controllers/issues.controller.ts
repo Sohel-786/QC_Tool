@@ -4,10 +4,11 @@ import Tool from '../entities/tool';
 import Division from '../entities/division';
 import { BadRequestError, NotFoundError, ValidationError } from '../utils/errors';
 import { ToolStatus } from '@prisma/client';
+import { generateNextCode } from '../utils/codeGenerator';
 
 export const createIssue = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { toolId, divisionId, issuedTo, remarks } = req.body;
+    const { toolId, divisionId, issuedTo, remarks, categoryId } = req.body;
     const issuedBy = req.user!.id;
 
     if (!toolId || !divisionId) {
@@ -21,6 +22,23 @@ export const createIssue = async (req: Request, res: Response, next: NextFunctio
     }
     if (tool.status !== ToolStatus.AVAILABLE) {
       return next(new BadRequestError('Tool is not available for issue'));
+    }
+
+    // Optional category validation for outward record
+    if (categoryId !== undefined && categoryId !== null && categoryId !== '') {
+      const parsedCategoryId = Number(categoryId);
+      if (Number.isNaN(parsedCategoryId)) {
+        return next(new ValidationError('Invalid tool category'));
+      }
+
+      const toolWithCategory = tool as typeof tool & { categoryId?: number | null };
+      if (!toolWithCategory.categoryId || toolWithCategory.categoryId !== parsedCategoryId) {
+        return next(
+          new BadRequestError(
+            'Selected tool does not belong to the chosen category. Please select a matching tool.',
+          ),
+        );
+      }
     }
 
     // Check if division exists and is active
@@ -111,6 +129,19 @@ export const getIssueByIssueNo = async (req: Request, res: Response, next: NextF
     res.json({
       success: true,
       data: issue,
+    });
+  } catch (error: any) {
+    next(error);
+  }
+};
+
+export const getNextIssueCode = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const issueCount = await Issue.getCount();
+    const nextCode = generateNextCode('OUTWARD', issueCount);
+    res.json({
+      success: true,
+      data: { nextCode },
     });
   } catch (error: any) {
     next(error);

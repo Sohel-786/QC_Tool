@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   createReturn,
   getAllReturns,
+  getNextInwardCode,
   getReturnById,
   getReturnsByIssueId,
 } from '../controllers/returns.controller';
@@ -15,8 +16,9 @@ const router = Router();
 router.use(authMiddleware());
 
 router.get('/', getAllReturns);
-router.get('/:id', getReturnById);
+router.get('/next-code', getNextInwardCode);
 router.get('/issue/:issueId', getReturnsByIssueId);
+router.get('/:id', getReturnById);
 
 // Create requires QC_USER role
 router.post(

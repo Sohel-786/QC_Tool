@@ -4,6 +4,7 @@ import Issue from '../entities/issue';
 import Tool from '../entities/tool';
 import { BadRequestError, NotFoundError, ValidationError } from '../utils/errors';
 import { ToolStatus } from '@prisma/client';
+import { generateNextCode } from '../utils/codeGenerator';
 
 export const createReturn = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -31,8 +32,13 @@ export const createReturn = async (req: Request, res: Response, next: NextFuncti
 
     const imagePath = `returns/${file.filename}`;
 
+    // Auto-generate inward (return) code
+    const returnCount = await Return.getCount();
+    const returnCode = generateNextCode('INWARD', returnCount);
+
     // Create return record
     const return_ = await Return.create({
+      returnCode,
       issueId,
       returnedBy,
       returnImage: imagePath,
@@ -92,6 +98,19 @@ export const getReturnsByIssueId = async (req: Request, res: Response, next: Nex
     res.json({
       success: true,
       data: returns,
+    });
+  } catch (error: any) {
+    next(error);
+  }
+};
+
+export const getNextInwardCode = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const returnCount = await Return.getCount();
+    const nextCode = generateNextCode('INWARD', returnCount);
+    res.json({
+      success: true,
+      data: { nextCode },
     });
   } catch (error: any) {
     next(error);

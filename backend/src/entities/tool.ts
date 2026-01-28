@@ -4,14 +4,20 @@ import { prisma } from "../external-libraries/dbClient";
 type CreateToolInput = {
   toolCode: string;
   toolName: string;
+  serialNumber?: string;
   description?: string;
+  image?: string;
+  categoryId?: number | null;
 };
 
 type UpdateToolInput = {
   toolCode?: string;
   toolName?: string;
+  serialNumber?: string | null;
   description?: string;
+  image?: string;
   status?: ToolStatus;
+  categoryId?: number | null;
 };
 
 const Tool = {
@@ -68,6 +74,22 @@ const Tool = {
       where: { toolCode },
     });
     return count > 0;
+  },
+
+  countIssuesByToolId: async (toolId: number): Promise<number> => {
+    return prisma.issue.count({
+      where: { toolId },
+    });
+  },
+
+  delete: async (id: number): Promise<void> => {
+    await prisma.tool.delete({
+      where: { id },
+    });
+  },
+
+  getCount: async (): Promise<number> => {
+    return prisma.tool.count();
   },
 };
 

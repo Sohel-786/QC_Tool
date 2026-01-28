@@ -57,6 +57,22 @@ const Division = {
     });
     return count > 0;
   },
+
+  countIssuesByDivisionId: async (divisionId: number): Promise<number> => {
+    return prisma.issue.count({
+      where: { divisionId },
+    });
+  },
+
+  delete: async (id: number): Promise<void> => {
+    await prisma.division.delete({
+      where: { id },
+    });
+  },
+
+  getCount: async (): Promise<number> => {
+    return prisma.division.count();
+  },
 };
 
 export default Division;
