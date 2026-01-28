@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "@/lib/api";
 import { Issue, Tool } from "@/types";
@@ -20,8 +21,15 @@ import {
 type ReportType = "issued" | "missing" | "history";
 
 export default function ReportsPage() {
+  const searchParams = useSearchParams();
   const [activeReport, setActiveReport] = useState<ReportType>("issued");
   const [searchTerm, setSearchTerm] = useState("");
+
+  useEffect(() => {
+    const section = searchParams.get("section");
+    if (section === "missing") setActiveReport("missing");
+    else if (section === "active-issues" || section === "issued") setActiveReport("issued");
+  }, [searchParams]);
 
   const { data: issuedTools, isLoading: loadingIssued } = useQuery<Issue[]>({
     queryKey: ["issued-tools-report"],
@@ -56,7 +64,7 @@ export default function ReportsPage() {
       switch (type) {
         case "issued":
           endpoint = "/reports/export/issued-tools";
-          filename = "issued-tools-report";
+          filename = "active-issues-report";
           break;
         case "missing":
           endpoint = "/reports/export/missing-tools";
@@ -138,7 +146,7 @@ export default function ReportsPage() {
   const reportTabs = [
     {
       id: "issued" as ReportType,
-      label: "Currently Issued Tools",
+      label: "Active Issues",
       icon: FileText,
       count: issuedTools?.length || 0,
     },
@@ -231,7 +239,7 @@ export default function ReportsPage() {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary-400 w-5 h-5" />
                   <Input
-                    placeholder={`Search ${activeReport === "issued" ? "issued tools" : activeReport === "missing" ? "missing tools" : "tool history"}...`}
+                    placeholder={`Search ${activeReport === "issued" ? "active issues" : activeReport === "missing" ? "missing tools" : "tool history"}...`}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10"
@@ -267,7 +275,7 @@ export default function ReportsPage() {
               <Card className="shadow-sm">
                 <CardHeader>
                   <CardTitle>
-                    Currently Issued Tools ({filteredIssuedTools.length})
+                    Active Issues ({filteredIssuedTools.length})
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -362,8 +370,8 @@ export default function ReportsPage() {
                     <div className="text-center py-12">
                       <p className="text-secondary-500 text-lg">
                         {searchTerm
-                          ? "No issued tools found matching your search."
-                          : "No issued tools found."}
+                          ? "No active issues found matching your search."
+                          : "No active issues found."}
                       </p>
                     </div>
                   )}

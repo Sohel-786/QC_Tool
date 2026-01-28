@@ -47,6 +47,8 @@ export default function ToolsPage() {
   const [editingTool, setEditingTool] = useState<Tool | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Tool | null>(null);
   const [nextToolCode, setNextToolCode] = useState<string>("");
+  const [isAddCategoryDialogOpen, setIsAddCategoryDialogOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -134,6 +136,29 @@ export default function ToolsPage() {
       const message =
         error.response?.data?.message ||
         "Unable to delete tool. It may be in use by outward records.";
+      toast.error(message);
+    },
+  });
+
+  const addCategoryMutation = useMutation({
+    mutationFn: async (data: { name: string }) => {
+      const response = await api.post("/tool-categories", data);
+      return response.data;
+    },
+    onSuccess: (result: { data?: { id: number; name: string } }) => {
+      const newCategory = result?.data;
+      if (newCategory) {
+        queryClient.invalidateQueries({ queryKey: ["tool-categories"] });
+        setValue("categoryId", newCategory.id);
+        setIsAddCategoryDialogOpen(false);
+        setNewCategoryName("");
+        toast.success("Tool category created");
+      }
+    },
+    onError: (error: any) => {
+      const message =
+        error.response?.data?.message ||
+        "Unable to create category. Please try again.";
       toast.error(message);
     },
   });
@@ -499,27 +524,9 @@ export default function ToolsPage() {
                     variant="ghost"
                     size="sm"
                     className="text-xs px-2"
-                    onClick={async () => {
-                      const name = window.prompt(
-                        "Enter new tool category name",
-                      );
-                      if (!name || !name.trim()) {
-                        return;
-                      }
-                      try {
-                        await api.post("/tool-categories", {
-                          name: name.trim(),
-                        });
-                        await queryClient.invalidateQueries({
-                          queryKey: ["tool-categories"],
-                        });
-                        toast.success("Tool category created");
-                      } catch (error: any) {
-                        const message =
-                          error.response?.data?.message ||
-                          "Unable to create category. Please try again.";
-                        toast.error(message);
-                      }
+                    onClick={() => {
+                      setNewCategoryName("");
+                      setIsAddCategoryDialogOpen(true);
                     }}
                   >
                     + Add Category
@@ -609,6 +616,70 @@ export default function ToolsPage() {
                 className="flex-1"
               >
                 Cancel
+              </Button>
+            </div>
+          </form>
+        </Dialog>
+
+        {/* Add Category nested dialog (on top of Add New Tool) */}
+        <Dialog
+          isOpen={isAddCategoryDialogOpen}
+          onClose={() => {
+            setIsAddCategoryDialogOpen(false);
+            setNewCategoryName("");
+          }}
+          title="Add Tool Category"
+          size="sm"
+          overlayClassName="z-[110]"
+        >
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const name = newCategoryName.trim();
+              if (name.length < 2) {
+                toast.error("Category name must be at least 2 characters");
+                return;
+              }
+              addCategoryMutation.mutate({ name });
+            }}
+            className="space-y-4"
+          >
+            <div>
+              <Label htmlFor="newCategoryName">Category Name *</Label>
+              <Input
+                id="newCategoryName"
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                placeholder="e.g. Calipers, Micrometers"
+                className="mt-1"
+                disabled={addCategoryMutation.isPending}
+              />
+              <p className="text-xs text-secondary-500 mt-1">
+                At least 2 characters
+              </p>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setIsAddCategoryDialogOpen(false);
+                  setNewCategoryName("");
+                }}
+                className="flex-1"
+                disabled={addCategoryMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                className="flex-1"
+                disabled={
+                  addCategoryMutation.isPending ||
+                  newCategoryName.trim().length < 2
+                }
+              >
+                {addCategoryMutation.isPending ? "Creating..." : "Create Category"}
               </Button>
             </div>
           </form>

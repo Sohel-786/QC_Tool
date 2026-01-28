@@ -29,7 +29,7 @@ export const getIssuedToolsReport = async (req: Request, res: Response, next: Ne
   try {
     const { startDate, endDate } = req.query;
 
-    const where: any = {};
+    const where: any = { isReturned: false };
     if (startDate && endDate) {
       where.issuedAt = {
         gte: new Date(startDate as string),
@@ -142,7 +142,7 @@ export const exportIssuedToolsReport = async (req: Request, res: Response, next:
   try {
     const { startDate, endDate } = req.query;
 
-    const where: any = {};
+    const where: any = { isReturned: false };
     if (startDate && endDate) {
       where.issuedAt = {
         gte: new Date(startDate as string),

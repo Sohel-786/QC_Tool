@@ -1,14 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
 import Tool from '../entities/tool';
+import ToolCategory from '../entities/toolCategory';
 import { BadRequestError, ConflictError, NotFoundError, ValidationError } from '../utils/errors';
 import { ToolStatus } from '@prisma/client';
 import fs from 'fs';
 import path from 'path';
-import { prisma } from '../external-libraries/dbClient';
 import { generateNextCode } from '../utils/codeGenerator';
-
-// Temporary untyped prisma reference to avoid type mismatch until prisma generate is run
-const prismaAny = prisma as any;
 
 export const createTool = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -36,10 +33,8 @@ export const createTool = async (req: Request, res: Response, next: NextFunction
 
     // Enforce unique serial number if provided
     if (serialNumber) {
-      const existingBySerial = await prismaAny.tool.count({
-        where: { serialNumber },
-      });
-      if (existingBySerial > 0) {
+      const serialExists = await Tool.serialNumberExists(serialNumber);
+      if (serialExists) {
         return next(new ConflictError('Tool with this serial number already exists'));
       }
     }
@@ -51,10 +46,7 @@ export const createTool = async (req: Request, res: Response, next: NextFunction
         return next(new ValidationError('Invalid tool category'));
       }
 
-      const category = await prismaAny.toolCategory.findUnique({
-        where: { id: parsedCategoryId },
-      });
-
+      const category = await ToolCategory.findById(parsedCategoryId);
       if (!category) {
         return next(new ValidationError('Selected tool category does not exist'));
       }
@@ -170,13 +162,8 @@ export const updateTool = async (req: Request, res: Response, next: NextFunction
       if (!trimmedSerial) {
         updateData.serialNumber = null;
       } else if (trimmedSerial !== (tool as any).serialNumber) {
-        const existingBySerial = await prismaAny.tool.count({
-          where: {
-            serialNumber: trimmedSerial,
-            id: { not: tool.id },
-          },
-        });
-        if (existingBySerial > 0) {
+        const serialExists = await Tool.serialNumberExistsExcluding(trimmedSerial, tool.id);
+        if (serialExists) {
           return next(new ConflictError('Tool with this serial number already exists'));
         }
         updateData.serialNumber = trimmedSerial;
@@ -193,10 +180,7 @@ export const updateTool = async (req: Request, res: Response, next: NextFunction
           return next(new ValidationError('Invalid tool category'));
         }
 
-        const category = await prismaAny.toolCategory.findUnique({
-          where: { id: parsedCategoryId },
-        });
-
+        const category = await ToolCategory.findById(parsedCategoryId);
         if (!category) {
           return next(new ValidationError('Selected tool category does not exist'));
         }

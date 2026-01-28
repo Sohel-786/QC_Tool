@@ -34,8 +34,9 @@ const managerMenuItems = [
 
 // QC User menu items (restricted access - only tool management, inward, outward, and reports)
 const userMenuItems = [
-  { href: "/tool-categories", label: "Tool Category", icon: Layers },
-  { href: "/tools", label: "Tool Master", icon: Wrench },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/tool-categories", label: "Item Category", icon: Layers },
+  { href: "/tools", label: "Item Master", icon: Wrench },
   { href: "/divisions", label: "Division", icon: Building },
   { href: "/issues", label: "Outward", icon: ClipboardList },
   { href: "/returns", label: "Inward", icon: ArrowLeftRight },

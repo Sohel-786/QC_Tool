@@ -218,9 +218,6 @@ export default function ReturnsPage() {
                   disabled={true}
                   className="mt-1 bg-secondary-50"
                 />
-                <p className="text-xs text-secondary-500 mt-1">
-                  Auto-generated serial number
-                </p>
               </div>
             )}
             <div className="grid grid-cols-2 gap-4">
@@ -228,19 +225,19 @@ export default function ReturnsPage() {
                 <Label htmlFor="issueId">Issue *</Label>
                 <Select
                   id="issueId"
-                {...register("issueId", { valueAsNumber: true })}
-                className="mt-1"
-              >
-                <option value="">Select an issue</option>
-                {activeIssues &&
-                  Array.isArray(activeIssues) &&
-                  activeIssues.map((issue) => (
-                    <option key={issue.id} value={issue.id}>
-                      {issue.issueNo} - {issue.tool?.toolName} (
-                      {issue.division?.name})
-                    </option>
-                  ))}
-              </Select>
+                  {...register("issueId", { valueAsNumber: true })}
+                  className="mt-1"
+                >
+                  <option value="">Select an issue</option>
+                  {activeIssues &&
+                    Array.isArray(activeIssues) &&
+                    activeIssues.map((issue) => (
+                      <option key={issue.id} value={issue.id}>
+                        {issue.issueNo} - {issue.tool?.toolName} (
+                        {issue.division?.name})
+                      </option>
+                    ))}
+                </Select>
                 {errors.issueId && (
                   <p className="text-sm text-red-600 mt-1">
                     {errors.issueId.message}

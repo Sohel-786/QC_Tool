@@ -21,10 +21,10 @@ router.get('/active', getActiveDivisions);
 router.get('/next-code', getNextDivisionCode);
 router.get('/:id', getDivisionById);
 
-// Create and update require QC_USER role
+// Create, update, delete: both QC_USER and QC_MANAGER
 router.post(
   '/',
-  authMiddleware(['QC_USER']),
+  authMiddleware(['QC_USER', 'QC_MANAGER']),
   [
     body('name').notEmpty().withMessage('Division name is required'),
     validateMiddleware,
@@ -34,13 +34,13 @@ router.post(
 
 router.patch(
   '/:id',
-  authMiddleware(['QC_USER']),
+  authMiddleware(['QC_USER', 'QC_MANAGER']),
   updateDivision
 );
 
 router.delete(
   '/:id',
-  authMiddleware(['QC_USER']),
+  authMiddleware(['QC_USER', 'QC_MANAGER']),
   deleteDivision
 );
 

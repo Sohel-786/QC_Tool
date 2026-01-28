@@ -76,6 +76,23 @@ const Tool = {
     return count > 0;
   },
 
+  serialNumberExists: async (serialNumber: string): Promise<boolean> => {
+    const count = await prisma.tool.count({
+      where: { serialNumber },
+    });
+    return count > 0;
+  },
+
+  serialNumberExistsExcluding: async (serialNumber: string, excludeToolId: number): Promise<boolean> => {
+    const count = await prisma.tool.count({
+      where: {
+        serialNumber,
+        id: { not: excludeToolId },
+      },
+    });
+    return count > 0;
+  },
+
   countIssuesByToolId: async (toolId: number): Promise<number> => {
     return prisma.issue.count({
       where: { toolId },

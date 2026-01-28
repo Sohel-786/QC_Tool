@@ -55,13 +55,20 @@ export default function DivisionsPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: async (data: DivisionForm) => {
+    mutationFn: async (data: { code?: string; name: string; isActive?: boolean }) => {
       const response = await api.post("/divisions", data);
       return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["divisions"] });
       handleCloseForm();
+      toast.success("Division created successfully");
+    },
+    onError: (error: any) => {
+      const message =
+        error.response?.data?.message ||
+        "Unable to create division. Please try again.";
+      toast.error(message);
     },
   });
 
@@ -73,6 +80,13 @@ export default function DivisionsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["divisions"] });
       handleCloseForm();
+      toast.success("Division updated successfully");
+    },
+    onError: (error: any) => {
+      const message =
+        error.response?.data?.message ||
+        "Unable to update division. Please try again.";
+      toast.error(message);
     },
   });
 
@@ -122,15 +136,22 @@ export default function DivisionsPage() {
     setEditingDivision(null);
     setNextDivisionCode("");
     reset();
+    createMutation.reset();
+    updateMutation.reset();
   };
 
   const onSubmit = (data: DivisionForm) => {
     if (editingDivision) {
       updateMutation.mutate({ id: editingDivision.id, data });
     } else {
+      const name = (data.name || "").trim();
+      if (!name) {
+        toast.error("Division name is required");
+        return;
+      }
       createMutation.mutate({
-        code: data.code || nextDivisionCode,
-        name: data.name,
+        code: data.code || nextDivisionCode || undefined,
+        name,
         isActive: data.isActive,
       });
     }
@@ -268,87 +289,83 @@ export default function DivisionsPage() {
             onConfirm={handleDeleteConfirm}
             isLoading={deleteMutation.isPending}
           />
-
-          {/* Form Dialog */}
-          <Dialog
-            isOpen={isFormOpen}
-            onClose={handleCloseForm}
-            title={editingDivision ? "Update Division" : "Add New Division"}
-            size="lg"
-          >
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="code">Division Code</Label>
-                  <Input
-                    id="code"
-                    {...register("code")}
-                    placeholder="DIV-001"
-                    disabled={true}
-                    value={editingDivision ? editingDivision.code : nextDivisionCode}
-                    className="mt-1 bg-secondary-50"
-                  />
-                  <p className="text-xs text-secondary-500 mt-1">
-                    Auto-generated serial number
-                  </p>
-                </div>
-                <div>
-                  <Label htmlFor="name">Division Name *</Label>
-                  <Input
-                    id="name"
-                    {...register("name")}
-                    placeholder="Production Division"
-                    className="mt-1"
-                  />
-                  {errors.name && (
-                    <p className="text-sm text-red-600 mt-1">
-                      {errors.name.message}
-                    </p>
-                  )}
-                </div>
-              </div>
-              {editingDivision && (
-                <div>
-                  <Label
-                    htmlFor="isActive"
-                    className="flex items-center space-x-2 cursor-pointer"
-                  >
-                    <input
-                      type="checkbox"
-                      id="isActive"
-                      {...register("isActive")}
-                      className="rounded w-4 h-4 text-primary-600 focus:ring-primary-500 border-secondary-300"
-                    />
-                    <span>Active</span>
-                  </Label>
-                </div>
-              )}
-              <div className="flex space-x-3 pt-4">
-                <Button
-                  type="submit"
-                  disabled={
-                    createMutation.isPending || updateMutation.isPending
-                  }
-                  className="flex-1"
-                >
-                  {createMutation.isPending || updateMutation.isPending
-                    ? "Saving..."
-                    : editingDivision
-                      ? "Update Division"
-                      : "Create Division"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleCloseForm}
-                  className="flex-1"
-                >
-                  Cancel
-                </Button>
-              </div>
-            </form>
-          </Dialog>
         </div>
+        {/* Form Dialog */}
+        <Dialog
+          isOpen={isFormOpen}
+          onClose={handleCloseForm}
+          title={editingDivision ? "Update Division" : "Add New Division"}
+          size="lg"
+        >
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="code">Division Code</Label>
+                <Input
+                  id="code"
+                  {...register("code")}
+                  placeholder="DIV-001"
+                  disabled={true}
+                  value={
+                    editingDivision ? editingDivision.code : nextDivisionCode
+                  }
+                  className="mt-1 bg-secondary-50"
+                />
+              </div>
+              <div>
+                <Label htmlFor="name">Division Name *</Label>
+                <Input
+                  id="name"
+                  {...register("name")}
+                  placeholder="Production Division"
+                  className="mt-1"
+                />
+                {errors.name && (
+                  <p className="text-sm text-red-600 mt-1">
+                    {errors.name.message}
+                  </p>
+                )}
+              </div>
+            </div>
+            {editingDivision && (
+              <div>
+                <Label
+                  htmlFor="isActive"
+                  className="flex items-center space-x-2 cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    id="isActive"
+                    {...register("isActive")}
+                    className="rounded w-4 h-4 text-primary-600 focus:ring-primary-500 border-secondary-300"
+                  />
+                  <span>Active</span>
+                </Label>
+              </div>
+            )}
+            <div className="flex space-x-3 pt-4">
+              <Button
+                type="submit"
+                disabled={createMutation.isPending || updateMutation.isPending}
+                className="flex-1"
+              >
+                {createMutation.isPending || updateMutation.isPending
+                  ? "Saving..."
+                  : editingDivision
+                    ? "Update Division"
+                    : "Create Division"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCloseForm}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </Dialog>
       </motion.div>
     </div>
   );

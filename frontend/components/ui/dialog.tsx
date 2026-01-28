@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "./button";
 
 interface DialogProps {
@@ -11,6 +12,8 @@ interface DialogProps {
   title: string;
   children: React.ReactNode;
   size?: "sm" | "md" | "lg" | "xl";
+  /** Optional class for the overlay (e.g. z-[110] for nested dialogs) */
+  overlayClassName?: string;
 }
 
 export function Dialog({
@@ -19,6 +22,7 @@ export function Dialog({
   title,
   children,
   size = "md",
+  overlayClassName,
 }: DialogProps) {
   // Lock body scroll when dialog is open
   useEffect(() => {
@@ -49,7 +53,10 @@ export function Dialog({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-start justify-center p-4 pt-20"
+            className={cn(
+              "fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-start justify-center p-4 pt-20",
+              overlayClassName,
+            )}
           >
             {/* Dialog */}
             <motion.div

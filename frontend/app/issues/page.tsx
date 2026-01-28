@@ -10,12 +10,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog } from "@/components/ui/dialog";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Plus, Search } from "lucide-react";
+import { Plus } from "lucide-react";
 import { formatDateTime } from "@/lib/utils";
 import { useCurrentUser } from "@/hooks/use-current-user";
 
@@ -37,7 +38,6 @@ interface ToolCategory {
 export default function IssuesPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | "">("");
-  const [toolSearchTerm, setToolSearchTerm] = useState("");
   const [nextIssueCode, setNextIssueCode] = useState<string>("");
   const queryClient = useQueryClient();
   const { user: currentUser } = useCurrentUser();
@@ -79,10 +79,14 @@ export default function IssuesPage() {
     register,
     handleSubmit,
     reset,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<IssueForm>({
     resolver: zodResolver(issueSchema),
   });
+
+  const selectedToolId = watch("toolId");
 
   const createMutation = useMutation({
     mutationFn: async (data: IssueForm) => {
@@ -99,7 +103,6 @@ export default function IssuesPage() {
   const handleOpenForm = async () => {
     reset();
     setSelectedCategoryId("");
-    setToolSearchTerm("");
     // Fetch next issue code
     try {
       const response = await api.get("/issues/next-code");
@@ -116,7 +119,6 @@ export default function IssuesPage() {
     setIsFormOpen(false);
     reset();
     setSelectedCategoryId("");
-    setToolSearchTerm("");
     setNextIssueCode("");
   };
 
@@ -136,16 +138,13 @@ export default function IssuesPage() {
     );
   }, [availableTools, selectedCategoryId]);
 
-  const filteredToolsForSelect = useMemo(() => {
+  const toolSelectOptions = useMemo(() => {
     if (!toolsByCategory) return [];
-    const term = toolSearchTerm.toLowerCase();
-    if (!term) return toolsByCategory;
-    return toolsByCategory.filter(
-      (tool) =>
-        tool.toolName.toLowerCase().includes(term) ||
-        tool.toolCode.toLowerCase().includes(term),
-    );
-  }, [toolsByCategory, toolSearchTerm]);
+    return toolsByCategory.map((tool) => ({
+      value: tool.id,
+      label: `${tool.toolName} (${tool.toolCode})`,
+    }));
+  }, [toolsByCategory]);
 
   return (
     <div className="p-6">
@@ -273,7 +272,7 @@ export default function IssuesPage() {
                     const value = e.target.value;
                     const num = value ? Number(value) : "";
                     setSelectedCategoryId(num);
-                    setToolSearchTerm("");
+                    setValue("toolId", 0 as any);
                   }}
                 >
                   <option value="">Select a category</option>
@@ -327,39 +326,23 @@ export default function IssuesPage() {
                 <Label htmlFor="toolId">Tool *</Label>
                 {selectedCategoryId && (
                   <div className="text-xs text-secondary-500">
-                    {filteredToolsForSelect.length} tool(s) in category
+                    {toolSelectOptions.length} tool(s) in category
                   </div>
                 )}
               </div>
-              <Input
-                placeholder="Search tools by name or code..."
-                value={toolSearchTerm}
-                onChange={(e) => setToolSearchTerm(e.target.value)}
-                className="mb-2"
-                disabled={!selectedCategoryId}
-              />
-              <Select
+              <SearchableSelect
                 id="toolId"
-                {...register("toolId", { valueAsNumber: true })}
-                className="mt-1"
+                label=""
+                options={toolSelectOptions}
+                value={selectedToolId ?? ""}
+                onChange={(val) => setValue("toolId", Number(val))}
+                placeholder={
+                  selectedCategoryId ? "Select a tool" : "Select category first"
+                }
                 disabled={!selectedCategoryId}
-              >
-                <option value="">
-                  {selectedCategoryId
-                    ? "Select a tool"
-                    : "Select category first"}
-                </option>
-                {filteredToolsForSelect.map((tool) => (
-                  <option key={tool.id} value={tool.id}>
-                    {tool.toolName} ({tool.toolCode})
-                  </option>
-                ))}
-              </Select>
-              {errors.toolId && (
-                <p className="text-sm text-red-600 mt-1">
-                  {errors.toolId.message}
-                </p>
-              )}
+                searchPlaceholder="Search tools by name or code..."
+                error={errors.toolId?.message}
+              />
             </div>
             <div>
               <Label htmlFor="remarks">Remarks (Optional)</Label>

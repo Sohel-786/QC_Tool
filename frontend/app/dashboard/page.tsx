@@ -5,27 +5,34 @@ import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
-import { DashboardMetrics, Issue, Return, Role } from '@/types';
+import { DashboardMetrics, Tool } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
   Wrench,
   CheckCircle,
-  XCircle,
   AlertCircle,
   ClipboardList,
-  ArrowLeftRight,
   TrendingUp,
   TrendingDown,
   ArrowRight,
 } from 'lucide-react';
-import { formatDateTime } from '@/lib/utils';
 import Link from 'next/link';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+type TableView = 'available' | 'total' | null;
+
+interface ToolCategory {
+  id: number;
+  name: string;
+}
 
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [tableView, setTableView] = useState<TableView>(null);
 
   useEffect(() => {
     // First check localStorage for optimistic loading
@@ -34,11 +41,6 @@ export default function DashboardPage() {
       try {
         const parsedUser = JSON.parse(storedUser);
         setUser(parsedUser);
-        // Redirect QC Users to tools page (they don't have access to dashboard)
-        if (parsedUser.role === Role.QC_USER) {
-          router.push('/tools');
-          return;
-        }
         setLoading(false);
       } catch {
         router.push('/login');
@@ -66,21 +68,44 @@ export default function DashboardPage() {
     },
   });
 
-  const { data: recentIssues } = useQuery<Issue[]>({
-    queryKey: ['recent-issues'],
+  const { data: availableTools, isLoading: loadingAvailable } = useQuery<Tool[]>({
+    queryKey: ['tools', 'available'],
     queryFn: async () => {
-      const response = await api.get('/dashboard/recent-issues?limit=5');
-      return response.data.data || [];
+      const response = await api.get('/tools?status=AVAILABLE');
+      return response.data?.data || [];
     },
+    enabled: tableView === 'available',
   });
 
-  const { data: recentReturns } = useQuery<Return[]>({
-    queryKey: ['recent-returns'],
+  const { data: allTools, isLoading: loadingTotal } = useQuery<Tool[]>({
+    queryKey: ['tools'],
     queryFn: async () => {
-      const response = await api.get('/dashboard/recent-returns?limit=5');
-      return response.data.data || [];
+      const response = await api.get('/tools');
+      return response.data?.data || [];
     },
+    enabled: tableView === 'total',
   });
+
+  const { data: categories } = useQuery<ToolCategory[]>({
+    queryKey: ['tool-categories'],
+    queryFn: async () => {
+      const response = await api.get('/tool-categories');
+      return response.data?.data || [];
+    },
+    enabled: tableView === 'available' || tableView === 'total',
+  });
+
+  const categoryMap = (categories || []).reduce<Record<number, string>>((acc, c) => {
+    acc[c.id] = c.name;
+    return acc;
+  }, {});
+
+  const totalToolsList =
+    tableView === 'total' && allTools
+      ? allTools.filter((t) => t.status === 'AVAILABLE' || t.status === 'MISSING')
+      : [];
+  const tableData = tableView === 'available' ? availableTools || [] : totalToolsList;
+  const tableLoading = tableView === 'available' ? loadingAvailable : loadingTotal;
 
   if (loading) {
     return (
@@ -93,6 +118,13 @@ export default function DashboardPage() {
     );
   }
 
+  const handleCardClick = (title: string) => {
+    if (title === 'Total Tools') setTableView('total');
+    else if (title === 'Available') setTableView('available');
+    else if (title === 'Missing') router.push('/reports?section=missing');
+    else if (title === 'Active Issues') router.push('/reports?section=active-issues');
+  };
+
   const statCards = [
     {
       title: 'Total Tools',
@@ -102,6 +134,7 @@ export default function DashboardPage() {
       bgColor: 'bg-gradient-to-br from-primary-50 to-primary-100',
       iconBg: 'bg-primary-600',
       trend: null,
+      onClick: () => handleCardClick('Total Tools'),
     },
     {
       title: 'Available',
@@ -111,15 +144,7 @@ export default function DashboardPage() {
       bgColor: 'bg-gradient-to-br from-green-50 to-green-100',
       iconBg: 'bg-green-600',
       trend: 'up',
-    },
-    {
-      title: 'Issued',
-      value: metrics?.tools.issued || 0,
-      icon: ClipboardList,
-      color: 'text-blue-600',
-      bgColor: 'bg-gradient-to-br from-blue-50 to-blue-100',
-      iconBg: 'bg-blue-600',
-      trend: null,
+      onClick: () => handleCardClick('Available'),
     },
     {
       title: 'Missing',
@@ -129,6 +154,7 @@ export default function DashboardPage() {
       bgColor: 'bg-gradient-to-br from-red-50 to-red-100',
       iconBg: 'bg-red-600',
       trend: 'down',
+      onClick: () => handleCardClick('Missing'),
     },
     {
       title: 'Active Issues',
@@ -138,15 +164,7 @@ export default function DashboardPage() {
       bgColor: 'bg-gradient-to-br from-orange-50 to-orange-100',
       iconBg: 'bg-orange-600',
       trend: null,
-    },
-    {
-      title: 'Total Returns',
-      value: metrics?.returns.total || 0,
-      icon: ArrowLeftRight,
-      color: 'text-purple-600',
-      bgColor: 'bg-gradient-to-br from-purple-50 to-purple-100',
-      iconBg: 'bg-purple-600',
-      trend: 'up',
+      onClick: () => handleCardClick('Active Issues'),
     },
   ];
 
@@ -179,7 +197,7 @@ export default function DashboardPage() {
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {statCards.map((stat, index) => {
             const Icon = stat.icon;
             return (
@@ -189,7 +207,10 @@ export default function DashboardPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
               >
-                <Card className="hover:shadow-xl transition-all duration-300 border-0 shadow-lg overflow-hidden">
+                <Card
+                  className="hover:shadow-xl transition-all duration-300 border-0 shadow-lg overflow-hidden cursor-pointer"
+                  onClick={stat.onClick}
+                >
                   <CardContent className="p-6 relative">
                     <div className={`${stat.bgColor} absolute inset-0 opacity-50`} />
                     <div className="relative z-10">
@@ -223,136 +244,107 @@ export default function DashboardPage() {
           })}
         </div>
 
-        {/* Recent Activity Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Recent Issues */}
+        {/* Tools Table (shown when Available or Total Tools is clicked) */}
+        {(tableView === 'available' || tableView === 'total') && (
           <Card className="shadow-lg border-0">
-            <CardHeader className="bg-gradient-to-r from-blue-50 to-blue-100 border-b border-blue-200">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-xl font-bold text-text">Recent Issues</CardTitle>
-                <Link href="/issues">
-                  <Button variant="ghost" size="sm">
-                    View All
-                    <ArrowRight className="w-4 h-4 ml-1" />
-                  </Button>
-                </Link>
-              </div>
+            <CardHeader className="border-b border-secondary-200">
+              <CardTitle className="text-xl font-bold text-text">
+                {tableView === 'available' ? 'Available Tools' : 'Total Tools (Available & Missing)'}
+              </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              {recentIssues && recentIssues.length > 0 ? (
-                <div className="divide-y divide-secondary-100">
-                  {recentIssues.map((issue, index) => (
-                    <motion.div
-                      key={issue.id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                      className="p-4 hover:bg-secondary-50 transition-colors"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-3 mb-2">
-                            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                              <ClipboardList className="w-5 h-5 text-blue-600" />
-                            </div>
-                            <div className="flex-1">
-                              <p className="font-semibold text-text">{issue.tool?.toolName}</p>
-                              <p className="text-sm text-secondary-600">
-                                {issue.issueNo} • {issue.division?.name}
-                              </p>
-                            </div>
-                          </div>
-                          <p className="text-xs text-secondary-500 ml-13">
-                            {formatDateTime(issue.issuedAt)}
-                          </p>
-                        </div>
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-medium ${
-                            issue.isReturned
-                              ? 'bg-green-100 text-green-700 border border-green-200'
-                              : 'bg-blue-100 text-blue-700 border border-blue-200'
-                          }`}
+              {tableLoading ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto" />
+                  <p className="mt-4 text-secondary-600">Loading...</p>
+                </div>
+              ) : tableData.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-secondary-200 bg-secondary-50/50">
+                        <th className="text-left py-3 px-4 font-semibold text-sm text-secondary-700">
+                          Tool Code
+                        </th>
+                        <th className="text-left py-3 px-4 font-semibold text-sm text-secondary-700">
+                          Tool Category
+                        </th>
+                        <th className="text-left py-3 px-4 font-semibold text-sm text-secondary-700">
+                          Tool Name
+                        </th>
+                        <th className="text-left py-3 px-4 font-semibold text-sm text-secondary-700">
+                          Status
+                        </th>
+                        <th className="text-left py-3 px-4 font-semibold text-sm text-secondary-700">
+                          Serial Number
+                        </th>
+                        <th className="text-left py-3 px-4 font-semibold text-sm text-secondary-700 w-[60px]">
+                          Image
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tableData.map((tool, index) => (
+                        <motion.tr
+                          key={tool.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.03 }}
+                          className="border-b border-secondary-100 hover:bg-secondary-50 transition-colors"
                         >
-                          {issue.isReturned ? 'Returned' : 'Active'}
-                        </span>
-                      </div>
-                    </motion.div>
-                  ))}
+                          <td className="py-3 px-4 font-mono text-sm">
+                            {tool.toolCode}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-secondary-600">
+                            {tool.categoryId != null ? categoryMap[tool.categoryId] ?? '—' : '—'}
+                          </td>
+                          <td className="py-3 px-4 font-medium text-text">
+                            {tool.toolName}
+                          </td>
+                          <td className="py-3 px-4">
+                            <span
+                              className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                tool.status === 'AVAILABLE'
+                                  ? 'bg-green-100 text-green-700 border border-green-200'
+                                  : tool.status === 'MISSING'
+                                    ? 'bg-red-100 text-red-700 border border-red-200'
+                                    : 'bg-secondary-100 text-secondary-700 border border-secondary-200'
+                              }`}
+                            >
+                              {tool.status}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-sm text-secondary-600 font-mono">
+                            {tool.serialNumber ?? '—'}
+                          </td>
+                          <td className="py-3 px-4">
+                            {tool.image ? (
+                              <img
+                                src={`${API_BASE_URL}/storage/${tool.image}`}
+                                alt={tool.toolName}
+                                className="min-w-[30px] min-h-[30px] w-8 h-8 object-cover rounded border border-secondary-200"
+                              />
+                            ) : (
+                              <span className="inline-block min-w-[30px] min-h-[30px] w-8 h-8 rounded border border-secondary-200 bg-secondary-100 text-secondary-400 text-xs flex items-center justify-center">
+                                —
+                              </span>
+                            )}
+                          </td>
+                        </motion.tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               ) : (
                 <div className="text-center py-12">
-                  <ClipboardList className="w-12 h-12 text-secondary-300 mx-auto mb-3" />
-                  <p className="text-secondary-500">No recent issues</p>
+                  <p className="text-secondary-500">
+                    {tableView === 'available' ? 'No available tools.' : 'No tools with Available or Missing status.'}
+                  </p>
                 </div>
               )}
             </CardContent>
           </Card>
-
-          {/* Recent Returns */}
-          <Card className="shadow-lg border-0">
-            <CardHeader className="bg-gradient-to-r from-green-50 to-green-100 border-b border-green-200">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-xl font-bold text-text">Recent Returns</CardTitle>
-                <Link href="/returns">
-                  <Button variant="ghost" size="sm">
-                    View All
-                    <ArrowRight className="w-4 h-4 ml-1" />
-                  </Button>
-                </Link>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              {recentReturns && recentReturns.length > 0 ? (
-                <div className="divide-y divide-secondary-100">
-                  {recentReturns.map((return_, index) => (
-                    <motion.div
-                      key={return_.id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                      className="p-4 hover:bg-secondary-50 transition-colors"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-3 mb-2">
-                            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                              <ArrowLeftRight className="w-5 h-5 text-green-600" />
-                            </div>
-                            <div className="flex-1">
-                              <p className="font-semibold text-text">
-                                {return_.issue?.tool?.toolName}
-                              </p>
-                              <p className="text-sm text-secondary-600">
-                                Issue: {return_.issue?.issueNo}
-                              </p>
-                            </div>
-                          </div>
-                          <p className="text-xs text-secondary-500 ml-13">
-                            {formatDateTime(return_.returnedAt)}
-                          </p>
-                        </div>
-                        {return_.returnImage && (
-                          <div className="w-12 h-12 rounded-lg overflow-hidden border border-secondary-200">
-                            <img
-                              src={`http://localhost:3001/storage/${return_.returnImage}`}
-                              alt="Return"
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                        )}
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-12">
-                  <ArrowLeftRight className="w-12 h-12 text-secondary-300 mx-auto mb-3" />
-                  <p className="text-secondary-500">No recent returns</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+        )}
       </motion.div>
     </div>
   );
