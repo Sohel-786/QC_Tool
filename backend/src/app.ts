@@ -40,8 +40,21 @@ const app = express();
 console.log('✅ Express app created');
 
 // CORS configuration - MUST come before other middleware
+const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+
 const corsOptions = {
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // Check if origin is allowed
+    if (origin === frontendUrl) {
+      callback(null, true);
+    } else {
+      console.warn(`⚠️  CORS blocked origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: [
@@ -50,6 +63,7 @@ const corsOptions = {
     'X-Requested-With',
     'Accept',
     'Origin',
+    'Cookie',
   ],
   exposedHeaders: ['Set-Cookie'],
   maxAge: 86400, // 24 hours
@@ -59,66 +73,13 @@ const corsOptions = {
 
 console.log(
   '🔧 CORS Options configured:',
-  JSON.stringify(corsOptions, null, 2),
+  JSON.stringify({ ...corsOptions, origin: '[Function]' }, null, 2),
 );
 
-// Custom CORS middleware with logging
-app.use((req, res, next) => {
-  console.log('\n📨 Incoming Request:');
-  console.log('  Method:', req.method);
-  console.log('  URL:', req.url);
-  console.log('  Origin:', req.headers.origin);
-  console.log('  Headers:', JSON.stringify(req.headers, null, 2));
-  next();
-});
-
+// Apply CORS middleware FIRST, before anything else
 app.use(cors(corsOptions));
 
 console.log('✅ CORS middleware applied');
-
-// Log after CORS
-app.use((req, res, next) => {
-  console.log('✅ After CORS middleware');
-  console.log('  Response headers:', JSON.stringify(res.getHeaders(), null, 2));
-  next();
-});
-
-// Handle preflight requests explicitly
-app.options('*', (req, res) => {
-  console.log('\n🔍 PREFLIGHT REQUEST DETECTED:');
-  console.log('  Method:', req.method);
-  console.log('  URL:', req.url);
-  console.log('  Origin:', req.headers.origin);
-  console.log(
-    '  Access-Control-Request-Method:',
-    req.headers['access-control-request-method'],
-  );
-  console.log(
-    '  Access-Control-Request-Headers:',
-    req.headers['access-control-request-headers'],
-  );
-
-  // Manually set CORS headers for preflight
-  res.header(
-    'Access-Control-Allow-Origin',
-    process.env.FRONTEND_URL || 'http://localhost:3000',
-  );
-  res.header(
-    'Access-Control-Allow-Methods',
-    'GET, POST, PUT, DELETE, PATCH, OPTIONS',
-  );
-  res.header(
-    'Access-Control-Allow-Headers',
-    'Content-Type, Authorization, X-Requested-With, Accept, Origin',
-  );
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Max-Age', '86400');
-
-  console.log('✅ Preflight headers set:', res.getHeaders());
-  res.sendStatus(204);
-});
-
-console.log('✅ Preflight handler configured');
 
 // Parse JSON and URL-encoded bodies
 app.use(express.json({ limit: '10mb' }));
@@ -147,15 +108,6 @@ console.log('✅ Cookie parser configured');
 app.use('/storage', express.static(path.join(__dirname, '..', 'storage')));
 
 console.log('✅ Static files middleware configured');
-
-// Log before routes
-app.use((req, res, next) => {
-  console.log('\n🛤️  Routing Request:');
-  console.log('  Method:', req.method);
-  console.log('  Path:', req.path);
-  console.log('  Body:', req.body);
-  next();
-});
 
 // Routes
 app.use(

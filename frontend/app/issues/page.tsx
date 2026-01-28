@@ -31,6 +31,8 @@ type IssueForm = z.infer<typeof issueSchema>;
 export default function IssuesPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const queryClient = useQueryClient();
+  const { user: currentUser } = useCurrentUser();
+  const isManager = currentUser?.role === Role.QC_MANAGER;
 
   const { data: issues } = useQuery<Issue[]>({
     queryKey: ['issues'],

@@ -43,7 +43,7 @@ export function Dialog({ isOpen, onClose, title, children, size = 'md' }: Dialog
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-start justify-center p-4 pt-20"
           >
             {/* Dialog */}
             <motion.div

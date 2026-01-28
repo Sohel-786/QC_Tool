@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import User from '../entities/user';
 import { hashPassword } from '../utils/auth';
 import { ConflictError, NotFoundError, ValidationError } from '../utils/errors';
+import { prisma } from '../external-libraries/dbClient';
 
 export const createUser = async (req: Request, res: Response, next: NextFunction) => {
   try {

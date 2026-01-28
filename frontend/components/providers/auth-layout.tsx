@@ -21,18 +21,40 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      try {
-        await api.post('/auth/validate');
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-          setUser(JSON.parse(storedUser));
-        } else {
+      // First check localStorage for optimistic loading
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        try {
+          const parsedUser = JSON.parse(storedUser);
+          setUser(parsedUser);
+          setLoading(false);
+          
+          // Validate in background (don't block UI)
+          api.post('/auth/validate')
+            .catch(() => {
+              // If validation fails, clear user and redirect
+              localStorage.removeItem('user');
+              setUser(null);
+              router.push('/login');
+            });
+        } catch {
+          // Invalid user data in localStorage
+          localStorage.removeItem('user');
+          setUser(null);
           router.push('/login');
+          setLoading(false);
         }
-      } catch {
-        router.push('/login');
-      } finally {
-        setLoading(false);
+      } else {
+        // No user in localStorage, validate with cookie
+        try {
+          await api.post('/auth/validate');
+          // If validation succeeds but no user in localStorage, redirect to login
+          router.push('/login');
+        } catch {
+          router.push('/login');
+        } finally {
+          setLoading(false);
+        }
       }
     };
 

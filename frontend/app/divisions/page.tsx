@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import api from '@/lib/api';
@@ -25,12 +26,20 @@ const divisionSchema = z.object({
 type DivisionForm = z.infer<typeof divisionSchema>;
 
 export default function DivisionsPage() {
+  const router = useRouter();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingDivision, setEditingDivision] = useState<Division | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const queryClient = useQueryClient();
   const { user: currentUser } = useCurrentUser();
   const isManager = currentUser?.role === Role.QC_MANAGER;
+
+  // Redirect QC Users - they don't have access to divisions page
+  useEffect(() => {
+    if (currentUser && currentUser.role === Role.QC_USER) {
+      router.push('/tools');
+    }
+  }, [currentUser, router]);
 
   const { data: divisions } = useQuery<Division[]>({
     queryKey: ['divisions'],

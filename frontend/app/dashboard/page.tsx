@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
-import { DashboardMetrics, Issue, Return } from '@/types';
+import { DashboardMetrics, Issue, Return, Role } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -25,17 +25,35 @@ import Link from 'next/link';
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // First check localStorage for optimistic loading
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
+        // Redirect QC Users to tools page (they don't have access to dashboard)
+        if (parsedUser.role === Role.QC_USER) {
+          router.push('/tools');
+          return;
+        }
+        setLoading(false);
+      } catch {
+        router.push('/login');
+        return;
+      }
+    }
+
+    // Validate in background
     api
       .post('/auth/validate')
       .then(() => {
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-          setUser(JSON.parse(storedUser));
-        }
+        setLoading(false);
       })
       .catch(() => {
+        localStorage.removeItem('user');
         router.push('/login');
       });
   }, [router]);
@@ -63,6 +81,17 @@ export default function DashboardPage() {
       return response.data.data || [];
     },
   });
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-secondary-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+          <p className="mt-4 text-secondary-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   const statCards = [
     {

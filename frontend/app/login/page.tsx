@@ -5,11 +5,12 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { motion, AnimatePresence } from 'framer-motion';
+import Image from 'next/image';
 import { useLogin } from '@/hooks/use-auth-mutations';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { User, Lock, Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { User, Lock, Eye, EyeOff } from 'lucide-react';
 
 const loginSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters'),
@@ -22,7 +23,7 @@ export default function LoginPage() {
   const loginMutation = useLogin();
   const [showPassword, setShowPassword] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [rememberMe, setRememberMe] = useState(false);
+  const [imagesLoaded, setImagesLoaded] = useState<boolean[]>([false, false]);
 
   const {
     register,
@@ -36,32 +37,60 @@ export default function LoginPage() {
     loginMutation.mutate(data);
   };
 
-  // Auto-switch images every 5 seconds
+  // Blur placeholder - a tiny base64 encoded image for blur effect
+  const blurDataURL =
+    'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQADAD8AktJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R//2Q==';
+
+  const images = ['/assets/Image1.jpg', '/assets/Image2.jpg'];
+
+  // Preload all images on mount using link tags and Image objects
+  useEffect(() => {
+    // Add link preload tags to head
+    images.forEach((src) => {
+      const link = document.createElement('link');
+      link.rel = 'preload';
+      link.as = 'image';
+      link.href = src;
+      document.head.appendChild(link);
+    });
+
+    // Also preload using Image objects for better browser support
+    const preloadImages = images.map((src, index) => {
+      const img = new window.Image();
+      img.onload = () => {
+        setImagesLoaded((prev) => {
+          const newState = [...prev];
+          newState[index] = true;
+          return newState;
+        });
+      };
+      img.src = src;
+      return img;
+    });
+
+    // Cleanup function
+    return () => {
+      images.forEach((src) => {
+        const links = document.querySelectorAll(`link[href="${src}"]`);
+        links.forEach((link) => link.remove());
+      });
+    };
+  }, []);
+
+  // Auto-switch images every 4 seconds with infinite loop
   useEffect(() => {
     const interval = setInterval(() => {
-      setCurrentImageIndex((prev) => (prev === 0 ? 1 : 0));
-    }, 5000);
+      setCurrentImageIndex((prev) => (prev + 1) % 2);
+    }, 4000);
 
     return () => clearInterval(interval);
   }, []);
-
-  const images = ['/assets/Image1.jpg', '/assets/Image2.jpg'];
 
   return (
     <div className="min-h-screen flex">
       {/* Left Panel - Login Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white relative z-10">
         <div className="w-full max-w-md">
-          {/* Back Button */}
-          <motion.button
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="flex items-center text-secondary-600 hover:text-primary-600 mb-8 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            <span className="text-sm">Go back</span>
-          </motion.button>
-
           {/* Logo/Branding */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -140,27 +169,6 @@ export default function LoginPage() {
                 )}
               </div>
 
-              {/* Remember Me & Forgot Password */}
-              <div className="flex items-center justify-between">
-                <label className="flex items-center space-x-2 cursor-pointer group">
-                  <input
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    className="w-4 h-4 rounded border-secondary-300 text-primary-600 focus:ring-primary-500 focus:ring-offset-0 cursor-pointer"
-                  />
-                  <span className="text-sm text-secondary-700 group-hover:text-text transition-colors">
-                    Remember me
-                  </span>
-                </label>
-                <button
-                  type="button"
-                  className="text-sm text-primary-600 hover:text-primary-700 font-medium transition-colors"
-                >
-                  Forgot password?
-                </button>
-              </div>
-
               {/* Submit Button */}
               <motion.div
                 whileHover={{ scale: 1.02 }}
@@ -218,26 +226,80 @@ export default function LoginPage() {
           }}
         />
 
-        {/* Auto-Switching Images */}
-        <div className="relative w-full h-full">
+        {/* Auto-Switching Images with Slide Animation */}
+        <div className="relative w-full h-full overflow-hidden bg-gradient-to-br from-primary-100 to-secondary-100">
           <AnimatePresence mode="wait">
             <motion.div
               key={currentImageIndex}
-              initial={{ opacity: 0, scale: 1.1 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
+              initial={{ x: '100%', opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: '-100%', opacity: 0 }}
               transition={{ duration: 0.8, ease: 'easeInOut' }}
               className="absolute inset-0"
             >
-              <img
+              <Image
                 src={images[currentImageIndex]}
                 alt={`Background ${currentImageIndex + 1}`}
-                className="w-full h-full object-cover"
+                fill
+                quality={80}
+                placeholder="blur"
+                blurDataURL={blurDataURL}
+                className="object-cover transition-opacity duration-300"
+                priority={true}
+                sizes="50vw"
+                onLoad={() => {
+                  setImagesLoaded((prev) => {
+                    const newState = [...prev];
+                    newState[currentImageIndex] = true;
+                    return newState;
+                  });
+                }}
               />
               {/* Overlay for better text readability if needed */}
               <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent" />
             </motion.div>
           </AnimatePresence>
+          
+          {/* Preload next image off-screen */}
+          <div className="absolute -left-[9999px] w-1 h-1 overflow-hidden">
+            <Image
+              src={images[(currentImageIndex + 1) % 2]}
+              alt="Preload next"
+              width={1}
+              height={1}
+              quality={80}
+              placeholder="blur"
+              blurDataURL={blurDataURL}
+              priority={true}
+            />
+          </div>
+        </div>
+
+        {/* Image Indicator Circles at Bottom */}
+        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-20 flex items-center gap-3">
+          {images.map((_, index) => (
+            <motion.div
+              key={index}
+              className="relative"
+              initial={false}
+              animate={{
+                width: currentImageIndex === index ? 32 : 12,
+                height: 12,
+              }}
+              transition={{ duration: 0.3, ease: 'easeInOut' }}
+            >
+              <div
+                className={`absolute inset-0 rounded-full backdrop-blur-md ${
+                  currentImageIndex === index
+                    ? 'bg-white/60'
+                    : 'bg-white/30'
+                }`}
+                style={{
+                  borderRadius: currentImageIndex === index ? '6px' : '50%',
+                }}
+              />
+            </motion.div>
+          ))}
         </div>
 
         {/* Optional: Floating decorative elements */}

@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import api from '@/lib/api';
-import { User } from '@/types';
+import { User, Role } from '@/types';
 
 interface LoginData {
   username: string;
@@ -30,7 +30,13 @@ export function useLogin() {
         localStorage.setItem('user', JSON.stringify(data.user));
         queryClient.setQueryData(['user'], data.user);
         toast.success('Login successful!');
-        router.push('/dashboard');
+        
+        // Redirect based on user role
+        // Small delay to ensure localStorage is set and cookie is available
+        setTimeout(() => {
+          const redirectPath = data.user.role === Role.QC_MANAGER ? '/dashboard' : '/tools';
+          router.push(redirectPath);
+        }, 150);
       }
     },
     onError: (error: any) => {
@@ -49,16 +55,20 @@ export function useLogout() {
       await api.post('/auth/logout');
     },
     onSuccess: () => {
+      // Clear all local storage
       localStorage.removeItem('user');
+      // Clear all query cache
       queryClient.clear();
       toast.success('Logged out successfully');
-      router.push('/login');
+      // Use window.location for full page reload to ensure cookies are cleared
+      window.location.href = '/login';
     },
     onError: () => {
-      // Even if logout fails, clear local state
+      // Even if logout fails, clear local state and cookies
       localStorage.removeItem('user');
       queryClient.clear();
-      router.push('/login');
+      // Force full page reload to clear cookies
+      window.location.href = '/login';
     },
   });
 }
