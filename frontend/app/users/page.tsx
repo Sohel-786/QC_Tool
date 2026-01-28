@@ -1,29 +1,37 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
-import { User, Role } from '@/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select } from '@/components/ui/select';
-import { Dialog } from '@/components/ui/dialog';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { Plus, Edit2, Search, Trash2, Users, Shield } from 'lucide-react';
-import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from '@/hooks/use-users';
-import { useCurrentUser } from '@/hooks/use-current-user';
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
+import { User, Role } from "@/types";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
+import { Dialog } from "@/components/ui/dialog";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { Plus, Edit2, Search, Trash2, Users, Shield } from "lucide-react";
+import {
+  useUsers,
+  useCreateUser,
+  useUpdateUser,
+  useDeleteUser,
+} from "@/hooks/use-users";
+import { useCurrentUser } from "@/hooks/use-current-user";
 
 const userSchema = z.object({
-  username: z.string().min(3, 'Username must be at least 3 characters'),
-  password: z.string().refine((val) => !val || val.length === 0 || val.length >= 6, {
-    message: 'Password must be at least 6 characters',
-  }).optional(),
-  firstName: z.string().min(1, 'First name is required'),
-  lastName: z.string().min(1, 'Last name is required'),
+  username: z.string().min(3, "Username must be at least 3 characters"),
+  password: z
+    .string()
+    .refine((val) => !val || val.length === 0 || val.length >= 6, {
+      message: "Password must be at least 6 characters",
+    })
+    .optional(),
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
   role: z.nativeEnum(Role),
   isActive: z.boolean().optional(),
 });
@@ -35,7 +43,7 @@ export default function UsersPage() {
   const { user: currentUser, loading: userLoading } = useCurrentUser();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const { data: users } = useUsers();
@@ -44,46 +52,59 @@ export default function UsersPage() {
   const deleteUser = useDeleteUser();
 
   // All hooks must be called before any conditional returns
-  const { register, handleSubmit, reset, formState: { errors }, setValue, watch } = useForm<UserForm>({
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+    setValue,
+    watch,
+  } = useForm<UserForm>({
     resolver: zodResolver(userSchema),
     defaultValues: {
-      username: '',
-      password: '',
-      firstName: '',
-      lastName: '',
+      username: "",
+      password: "",
+      firstName: "",
+      lastName: "",
       role: Role.QC_USER,
       isActive: true,
     },
-    mode: 'onChange', // Validate on change for real-time feedback
+    mode: "onChange", // Validate on change for real-time feedback
     shouldUnregister: true, // Unregister fields when component unmounts
   });
 
   // Watch username for real-time validation
-  const watchedUsername = watch('username');
+  const watchedUsername = watch("username");
 
   // Reset form when dialog opens/closes
   useEffect(() => {
     if (!isFormOpen) {
       // Reset form when dialog closes
-      reset({
-        username: '',
-        password: '',
-        firstName: '',
-        lastName: '',
-        role: Role.QC_USER,
-        isActive: true,
-      }, { keepDefaultValues: false });
+      reset(
+        {
+          username: "",
+          password: "",
+          firstName: "",
+          lastName: "",
+          role: Role.QC_USER,
+          isActive: true,
+        },
+        { keepDefaultValues: false },
+      );
     } else if (isFormOpen && !editingUser) {
       // Ensure form is empty when opening for new user
       setTimeout(() => {
-        reset({
-          username: '',
-          password: '',
-          firstName: '',
-          lastName: '',
-          role: Role.QC_USER,
-          isActive: true,
-        }, { keepDefaultValues: false });
+        reset(
+          {
+            username: "",
+            password: "",
+            firstName: "",
+            lastName: "",
+            role: Role.QC_USER,
+            isActive: true,
+          },
+          { keepDefaultValues: false },
+        );
       }, 10);
     }
   }, [isFormOpen, editingUser, reset]);
@@ -92,7 +113,7 @@ export default function UsersPage() {
   useEffect(() => {
     if (!userLoading && currentUser) {
       if (currentUser.role !== Role.QC_MANAGER) {
-        router.push('/dashboard');
+        router.push("/dashboard");
       }
     }
   }, [currentUser, userLoading, router]);
@@ -120,14 +141,17 @@ export default function UsersPage() {
       setIsFormOpen(true);
       // Reset form with user data after dialog opens
       setTimeout(() => {
-        reset({
-          username: user.username,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          role: user.role,
-          isActive: user.isActive,
-          password: '', // Don't set password for editing
-        }, { keepDefaultValues: false });
+        reset(
+          {
+            username: user.username,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            role: user.role,
+            isActive: user.isActive,
+            password: "", // Don't set password for editing
+          },
+          { keepDefaultValues: false },
+        );
       }, 50);
     } else {
       setEditingUser(null);
@@ -140,10 +164,10 @@ export default function UsersPage() {
     setIsFormOpen(false);
     setEditingUser(null);
     reset({
-      username: '',
-      password: '',
-      firstName: '',
-      lastName: '',
+      username: "",
+      password: "",
+      firstName: "",
+      lastName: "",
       role: Role.QC_USER,
       isActive: true,
     });
@@ -167,17 +191,17 @@ export default function UsersPage() {
           onSuccess: () => {
             handleCloseForm();
           },
-        }
+        },
       );
     } else {
       // For new users, password is required
-      const password = data.password?.trim() || '';
+      const password = data.password?.trim() || "";
       if (password.length === 0) {
-        setValue('password', '', { shouldValidate: true });
+        setValue("password", "", { shouldValidate: true });
         return;
       }
       if (password.length < 6) {
-        setValue('password', password, { shouldValidate: true });
+        setValue("password", password, { shouldValidate: true });
         return;
       }
       const createData = {
@@ -216,185 +240,211 @@ export default function UsersPage() {
     }
   };
 
-  const filteredUsers = users?.filter((user) =>
-    user.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.username.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
+  const filteredUsers =
+    users?.filter(
+      (user) =>
+        user.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.username.toLowerCase().includes(searchTerm.toLowerCase()),
+    ) || [];
 
   return (
     <div className="p-6">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="space-y-6"
       >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center space-x-4">
-            <div className="p-3 bg-primary-100 rounded-lg">
-              <Users className="w-8 h-8 text-primary-600" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-text mb-1">User Accounts</h1>
-              <p className="text-secondary-600 flex items-center space-x-2">
-                <Shield className="w-4 h-4" />
-                <span>Manager-only access • Manage system users and permissions</span>
-              </p>
-            </div>
-          </div>
-          <Button 
-            onClick={() => handleOpenForm()} 
-            className="shadow-md bg-primary-600 hover:bg-primary-700"
-            size="lg"
-          >
-            <Plus className="w-5 h-5 mr-2" />
-            Add New User
-          </Button>
-        </div>
-
-        {/* Search */}
-        <Card className="shadow-sm">
-          <CardContent className="p-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary-400 w-5 h-5" />
-              <Input
-                placeholder="Search users by name or username..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Users List */}
-        <Card className="shadow-md border-0">
-          <CardHeader className="bg-gradient-to-r from-primary-50 to-primary-100 border-b border-primary-200">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-xl font-semibold text-text">
-                All Users
-              </CardTitle>
-              <span className="px-3 py-1 bg-white rounded-full text-sm font-medium text-primary-700 border border-primary-200">
-                {filteredUsers.length} {filteredUsers.length === 1 ? 'user' : 'users'}
-              </span>
-            </div>
-          </CardHeader>
-          <CardContent className="p-6">
-            {filteredUsers.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredUsers.map((user, index) => (
-                  <motion.div
-                    key={user.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                    className="p-6 border-2 border-secondary-200 rounded-xl hover:border-primary-300 hover:shadow-xl transition-all bg-white group relative overflow-hidden"
-                  >
-                    <div className="absolute top-0 right-0 w-20 h-20 bg-primary-50 rounded-bl-full opacity-50"></div>
-                    {currentUser && user.id === currentUser.id && (
-                      <div className="absolute top-2 right-2 px-2 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full border border-blue-200">
-                        You
-                      </div>
-                    )}
-                    <div className="relative">
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-3 mb-2">
-                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center text-white font-bold text-lg shadow-md">
-                              {user.firstName?.[0]}{user.lastName?.[0]}
-                            </div>
-                            <div>
-                              <h3 className="font-bold text-lg text-text">
-                                {user.firstName} {user.lastName}
-                                {currentUser && user.id === currentUser.id && (
-                                  <span className="ml-2 text-xs text-blue-600 font-normal">(Your Account)</span>
-                                )}
-                              </h3>
-                              <p className="text-sm text-secondary-500 font-mono">{user.username}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center space-x-2 mb-3">
-                            <span
-                              className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                                user.role === Role.QC_MANAGER
-                                  ? 'bg-purple-100 text-purple-700 border border-purple-200'
-                                  : 'bg-blue-100 text-blue-700 border border-blue-200'
-                              }`}
-                            >
-                              {user.role === Role.QC_MANAGER ? 'QC Manager' : 'QC User'}
-                            </span>
-                            <span
-                              className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                                user.isActive
-                                  ? 'bg-green-100 text-green-700 border border-green-200'
-                                  : 'bg-red-100 text-red-700 border border-red-200'
-                              }`}
-                            >
-                              {user.isActive ? 'Active' : 'Inactive'}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleOpenForm(user)}
-                            className="hover:bg-primary-50 hover:text-primary-600"
-                            title="Edit user"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </Button>
-                          {currentUser && user.id === currentUser.id ? (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              disabled
-                              className="text-secondary-400 cursor-not-allowed"
-                              title="You cannot delete your own account"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          ) : (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDeleteClick(user)}
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              title="Delete user"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center space-x-4">
+              <div className="p-3 bg-primary-100 rounded-lg">
+                <Users className="w-8 h-8 text-primary-600" />
               </div>
-            ) : (
-              <div className="text-center py-16">
-                <Users className="w-16 h-16 text-secondary-300 mx-auto mb-4" />
-                <p className="text-secondary-500 text-lg font-medium">
-                  {searchTerm ? 'No users found matching your search.' : 'No users found. Add your first user above.'}
+              <div>
+                <h1 className="text-3xl font-bold text-text mb-1">
+                  User Accounts
+                </h1>
+                <p className="text-secondary-600 flex items-center space-x-2">
+                  <Shield className="w-4 h-4" />
+                  <span>
+                    Manager-only access • Manage system users and permissions
+                  </span>
                 </p>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </div>
+            <Button
+              onClick={() => handleOpenForm()}
+              className="shadow-md bg-primary-600 hover:bg-primary-700"
+              size="lg"
+            >
+              <Plus className="w-5 h-5 mr-2" />
+              Add New User
+            </Button>
+          </div>
+
+          {/* Search */}
+          <Card className="shadow-sm">
+            <CardContent className="p-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary-400 w-5 h-5" />
+                <Input
+                  placeholder="Search users by name or username..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Users List */}
+          <Card className="shadow-md border-0">
+            <CardHeader className="bg-gradient-to-r from-primary-50 to-primary-100 border-b border-primary-200">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-xl font-semibold text-text">
+                  All Users
+                </CardTitle>
+                <span className="px-3 py-1 bg-white rounded-full text-sm font-medium text-primary-700 border border-primary-200">
+                  {filteredUsers.length}{" "}
+                  {filteredUsers.length === 1 ? "user" : "users"}
+                </span>
+              </div>
+            </CardHeader>
+            <CardContent className="p-6">
+              {filteredUsers.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredUsers.map((user, index) => (
+                    <motion.div
+                      key={user.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      className="p-6 border-2 border-secondary-200 rounded-xl hover:border-primary-300 hover:shadow-xl transition-all bg-white group relative overflow-hidden"
+                    >
+                      <div className="absolute top-0 right-0 w-20 h-20 bg-primary-50 rounded-bl-full opacity-50"></div>
+                      {currentUser && user.id === currentUser.id && (
+                        <div className="absolute top-2 right-2 px-2 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full border border-blue-200">
+                          You
+                        </div>
+                      )}
+                      <div className="relative">
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-3 mb-2">
+                              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center text-white font-bold text-lg shadow-md">
+                                {user.firstName?.[0]}
+                                {user.lastName?.[0]}
+                              </div>
+                              <div>
+                                <h3 className="font-bold text-lg text-text">
+                                  {user.firstName} {user.lastName}
+                                  {currentUser &&
+                                    user.id === currentUser.id && (
+                                      <span className="ml-2 text-xs text-blue-600 font-normal">
+                                        (Your Account)
+                                      </span>
+                                    )}
+                                </h3>
+                                <p className="text-sm text-secondary-500 font-mono">
+                                  {user.username}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-2 mb-3">
+                              <span
+                                className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                                  user.role === Role.QC_MANAGER
+                                    ? "bg-purple-100 text-purple-700 border border-purple-200"
+                                    : "bg-blue-100 text-blue-700 border border-blue-200"
+                                }`}
+                              >
+                                {user.role === Role.QC_MANAGER
+                                  ? "QC Manager"
+                                  : "QC User"}
+                              </span>
+                              <span
+                                className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                                  user.isActive
+                                    ? "bg-green-100 text-green-700 border border-green-200"
+                                    : "bg-red-100 text-red-700 border border-red-200"
+                                }`}
+                              >
+                                {user.isActive ? "Active" : "Inactive"}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleOpenForm(user)}
+                              className="hover:bg-primary-50 hover:text-primary-600"
+                              title="Edit user"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </Button>
+                            {currentUser && user.id === currentUser.id ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                disabled
+                                className="text-secondary-400 cursor-not-allowed"
+                                title="You cannot delete your own account"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteClick(user)}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                title="Delete user"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-16">
+                  <Users className="w-16 h-16 text-secondary-300 mx-auto mb-4" />
+                  <p className="text-secondary-500 text-lg font-medium">
+                    {searchTerm
+                      ? "No users found matching your search."
+                      : "No users found. Add your first user above."}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Form Dialog */}
         <Dialog
           isOpen={isFormOpen}
           onClose={handleCloseForm}
-          title={editingUser ? 'Update User' : 'Add New User'}
+          title={editingUser ? "Update User" : "Add New User"}
           size="md"
         >
-          <form key={`${editingUser?.id || 'new'}-${isFormOpen}`} onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <form
+            key={`${editingUser?.id || "new"}-${isFormOpen}`}
+            onSubmit={handleSubmit(onSubmit)}
+            className="space-y-4"
+          >
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="firstName">First Name *</Label>
-                <Input id="firstName" {...register('firstName')} className="mt-1" />
+                <Input
+                  id="firstName"
+                  {...register("firstName")}
+                  className="mt-1"
+                />
                 {errors.firstName && (
                   <p className="text-sm text-red-600 mt-1">
                     {errors.firstName.message}
@@ -403,7 +453,11 @@ export default function UsersPage() {
               </div>
               <div>
                 <Label htmlFor="lastName">Last Name *</Label>
-                <Input id="lastName" {...register('lastName')} className="mt-1" />
+                <Input
+                  id="lastName"
+                  {...register("lastName")}
+                  className="mt-1"
+                />
                 {errors.lastName && (
                   <p className="text-sm text-red-600 mt-1">
                     {errors.lastName.message}
@@ -416,30 +470,35 @@ export default function UsersPage() {
               <Input
                 id="username"
                 type="text"
-                {...register('username', {
+                {...register("username", {
                   validate: (value) => {
                     if (!value || value.trim().length === 0) {
-                      return 'Username is required';
+                      return "Username is required";
                     }
                     if (value.length < 3) {
-                      return 'Username must be at least 3 characters';
+                      return "Username must be at least 3 characters";
                     }
                     // Check if username already exists (only for new users)
                     if (!editingUser && users) {
                       const usernameExists = users.some(
-                        (user) => user.username.toLowerCase() === value.toLowerCase().trim()
+                        (user) =>
+                          user.username.toLowerCase() ===
+                          value.toLowerCase().trim(),
                       );
                       if (usernameExists) {
-                        return 'This username is already taken. Please choose another.';
+                        return "This username is already taken. Please choose another.";
                       }
                     }
                     // For editing, check if username exists for other users
                     if (editingUser && users) {
                       const usernameExists = users.some(
-                        (user) => user.id !== editingUser.id && user.username.toLowerCase() === value.toLowerCase().trim()
+                        (user) =>
+                          user.id !== editingUser.id &&
+                          user.username.toLowerCase() ===
+                            value.toLowerCase().trim(),
                       );
                       if (usernameExists) {
-                        return 'This username is already taken. Please choose another.';
+                        return "This username is already taken. Please choose another.";
                       }
                     }
                     return true;
@@ -448,17 +507,22 @@ export default function UsersPage() {
                 disabled={!!editingUser}
                 className="mt-1"
                 placeholder="Enter a unique username"
-                key={`username-${editingUser?.id || 'new'}-${isFormOpen}`}
+                key={`username-${editingUser?.id || "new"}-${isFormOpen}`}
               />
               {errors.username && (
                 <p className="text-sm text-red-600 mt-1">
                   {errors.username.message}
                 </p>
               )}
-              {!errors.username && watchedUsername && !editingUser && users && (
+              {!errors.username &&
+                watchedUsername &&
+                !editingUser &&
+                users &&
                 (() => {
                   const usernameExists = users.some(
-                    (user) => user.username.toLowerCase() === watchedUsername.toLowerCase().trim()
+                    (user) =>
+                      user.username.toLowerCase() ===
+                      watchedUsername.toLowerCase().trim(),
                   );
                   return usernameExists ? (
                     <p className="text-sm text-red-600 mt-1">
@@ -469,23 +533,31 @@ export default function UsersPage() {
                       ✓ Username is available
                     </p>
                   ) : null;
-                })()
-              )}
+                })()}
             </div>
             <div>
               <Label htmlFor="password">
-                Password {editingUser ? '(Leave empty to keep current)' : '*'}
+                Password {editingUser ? "(Leave empty to keep current)" : "*"}
               </Label>
               <Input
                 id="password"
                 type="password"
-                {...register('password', {
-                  required: !editingUser ? 'Password is required' : false,
-                  minLength: editingUser ? undefined : { value: 6, message: 'Password must be at least 6 characters' },
+                {...register("password", {
+                  required: !editingUser ? "Password is required" : false,
+                  minLength: editingUser
+                    ? undefined
+                    : {
+                        value: 6,
+                        message: "Password must be at least 6 characters",
+                      },
                 })}
                 className="mt-1"
-                placeholder={editingUser ? "Leave empty to keep current password" : "Enter a password (min 6 characters)"}
-                key={`password-${editingUser?.id || 'new'}-${isFormOpen}`}
+                placeholder={
+                  editingUser
+                    ? "Leave empty to keep current password"
+                    : "Enter a password (min 6 characters)"
+                }
+                key={`password-${editingUser?.id || "new"}-${isFormOpen}`}
               />
               {errors.password && (
                 <p className="text-sm text-red-600 mt-1">
@@ -495,18 +567,21 @@ export default function UsersPage() {
             </div>
             <div>
               <Label htmlFor="role">Role *</Label>
-              <Select id="role" {...register('role')} className="mt-1">
+              <Select id="role" {...register("role")} className="mt-1">
                 <option value={Role.QC_USER}>QC User</option>
                 <option value={Role.QC_MANAGER}>QC Manager</option>
               </Select>
             </div>
             {editingUser && (
               <div>
-                <Label htmlFor="isActive" className="flex items-center space-x-2 cursor-pointer">
+                <Label
+                  htmlFor="isActive"
+                  className="flex items-center space-x-2 cursor-pointer"
+                >
                   <input
                     type="checkbox"
                     id="isActive"
-                    {...register('isActive')}
+                    {...register("isActive")}
                     className="rounded w-4 h-4 text-primary-600 focus:ring-primary-500 border-secondary-300"
                   />
                   <span>Active</span>
@@ -520,10 +595,10 @@ export default function UsersPage() {
                 className="flex-1"
               >
                 {createUser.isPending || updateUser.isPending
-                  ? 'Saving...'
+                  ? "Saving..."
                   : editingUser
-                  ? 'Update User'
-                  : 'Create User'}
+                    ? "Update User"
+                    : "Create User"}
               </Button>
               <Button
                 type="button"
@@ -548,59 +623,66 @@ export default function UsersPage() {
             title="Delete User"
             size="sm"
           >
-          <div className="space-y-4">
-            {currentUser && userToDelete.id === currentUser.id ? (
-              <>
-                <p className="text-secondary-600">
-                  You cannot delete your own account.
-                </p>
-                <p className="text-sm text-red-600">
-                  For security reasons, managers cannot delete their own profile. Please contact a system administrator if you need to remove your account.
-                </p>
-                <div className="flex space-x-3 pt-4">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setDeleteConfirmOpen(false);
-                      setUserToDelete(null);
-                    }}
-                    className="flex-1"
-                  >
-                    Close
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <>
-                <p className="text-secondary-600">
-                  Are you sure you want to delete <strong>{userToDelete.firstName} {userToDelete.lastName}</strong>?
-                </p>
-                <p className="text-sm text-red-600">
-                  Note: Users who have been used in transactions (issues, returns, or audit logs) cannot be deleted.
-                </p>
-                <div className="flex space-x-3 pt-4">
-                  <Button
-                    variant="destructive"
-                    onClick={handleDeleteConfirm}
-                    disabled={deleteUser.isPending}
-                    className="flex-1"
-                  >
-                    {deleteUser.isPending ? 'Deleting...' : 'Delete'}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setDeleteConfirmOpen(false);
-                      setUserToDelete(null);
-                    }}
-                    className="flex-1"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </>
-            )}
-          </div>
+            <div className="space-y-4">
+              {currentUser && userToDelete.id === currentUser.id ? (
+                <>
+                  <p className="text-secondary-600">
+                    You cannot delete your own account.
+                  </p>
+                  <p className="text-sm text-red-600">
+                    For security reasons, managers cannot delete their own
+                    profile. Please contact a system administrator if you need
+                    to remove your account.
+                  </p>
+                  <div className="flex space-x-3 pt-4">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setDeleteConfirmOpen(false);
+                        setUserToDelete(null);
+                      }}
+                      className="flex-1"
+                    >
+                      Close
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-secondary-600">
+                    Are you sure you want to delete{" "}
+                    <strong>
+                      {userToDelete.firstName} {userToDelete.lastName}
+                    </strong>
+                    ?
+                  </p>
+                  <p className="text-sm text-red-600">
+                    Note: Users who have been used in transactions (issues,
+                    returns, or audit logs) cannot be deleted.
+                  </p>
+                  <div className="flex space-x-3 pt-4">
+                    <Button
+                      variant="destructive"
+                      onClick={handleDeleteConfirm}
+                      disabled={deleteUser.isPending}
+                      className="flex-1"
+                    >
+                      {deleteUser.isPending ? "Deleting..." : "Delete"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setDeleteConfirmOpen(false);
+                        setUserToDelete(null);
+                      }}
+                      className="flex-1"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
           </Dialog>
         )}
       </motion.div>
