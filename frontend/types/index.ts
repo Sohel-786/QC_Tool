@@ -22,7 +22,6 @@ export interface User {
 
 export interface Item {
   id: number;
-  itemCode: string;
   itemName: string;
   description?: string | null;
   image?: string | null;
@@ -36,7 +35,6 @@ export interface Item {
 
 export interface ItemCategory {
   id: number;
-  code: string | null;
   name: string;
   isActive: boolean;
   createdAt: string;
@@ -45,7 +43,6 @@ export interface ItemCategory {
 
 export interface Company {
   id: number;
-  code: string;
   name: string;
   isActive: boolean;
   createdAt: string;
@@ -54,7 +51,6 @@ export interface Company {
 
 export interface Location {
   id: number;
-  code: string;
   name: string;
   isActive: boolean;
   createdAt: string;
@@ -63,7 +59,6 @@ export interface Location {
 
 export interface Contractor {
   id: number;
-  code: string;
   name: string;
   isActive: boolean;
   createdAt: string;
@@ -72,7 +67,6 @@ export interface Contractor {
 
 export interface Status {
   id: number;
-  code: string;
   name: string;
   isActive: boolean;
   createdAt: string;
@@ -81,7 +75,6 @@ export interface Status {
 
 export interface Machine {
   id: number;
-  code: string;
   name: string;
   isActive: boolean;
   createdAt: string;
@@ -95,6 +88,7 @@ export interface Issue {
   issuedBy: number;
   issuedTo?: string;
   remarks?: string;
+  isActive: boolean;
   isReturned: boolean;
   issuedAt: string;
   updatedAt: string;
@@ -116,9 +110,11 @@ export interface Return {
   returnedBy: number;
   returnImage: string;
   remarks?: string;
+  statusId?: number | null;
   returnedAt: string;
   updatedAt: string;
   issue?: Issue;
+  status?: Status;
   user?: User;
 }
 

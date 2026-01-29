@@ -1,18 +1,21 @@
 model Return {
-  id         Int      @id @default(autoincrement())
-  returnCode String? @unique
-  issueId    Int
-  returnedBy Int
+  id          Int       @id @default(autoincrement())
+  returnCode  String?   @unique
+  issueId     Int
+  returnedBy  Int
   returnImage String
-  remarks    String?
-  returnedAt DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  remarks     String?
+  statusId    Int
+  returnedAt  DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   // Relations
-  issue Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
-  returnedByUser User @relation("ReturnedBy", fields: [returnedBy], references: [id], onDelete: Cascade)
+  issue         Issue   @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  returnedByUser User   @relation("ReturnedBy", fields: [returnedBy], references: [id], onDelete: Cascade)
+  status        Status  @relation(fields: [statusId], references: [id], onDelete: Restrict)
 
   @@map("returns")
   @@index([issueId])
   @@index([returnedBy])
+  @@index([statusId])
 }

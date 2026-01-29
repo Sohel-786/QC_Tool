@@ -5,9 +5,10 @@ model Issue {
   issuedBy     Int
   issuedTo     String?
   remarks      String?
-  companyId    Int?
-  contractorId Int?
-  machineId    Int?
+  companyId    Int
+  contractorId Int
+  machineId    Int
+  isActive     Boolean   @default(true)
   isReturned   Boolean   @default(false)
   issuedAt     DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -15,9 +16,9 @@ model Issue {
   // Relations
   item         Item      @relation("ItemIssues", fields: [itemId], references: [id], onDelete: Cascade)
   issuedByUser User      @relation("IssuedBy", fields: [issuedBy], references: [id], onDelete: Cascade)
-  company      Company?  @relation(fields: [companyId], references: [id], onDelete: SetNull)
-  contractor   Contractor? @relation(fields: [contractorId], references: [id], onDelete: SetNull)
-  machine      Machine?  @relation(fields: [machineId], references: [id], onDelete: SetNull)
+  company      Company   @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  contractor   Contractor @relation(fields: [contractorId], references: [id], onDelete: Restrict)
+  machine      Machine   @relation(fields: [machineId], references: [id], onDelete: Restrict)
   returns      Return[]
 
   @@map("issues")

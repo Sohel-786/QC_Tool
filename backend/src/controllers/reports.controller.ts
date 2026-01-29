@@ -200,8 +200,9 @@ export const exportIssuedItemsReport = async (
       orderBy: { issuedAt: "desc" },
     });
     const headers = [
+      "Sr.No",
       "Issue No",
-      "Item Code",
+      "Serial No",
       "Item Name",
       "Issued To",
       "Issued By",
@@ -209,9 +210,10 @@ export const exportIssuedItemsReport = async (
       "Issued Date",
       "Remarks",
     ];
-    const csvData = issues.map((issue) => ({
+    const csvData = issues.map((issue, idx) => ({
+      srNo: idx + 1,
       issueNo: issue.issueNo,
-      itemCode: issue.item?.itemCode ?? "N/A",
+      serialNo: issue.item?.serialNumber ?? "N/A",
       itemName: issue.item?.itemName ?? "N/A",
       issuedTo: issue.issuedTo ?? "N/A",
       issuedBy: issue.issuedByUser
@@ -222,8 +224,9 @@ export const exportIssuedItemsReport = async (
       remarks: issue.remarks ?? "N/A",
     }));
     const fields = [
+      "srNo",
       "issueNo",
-      "itemCode",
+      "serialNo",
       "itemName",
       "issuedTo",
       "issuedBy",
@@ -255,7 +258,8 @@ export const exportMissingItemsReport = async (
       orderBy: { itemName: "asc" },
     });
     const headers = [
-      "Item Code",
+      "Sr.No",
+      "Serial No",
       "Item Name",
       "Description",
       "Status",
@@ -263,8 +267,9 @@ export const exportMissingItemsReport = async (
       "Created At",
       "Last Updated",
     ];
-    const csvData = items.map((item) => ({
-      itemCode: item.itemCode,
+    const csvData = items.map((item, idx) => ({
+      srNo: idx + 1,
+      serialNo: item.serialNumber ?? "N/A",
       itemName: item.itemName,
       description: item.description ?? "N/A",
       status: item.status,
@@ -273,7 +278,8 @@ export const exportMissingItemsReport = async (
       updatedAt: new Date(item.updatedAt).toLocaleString(),
     }));
     const fields = [
-      "itemCode",
+      "srNo",
+      "serialNo",
       "itemName",
       "description",
       "status",
@@ -330,10 +336,13 @@ export const exportItemHistoryReport = async (
       orderBy: { itemName: "asc" },
     });
     const historyRows: Record<string, unknown>[] = [];
+    let rowIndex = 0;
     for (const item of items) {
       if (item.issues.length === 0) {
+        rowIndex += 1;
         historyRows.push({
-          itemCode: item.itemCode,
+          srNo: rowIndex,
+          serialNo: item.serialNumber ?? "N/A",
           itemName: item.itemName,
           issueNo: "N/A",
           issuedBy: "N/A",
@@ -347,8 +356,10 @@ export const exportItemHistoryReport = async (
         for (const issue of item.issues) {
           if (issue.returns.length > 0) {
             for (const r of issue.returns) {
+              rowIndex += 1;
               historyRows.push({
-                itemCode: item.itemCode,
+                srNo: rowIndex,
+                serialNo: item.serialNumber ?? "N/A",
                 itemName: item.itemName,
                 issueNo: issue.issueNo,
                 issuedBy: `${issue.issuedByUser?.firstName ?? ""} ${issue.issuedByUser?.lastName ?? ""}`.trim() || "N/A",
@@ -360,8 +371,10 @@ export const exportItemHistoryReport = async (
               });
             }
           } else {
+            rowIndex += 1;
             historyRows.push({
-              itemCode: item.itemCode,
+              srNo: rowIndex,
+              serialNo: item.serialNumber ?? "N/A",
               itemName: item.itemName,
               issueNo: issue.issueNo,
               issuedBy: `${issue.issuedByUser?.firstName ?? ""} ${issue.issuedByUser?.lastName ?? ""}`.trim() || "N/A",
@@ -376,7 +389,8 @@ export const exportItemHistoryReport = async (
       }
     }
     const headers = [
-      "Item Code",
+      "Sr.No",
+      "Serial No",
       "Item Name",
       "Issue No",
       "Issued By",
@@ -387,7 +401,8 @@ export const exportItemHistoryReport = async (
       "Status",
     ];
     const fields = [
-      "itemCode",
+      "srNo",
+      "serialNo",
       "itemName",
       "issueNo",
       "issuedBy",

@@ -1,13 +1,11 @@
 import { prisma } from "../external-libraries/dbClient";
 
 type CreateContractorInput = {
-  code: string;
   name: string;
   isActive?: boolean;
 };
 
 type UpdateContractorInput = {
-  code?: string;
   name?: string;
   isActive?: boolean;
 };
@@ -22,12 +20,6 @@ const Contractor = {
   findById: async (id: number) => {
     return prisma.contractor.findUnique({
       where: { id },
-    });
-  },
-
-  findByCode: async (code: string) => {
-    return prisma.contractor.findUnique({
-      where: { code },
     });
   },
 
@@ -49,13 +41,6 @@ const Contractor = {
       where: { id },
       data,
     });
-  },
-
-  codeExists: async (code: string): Promise<boolean> => {
-    const count = await prisma.contractor.count({
-      where: { code },
-    });
-    return count > 0;
   },
 
   getCount: async (): Promise<number> => {

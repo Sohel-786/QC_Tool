@@ -1,6 +1,5 @@
 model Location {
   id        Int      @id @default(autoincrement())
-  code      String   @unique
   name      String
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())

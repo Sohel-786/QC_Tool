@@ -1,13 +1,11 @@
 import { prisma } from "../external-libraries/dbClient";
 
 type CreateCompanyInput = {
-  code: string;
   name: string;
   isActive?: boolean;
 };
 
 type UpdateCompanyInput = {
-  code?: string;
   name?: string;
   isActive?: boolean;
 };
@@ -22,12 +20,6 @@ const Company = {
   findById: async (id: number) => {
     return prisma.company.findUnique({
       where: { id },
-    });
-  },
-
-  findByCode: async (code: string) => {
-    return prisma.company.findUnique({
-      where: { code },
     });
   },
 
@@ -49,13 +41,6 @@ const Company = {
       where: { id },
       data,
     });
-  },
-
-  codeExists: async (code: string): Promise<boolean> => {
-    const count = await prisma.company.count({
-      where: { code },
-    });
-    return count > 0;
   },
 
   getCount: async (): Promise<number> => {

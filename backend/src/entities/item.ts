@@ -2,7 +2,6 @@ import { ItemStatus } from "@prisma/client";
 import { prisma } from "../external-libraries/dbClient";
 
 type CreateItemInput = {
-  itemCode: string;
   itemName: string;
   serialNumber?: string | null;
   description?: string | null;
@@ -12,7 +11,6 @@ type CreateItemInput = {
 };
 
 type UpdateItemInput = {
-  itemCode?: string;
   itemName?: string;
   serialNumber?: string | null;
   description?: string | null;
@@ -26,7 +24,6 @@ const Item = {
   create: async (data: CreateItemInput) => {
     return prisma.item.create({
       data: {
-        itemCode: data.itemCode,
         itemName: data.itemName,
         serialNumber: data.serialNumber ?? null,
         description: data.description ?? null,
@@ -41,12 +38,6 @@ const Item = {
     return prisma.item.findUnique({
       where: { id },
       include: { issues: true },
-    });
-  },
-
-  findByCode: async (itemCode: string) => {
-    return prisma.item.findUnique({
-      where: { itemCode },
     });
   },
 
@@ -88,11 +79,6 @@ const Item = {
       where: { id },
       data,
     });
-  },
-
-  codeExists: async (itemCode: string): Promise<boolean> => {
-    const count = await prisma.item.count({ where: { itemCode } });
-    return count > 0;
   },
 
   serialNumberExists: async (serialNumber: string): Promise<boolean> => {

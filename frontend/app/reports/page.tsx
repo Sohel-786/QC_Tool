@@ -106,7 +106,7 @@ export default function ReportsPage() {
         issue.item?.itemName
           ?.toLowerCase()
           .includes(searchTerm.toLowerCase()) ||
-        issue.item?.itemCode
+        issue.item?.serialNumber
           ?.toLowerCase()
           .includes(searchTerm.toLowerCase()) ||
         issue.issueNo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -120,7 +120,7 @@ export default function ReportsPage() {
     return missingItems.filter(
       (item) =>
         item.itemName?.toLowerCase().includes(q) ||
-        item.itemCode?.toLowerCase().includes(q) ||
+        item.serialNumber?.toLowerCase().includes(q) ||
         (item.description != null && item.description.toLowerCase().includes(q)),
     );
   }, [missingItems, searchTerm]);
@@ -130,7 +130,7 @@ export default function ReportsPage() {
     return itemHistory.filter(
       (item) =>
         item.itemName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.itemCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.serialNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.issues?.some(
           (issue: any) =>
             issue.issueNo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -326,9 +326,11 @@ export default function ReportsPage() {
                                   <p className="font-medium text-text">
                                     {issue.item?.itemName}
                                   </p>
-                                  <p className="text-xs text-secondary-500 font-mono">
-                                    {issue.item?.itemCode}
-                                  </p>
+                                  {issue.item?.serialNumber && (
+                                    <p className="text-xs text-secondary-500 font-mono">
+                                      {issue.item.serialNumber}
+                                    </p>
+                                  )}
                                 </div>
                               </td>
                               <td className="py-4 px-4 text-sm text-secondary-600">
@@ -398,7 +400,7 @@ export default function ReportsPage() {
                         <thead>
                           <tr className="border-b border-secondary-200">
                             <th className="text-left py-3 px-4 font-semibold text-sm text-secondary-700">
-                              Item Code
+                              Serial No
                             </th>
                             <th className="text-left py-3 px-4 font-semibold text-sm text-secondary-700">
                               Item Name
@@ -428,7 +430,7 @@ export default function ReportsPage() {
                             >
                               <td className="py-4 px-4">
                                 <span className="font-mono text-sm font-medium text-red-900">
-                                  {item.itemCode}
+                                  {item.serialNumber ?? "—"}
                                 </span>
                               </td>
                               <td className="py-4 px-4">
@@ -503,9 +505,11 @@ export default function ReportsPage() {
                             <h3 className="font-semibold text-lg text-text mb-1">
                               {item.itemName}
                             </h3>
-                            <p className="text-sm text-secondary-600 font-mono">
-                              Code: {item.itemCode}
-                            </p>
+                            {item.serialNumber && (
+                              <p className="text-sm text-secondary-600 font-mono">
+                                Serial: {item.serialNumber}
+                              </p>
+                            )}
                             <p className="text-xs text-secondary-500 mt-1">
                               Status: {item.status}
                             </p>

@@ -1,4 +1,6 @@
 import { prisma } from "../external-libraries/dbClient";
+import type { Prisma } from "@prisma/client";
+import type { TransactionListFilters } from "../types/filter";
 
 type CreateReturnInput = {
   returnCode: string;
@@ -6,6 +8,7 @@ type CreateReturnInput = {
   returnedBy: number;
   returnImage: string;
   remarks?: string;
+  statusId: number;
 };
 
 const Return = {
@@ -37,8 +40,12 @@ const Return = {
         issue: {
           include: {
             item: true,
+            company: true,
+            contractor: true,
+            machine: true,
           },
         },
+        status: true,
         returnedByUser: {
           select: {
             id: true,
@@ -57,8 +64,74 @@ const Return = {
         issue: {
           include: {
             item: true,
+            company: true,
+            contractor: true,
+            machine: true,
           },
         },
+        status: true,
+        returnedByUser: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+      orderBy: { returnedAt: "desc" },
+    });
+  },
+
+  findAllFiltered: async (filters: TransactionListFilters) => {
+    const conditions: Prisma.IssueWhereInput[] = [];
+    if (filters.status === "active") conditions.push({ isActive: true });
+    if (filters.status === "inactive") conditions.push({ isActive: false });
+    if (filters.companyIds.length) conditions.push({ companyId: { in: filters.companyIds } });
+    if (filters.contractorIds.length) conditions.push({ contractorId: { in: filters.contractorIds } });
+    if (filters.machineIds.length) conditions.push({ machineId: { in: filters.machineIds } });
+    if (filters.itemIds.length) conditions.push({ itemId: { in: filters.itemIds } });
+    if (filters.operatorName.length) {
+      conditions.push({
+        issuedTo: { contains: filters.operatorName },
+      });
+    }
+    const issueWhere: Prisma.IssueWhereInput = conditions.length ? { AND: conditions } : {};
+    const searchTerm = filters.search?.trim() ?? "";
+    const searchOrConditions: Prisma.ReturnWhereInput[] = [];
+    if (searchTerm.length > 0) {
+      searchOrConditions.push(
+        { returnCode: { contains: searchTerm } },
+        { status: { name: { contains: searchTerm } } },
+        { issue: { issueNo: { contains: searchTerm } } },
+        { issue: { item: { itemName: { contains: searchTerm } } } },
+        { issue: { item: { serialNumber: { contains: searchTerm } } } },
+        { issue: { company: { name: { contains: searchTerm } } } },
+        { issue: { contractor: { name: { contains: searchTerm } } } },
+        { issue: { machine: { name: { contains: searchTerm } } } },
+        { issue: { issuedTo: { contains: searchTerm } } },
+      );
+    }
+    const andParts: Prisma.ReturnWhereInput[] = [];
+    if (Object.keys(issueWhere).length > 0) {
+      andParts.push({ issue: issueWhere });
+    }
+    if (searchOrConditions.length > 0) {
+      andParts.push({ OR: searchOrConditions });
+    }
+    const where: Prisma.ReturnWhereInput = andParts.length > 0 ? { AND: andParts } : {};
+    return prisma.return.findMany({
+      where,
+      include: {
+        issue: {
+          include: {
+            item: true,
+            company: true,
+            contractor: true,
+            machine: true,
+          },
+        },
+        status: true,
         returnedByUser: {
           select: {
             id: true,

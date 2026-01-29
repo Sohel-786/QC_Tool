@@ -1,11 +1,13 @@
 import { Request, Response, NextFunction } from "express";
 import Status from "../entities/status";
+import { NotFoundError, ValidationError } from "../utils/errors";
 import {
-  ConflictError,
-  NotFoundError,
-  ValidationError,
-} from "../utils/errors";
-import { generateNextCode } from "../utils/codeGenerator";
+  buildExcelBuffer,
+  parseExcelBuffer,
+  normalizeRowKeys,
+  getExcelMime,
+} from "../utils/excel";
+import fs from "fs";
 
 export const createStatus = async (
   req: Request,
@@ -13,24 +15,13 @@ export const createStatus = async (
   next: NextFunction
 ) => {
   try {
-    let { code, name, isActive } = req.body;
+    const { name, isActive } = req.body;
 
     if (!name) {
       return next(new ValidationError("Status name is required"));
     }
 
-    if (!code) {
-      const statusCount = await Status.getCount();
-      code = generateNextCode("STS", statusCount);
-    }
-
-    const codeExists = await Status.codeExists(code);
-    if (codeExists) {
-      return next(new ConflictError("Status with this code already exists"));
-    }
-
     const status = await Status.create({
-      code,
       name,
       isActive: isActive !== undefined ? isActive : true,
     });
@@ -105,7 +96,7 @@ export const updateStatus = async (
 ) => {
   try {
     const { id } = req.params;
-    const { code, name, isActive } = req.body;
+    const { name, isActive } = req.body;
 
     const status = await Status.findById(parseInt(id));
     if (!status) {
@@ -113,13 +104,6 @@ export const updateStatus = async (
     }
 
     const updateData: Record<string, unknown> = {};
-    if (code && code !== status.code) {
-      const codeExists = await Status.codeExists(code);
-      if (codeExists) {
-        return next(new ConflictError("Status with this code already exists"));
-      }
-      updateData.code = code;
-    }
     if (name) updateData.name = name;
     if (isActive !== undefined) updateData.isActive = isActive;
 
@@ -134,17 +118,71 @@ export const updateStatus = async (
   }
 };
 
-export const getNextStatusCode = async (
+export const exportStatuses = async (
   req: Request,
   res: Response,
   next: NextFunction
 ) => {
   try {
-    const statusCount = await Status.getCount();
-    const nextCode = generateNextCode("STS", statusCount);
+    const statuses = await Status.findAll();
+    const rows = statuses.map((c) => ({
+      Name: c.name,
+      Active: c.isActive ? "Yes" : "No",
+    }));
+    const buffer = buildExcelBuffer(rows, "Statuses");
+    const filename = `statuses-export-${new Date().toISOString().split("T")[0]}.xlsx`;
+    res.setHeader("Content-Type", getExcelMime());
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send(buffer);
+  } catch (error: unknown) {
+    next(error);
+  }
+};
+
+export const importStatuses = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const file = req.file;
+    if (!file) {
+      return next(new ValidationError("No file uploaded. Please upload an Excel file."));
+    }
+    const buffer = fs.readFileSync(file.path);
+    const rawRows = parseExcelBuffer(buffer);
+    fs.unlinkSync(file.path);
+    const existing = await Status.findAll();
+    const existingNames = new Set(existing.map((s) => s.name.trim().toLowerCase()));
+    const seenInThisFile = new Set<string>();
+    const results = { imported: 0, errors: [] as { row: number; message: string }[] };
+    for (let i = 0; i < rawRows.length; i++) {
+      const row = normalizeRowKeys(rawRows[i] as Record<string, unknown>);
+      const name = row.name != null ? String(row.name).trim() : "";
+      if (!name) {
+        results.errors.push({ row: i + 2, message: "Name is required" });
+        continue;
+      }
+      const nameKey = name.toLowerCase();
+      if (seenInThisFile.has(nameKey)) continue;
+      if (existingNames.has(nameKey)) continue;
+      const isActive =
+        row.active == null ? true : /^(1|true|yes|y)$/i.test(String(row.active).trim());
+      try {
+        await Status.create({ name, isActive });
+        results.imported += 1;
+        seenInThisFile.add(nameKey);
+        existingNames.add(nameKey);
+      } catch (err) {
+        results.errors.push({
+          row: i + 2,
+          message: err instanceof Error ? err.message : "Failed to create",
+        });
+      }
+    }
     res.json({
       success: true,
-      data: { nextCode },
+      data: { imported: results.imported, totalRows: rawRows.length, errors: results.errors },
     });
   } catch (error: unknown) {
     next(error);

@@ -1,13 +1,11 @@
 import { prisma } from "../external-libraries/dbClient";
 
 type CreateMachineInput = {
-  code: string;
   name: string;
   isActive?: boolean;
 };
 
 type UpdateMachineInput = {
-  code?: string;
   name?: string;
   isActive?: boolean;
 };
@@ -22,12 +20,6 @@ const Machine = {
   findById: async (id: number) => {
     return prisma.machine.findUnique({
       where: { id },
-    });
-  },
-
-  findByCode: async (code: string) => {
-    return prisma.machine.findUnique({
-      where: { code },
     });
   },
 
@@ -49,13 +41,6 @@ const Machine = {
       where: { id },
       data,
     });
-  },
-
-  codeExists: async (code: string): Promise<boolean> => {
-    const count = await prisma.machine.count({
-      where: { code },
-    });
-    return count > 0;
   },
 
   getCount: async (): Promise<number> => {

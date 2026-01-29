@@ -1,11 +1,13 @@
 import { Request, Response, NextFunction } from "express";
 import Contractor from "../entities/contractor";
+import { NotFoundError, ValidationError } from "../utils/errors";
 import {
-  ConflictError,
-  NotFoundError,
-  ValidationError,
-} from "../utils/errors";
-import { generateNextCode } from "../utils/codeGenerator";
+  buildExcelBuffer,
+  parseExcelBuffer,
+  normalizeRowKeys,
+  getExcelMime,
+} from "../utils/excel";
+import fs from "fs";
 
 export const createContractor = async (
   req: Request,
@@ -13,24 +15,13 @@ export const createContractor = async (
   next: NextFunction
 ) => {
   try {
-    let { code, name, isActive } = req.body;
+    const { name, isActive } = req.body;
 
     if (!name) {
       return next(new ValidationError("Contractor name is required"));
     }
 
-    if (!code) {
-      const contractorCount = await Contractor.getCount();
-      code = generateNextCode("CTR", contractorCount);
-    }
-
-    const codeExists = await Contractor.codeExists(code);
-    if (codeExists) {
-      return next(new ConflictError("Contractor with this code already exists"));
-    }
-
     const contractor = await Contractor.create({
-      code,
       name,
       isActive: isActive !== undefined ? isActive : true,
     });
@@ -105,7 +96,7 @@ export const updateContractor = async (
 ) => {
   try {
     const { id } = req.params;
-    const { code, name, isActive } = req.body;
+    const { name, isActive } = req.body;
 
     const contractor = await Contractor.findById(parseInt(id));
     if (!contractor) {
@@ -113,15 +104,6 @@ export const updateContractor = async (
     }
 
     const updateData: Record<string, unknown> = {};
-    if (code && code !== contractor.code) {
-      const codeExists = await Contractor.codeExists(code);
-      if (codeExists) {
-        return next(
-          new ConflictError("Contractor with this code already exists")
-        );
-      }
-      updateData.code = code;
-    }
     if (name) updateData.name = name;
     if (isActive !== undefined) updateData.isActive = isActive;
 
@@ -136,17 +118,71 @@ export const updateContractor = async (
   }
 };
 
-export const getNextContractorCode = async (
+export const exportContractors = async (
   req: Request,
   res: Response,
   next: NextFunction
 ) => {
   try {
-    const contractorCount = await Contractor.getCount();
-    const nextCode = generateNextCode("CTR", contractorCount);
+    const contractors = await Contractor.findAll();
+    const rows = contractors.map((c) => ({
+      Name: c.name,
+      Active: c.isActive ? "Yes" : "No",
+    }));
+    const buffer = buildExcelBuffer(rows, "Contractors");
+    const filename = `contractors-export-${new Date().toISOString().split("T")[0]}.xlsx`;
+    res.setHeader("Content-Type", getExcelMime());
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send(buffer);
+  } catch (error: unknown) {
+    next(error);
+  }
+};
+
+export const importContractors = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const file = req.file;
+    if (!file) {
+      return next(new ValidationError("No file uploaded. Please upload an Excel file."));
+    }
+    const buffer = fs.readFileSync(file.path);
+    const rawRows = parseExcelBuffer(buffer);
+    fs.unlinkSync(file.path);
+    const existing = await Contractor.findAll();
+    const existingNames = new Set(existing.map((c) => c.name.trim().toLowerCase()));
+    const seenInThisFile = new Set<string>();
+    const results = { imported: 0, errors: [] as { row: number; message: string }[] };
+    for (let i = 0; i < rawRows.length; i++) {
+      const row = normalizeRowKeys(rawRows[i] as Record<string, unknown>);
+      const name = row.name != null ? String(row.name).trim() : "";
+      if (!name) {
+        results.errors.push({ row: i + 2, message: "Name is required" });
+        continue;
+      }
+      const nameKey = name.toLowerCase();
+      if (seenInThisFile.has(nameKey)) continue;
+      if (existingNames.has(nameKey)) continue;
+      const isActive =
+        row.active == null ? true : /^(1|true|yes|y)$/i.test(String(row.active).trim());
+      try {
+        await Contractor.create({ name, isActive });
+        results.imported += 1;
+        seenInThisFile.add(nameKey);
+        existingNames.add(nameKey);
+      } catch (err) {
+        results.errors.push({
+          row: i + 2,
+          message: err instanceof Error ? err.message : "Failed to create",
+        });
+      }
+    }
     res.json({
       success: true,
-      data: { nextCode },
+      data: { imported: results.imported, totalRows: rawRows.length, errors: results.errors },
     });
   } catch (error: unknown) {
     next(error);

@@ -1,13 +1,11 @@
 import { prisma } from "../external-libraries/dbClient";
 
 type CreateLocationInput = {
-  code: string;
   name: string;
   isActive?: boolean;
 };
 
 type UpdateLocationInput = {
-  code?: string;
   name?: string;
   isActive?: boolean;
 };
@@ -22,12 +20,6 @@ const Location = {
   findById: async (id: number) => {
     return prisma.location.findUnique({
       where: { id },
-    });
-  },
-
-  findByCode: async (code: string) => {
-    return prisma.location.findUnique({
-      where: { code },
     });
   },
 
@@ -49,13 +41,6 @@ const Location = {
       where: { id },
       data,
     });
-  },
-
-  codeExists: async (code: string): Promise<boolean> => {
-    const count = await prisma.location.count({
-      where: { code },
-    });
-    return count > 0;
   },
 
   getCount: async (): Promise<number> => {

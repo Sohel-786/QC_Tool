@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import api from "@/lib/api";
-import { Return, Issue, Role } from "@/types";
+import { Return, Issue, Role, Status } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,15 +15,25 @@ import { Dialog } from "@/components/ui/dialog";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Plus, Upload, X } from "lucide-react";
+import { Plus, X } from "lucide-react";
+import { CameraPhotoInput } from "@/components/ui/camera-photo-input";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { formatDateTime } from "@/lib/utils";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { toast } from "react-hot-toast";
+import {
+  TransactionFilters,
+  defaultFilters,
+  type TransactionFiltersState,
+} from "@/components/filters/transaction-filters";
+import { buildFilterParams, hasActiveFilters } from "@/lib/filters";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 const returnSchema = z.object({
   issueId: z.number().min(1, "Issue is required"),
+  statusId: z.number().min(1, "Status is required"),
   remarks: z.string().optional(),
 });
 
@@ -34,18 +44,24 @@ export default function ReturnsPage() {
   const [nextInwardCode, setNextInwardCode] = useState<string>("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [isDragOver, setIsDragOver] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [filters, setFilters] = useState<TransactionFiltersState>(defaultFilters);
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const prefillIssueId = searchParams.get("issueId");
   const { user: currentUser } = useCurrentUser();
   const isManager = currentUser?.role === Role.QC_MANAGER;
 
-  const { data: returns = [] } = useQuery<Return[]>({
-    queryKey: ["returns"],
+  const debouncedSearch = useDebouncedValue(filters.search, 400);
+  const filtersForApi = useMemo(
+    () => ({ ...filters, search: debouncedSearch }),
+    [filters, debouncedSearch],
+  );
+  const filterKey = useMemo(() => JSON.stringify(filtersForApi), [filtersForApi]);
+
+  const { data: returns = [], isFetching: returnsLoading } = useQuery<Return[]>({
+    queryKey: ["returns", filterKey],
     queryFn: async () => {
-      const res = await api.get("/returns");
+      const res = await api.get("/returns", { params: buildFilterParams(filtersForApi) });
       return res.data?.data ?? [];
     },
   });
@@ -68,6 +84,43 @@ export default function ReturnsPage() {
     enabled: !!prefillIssueId && !!isFormOpen,
   });
 
+  const { data: filterCompanies = [] } = useQuery({
+    queryKey: ["companies", "active"],
+    queryFn: async () => {
+      const res = await api.get("/companies/active");
+      return res.data?.data ?? [];
+    },
+  });
+  const { data: filterContractors = [] } = useQuery({
+    queryKey: ["contractors", "active"],
+    queryFn: async () => {
+      const res = await api.get("/contractors/active");
+      return res.data?.data ?? [];
+    },
+  });
+  const { data: filterMachines = [] } = useQuery({
+    queryKey: ["machines", "active"],
+    queryFn: async () => {
+      const res = await api.get("/machines/active");
+      return res.data?.data ?? [];
+    },
+  });
+  const { data: filterItems = [] } = useQuery({
+    queryKey: ["items", "active"],
+    queryFn: async () => {
+      const res = await api.get("/items/active");
+      return res.data?.data ?? [];
+    },
+  });
+
+  const { data: statuses = [] } = useQuery<Status[]>({
+    queryKey: ["statuses", "active"],
+    queryFn: async () => {
+      const res = await api.get("/statuses/active");
+      return res.data?.data ?? [];
+    },
+  });
+
   const {
     register,
     handleSubmit,
@@ -80,6 +133,33 @@ export default function ReturnsPage() {
   });
 
   const selectedIssueId = watch("issueId");
+  const numIssueId = typeof selectedIssueId === "number" ? selectedIssueId : Number(selectedIssueId);
+  const hasValidIssue = !Number.isNaN(numIssueId) && numIssueId > 0;
+  const displayIssue = hasValidIssue
+    ? (prefetchedIssue?.id === numIssueId ? prefetchedIssue : activeIssues.find((i) => i.id === numIssueId)) ?? null
+    : null;
+
+  const outwardOptions = useMemo(
+    () =>
+      activeIssues.map((issue) => ({
+        value: issue.id,
+        label: issue.issueNo,
+      })),
+    [activeIssues],
+  );
+
+  const filterOptions = useMemo(
+    () => ({
+      company: filterCompanies.map((c: { id: number; name: string }) => ({ value: c.id, label: c.name })),
+      contractor: filterContractors.map((c: { id: number; name: string }) => ({ value: c.id, label: c.name })),
+      machine: filterMachines.map((m: { id: number; name: string }) => ({ value: m.id, label: m.name })),
+      item: filterItems.map((i: { id: number; itemName: string; serialNumber?: string | null }) => ({
+        value: i.id,
+        label: i.serialNumber ? `${i.itemName} (${i.serialNumber})` : i.itemName,
+      })),
+    }),
+    [filterCompanies, filterContractors, filterMachines, filterItems],
+  );
 
   const createMutation = useMutation({
     mutationFn: async (data: { formData: FormData }) => {
@@ -107,7 +187,6 @@ export default function ReturnsPage() {
     reset();
     setImageFile(null);
     setImagePreview(null);
-    setIsDragOver(false);
     try {
       const res = await api.get("/returns/next-code");
       setNextInwardCode(res.data?.data?.nextCode ?? "");
@@ -119,18 +198,28 @@ export default function ReturnsPage() {
   };
 
   const handleCloseForm = () => {
+    if (imagePreview && imagePreview.startsWith("blob:")) {
+      URL.revokeObjectURL(imagePreview);
+    }
     setIsFormOpen(false);
     reset();
     setNextInwardCode("");
     setImageFile(null);
     setImagePreview(null);
     createMutation.reset();
-    if (fileInputRef.current) fileInputRef.current.value = "";
     if (typeof window !== "undefined" && prefillIssueId) {
       const u = new URL(window.location.href);
       u.searchParams.delete("issueId");
       window.history.replaceState({}, "", u.toString());
     }
+  };
+
+  const handleImageCapture = (file: File | null) => {
+    if (imagePreview && imagePreview.startsWith("blob:")) {
+      URL.revokeObjectURL(imagePreview);
+    }
+    setImageFile(file);
+    setImagePreview(file ? URL.createObjectURL(file) : null);
   };
 
   useEffect(() => {
@@ -152,40 +241,6 @@ export default function ReturnsPage() {
     })();
   }, [prefillIssueId, isManager]);
 
-  const applyImage = (f: File) => {
-    if (!f.type.startsWith("image/")) {
-      toast.error("Please select an image file.");
-      return;
-    }
-    if (f.size > 5 * 1024 * 1024) {
-      toast.error("Image must be under 5MB.");
-      return;
-    }
-    setImageFile(f);
-    const r = new FileReader();
-    r.onloadend = () => setImagePreview(r.result as string);
-    r.readAsDataURL(f);
-  };
-
-  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (f) applyImage(f);
-    e.target.value = "";
-  };
-
-  const onDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    const f = e.dataTransfer.files?.[0];
-    if (f) applyImage(f);
-  };
-
-  const removeImage = () => {
-    setImageFile(null);
-    setImagePreview(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
-
   const onSubmit = (data: ReturnForm) => {
     if (!imageFile) {
       toast.error("Return image is required.");
@@ -193,12 +248,11 @@ export default function ReturnsPage() {
     }
     const formData = new FormData();
     formData.append("issueId", String(data.issueId));
+    formData.append("statusId", String(data.statusId));
     formData.append("image", imageFile);
     if (data.remarks) formData.append("remarks", data.remarks);
     createMutation.mutate({ formData });
   };
-
-  const displayIssue = prefetchedIssue ?? activeIssues.find((i) => i.id === selectedIssueId);
 
   return (
     <div className="p-6">
@@ -222,12 +276,28 @@ export default function ReturnsPage() {
             )}
           </div>
 
+          <TransactionFilters
+            filters={filters}
+            onFiltersChange={setFilters}
+            companyOptions={filterOptions.company}
+            contractorOptions={filterOptions.contractor}
+            machineOptions={filterOptions.machine}
+            itemOptions={filterOptions.item}
+            onClear={() => setFilters(defaultFilters)}
+            searchPlaceholder="Search by inward no., issue no., item, status…"
+            className="shadow-sm"
+          />
+
           <Card className="shadow-sm">
             <CardHeader>
               <CardTitle>Inward Entries ({returns.length})</CardTitle>
             </CardHeader>
             <CardContent>
-              {returns.length > 0 ? (
+              {returnsLoading ? (
+                <div className="flex justify-center py-12">
+                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-600 border-t-transparent" />
+                </div>
+              ) : returns.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {returns.map((r, idx) => (
                     <motion.div
@@ -251,6 +321,12 @@ export default function ReturnsPage() {
                           <span className="font-medium">Issue No:</span>{" "}
                           {r.issue?.issueNo}
                         </p>
+                        {r.status && (
+                          <p className="text-sm text-secondary-600 mb-1">
+                            <span className="font-medium">Status:</span>{" "}
+                            {r.status.name}
+                          </p>
+                        )}
                         {r.remarks && (
                           <p className="text-sm text-secondary-500 mt-2 line-clamp-2">
                             {r.remarks}
@@ -275,7 +351,9 @@ export default function ReturnsPage() {
               ) : (
                 <div className="text-center py-12">
                   <p className="text-secondary-500 text-lg">
-                    No inward entries yet. Create one above or from Outward.
+                    {hasActiveFilters(filters)
+                      ? "No inward entries match your filters."
+                      : "No inward entries yet. Create one above or from Outward."}
                   </p>
                 </div>
               )}
@@ -323,23 +401,43 @@ export default function ReturnsPage() {
                     >
                       Outward (Issue) <span className="text-red-500">*</span>
                     </Label>
+                    <div className="mt-1.5">
+                      <SearchableSelect
+                        id="inward-issue-id"
+                        options={outwardOptions}
+                        value={hasValidIssue ? numIssueId : ""}
+                        onChange={(v) => setValue("issueId", Number(v))}
+                        placeholder="Select outward entry"
+                        searchPlaceholder="Search outward number..."
+                        error={errors.issueId?.message}
+                        aria-label="Outward issue number"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label
+                      htmlFor="inward-status-id"
+                      className="text-sm font-medium text-secondary-700"
+                    >
+                      Status <span className="text-red-500">*</span>
+                    </Label>
                     <select
-                      id="inward-issue-id"
-                      {...register("issueId", { valueAsNumber: true })}
+                      id="inward-status-id"
+                      {...register("statusId", { valueAsNumber: true })}
                       className="mt-1.5 flex h-10 w-full rounded-md border border-secondary-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
                       aria-required="true"
                     >
-                      <option value="">Select outward entry</option>
-                      {activeIssues.map((issue) => (
-                        <option key={issue.id} value={issue.id}>
-                          {issue.issueNo} — {issue.item?.itemName}
-                          {issue.issuedTo ? ` (${issue.issuedTo})` : ""}
+                      <option value="">Select status</option>
+                      {statuses.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
                         </option>
                       ))}
                     </select>
-                    {errors.issueId && (
-                      <p className="text-sm text-red-600 mt-1" role="alert">
-                        {errors.issueId.message}
+                    {errors.statusId && (
+                      <p className="mt-1 text-sm text-red-600" role="alert">
+                        {errors.statusId.message}
                       </p>
                     )}
                   </div>
@@ -385,83 +483,14 @@ export default function ReturnsPage() {
                 </div>
 
                 <div className="space-y-4">
-                  <div>
-                    <Label className="text-sm font-medium text-secondary-700">
-                      Return Image <span className="text-red-500">*</span>
-                    </Label>
-                    <p className="text-xs text-secondary-500 mt-0.5">
-                      JPG, PNG or WebP · Max 5MB
-                    </p>
-                  </div>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/jpeg,image/jpg,image/png,image/webp"
-                    onChange={onFileChange}
-                    className="hidden"
-                    tabIndex={-1}
+                  <CameraPhotoInput
+                    label="Return Image"
+                    required
+                    hint="Use your camera to capture the return photo"
+                    previewUrl={imagePreview}
+                    onCapture={handleImageCapture}
+                    aspectRatio="video"
                   />
-                  {imagePreview ? (
-                    <div className="space-y-2">
-                      <div className="relative rounded-lg overflow-hidden border border-secondary-200 bg-white aspect-video max-h-48">
-                        <img
-                          src={imagePreview}
-                          alt="Preview"
-                          className="w-full h-full object-contain"
-                        />
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => fileInputRef.current?.click()}
-                        >
-                          Replace
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={removeImage}
-                          className="text-red-600 border-red-200 hover:bg-red-50"
-                        >
-                          <X className="w-4 h-4 mr-1" />
-                          Remove
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => fileInputRef.current?.click()}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ")
-                          fileInputRef.current?.click();
-                      }}
-                      onDrop={onDrop}
-                      onDragOver={(e) => {
-                        e.preventDefault();
-                        setIsDragOver(true);
-                      }}
-                      onDragLeave={(e) => {
-                        e.preventDefault();
-                        setIsDragOver(false);
-                      }}
-                      className={`min-h-[160px] rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors ${
-                        isDragOver
-                          ? "border-primary-400 bg-primary-50/50"
-                          : "border-secondary-300 bg-white hover:border-primary-300 hover:bg-primary-50/30"
-                      }`}
-                      aria-label="Upload return image"
-                    >
-                      <Upload className="w-10 h-10 text-secondary-400" />
-                      <span className="text-sm font-medium text-secondary-600">
-                        Drag & drop or click to upload
-                      </span>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
@@ -469,7 +498,11 @@ export default function ReturnsPage() {
             <div className="flex-none flex gap-3 px-6 py-4 border-t border-secondary-200 bg-secondary-50/50">
               <Button
                 type="submit"
-                disabled={createMutation.isPending || !imageFile}
+                disabled={
+                  createMutation.isPending ||
+                  !imageFile ||
+                  !watch("statusId")
+                }
                 className="flex-1 bg-primary-600 hover:bg-primary-700 text-white"
               >
                 {createMutation.isPending ? "Saving…" : "Save"}

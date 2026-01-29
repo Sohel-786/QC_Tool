@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import api from "@/lib/api";
@@ -13,7 +13,8 @@ import { Dialog } from "@/components/ui/dialog";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Plus, Edit2, Search, Ban, CheckCircle } from "lucide-react";
+import { Plus, Edit2, Search, Ban, CheckCircle, Download, Upload } from "lucide-react";
+import { useMasterExportImport } from "@/hooks/use-master-export-import";
 import { toast } from "react-hot-toast";
 
 const contractorSchema = z.object({
@@ -32,10 +33,12 @@ export default function ContractorsPage() {
     null,
   );
   const [inactiveTarget, setInactiveTarget] = useState<Contractor | null>(null);
-  const [nextContractorCode, setNextContractorCode] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>("all");
   const queryClient = useQueryClient();
+  const importFileRef = useRef<HTMLInputElement>(null);
+  const { handleExport, handleImport, exportLoading, importLoading } =
+    useMasterExportImport("contractors", ["contractors"]);
 
   const { data: contractors = [], isLoading } = useQuery<Contractor[]>({
     queryKey: ["contractors"],
@@ -123,24 +126,14 @@ export default function ContractorsPage() {
     },
   });
 
-  const handleOpenForm = async (contractor?: Contractor) => {
+  const handleOpenForm = (contractor?: Contractor) => {
     if (contractor) {
       setEditingContractor(contractor);
-      setValue("code", contractor.code);
       setValue("name", contractor.name);
       setValue("isActive", contractor.isActive);
-      setNextContractorCode("");
     } else {
       setEditingContractor(null);
       reset();
-      try {
-        const res = await api.get("/contractors/next-code");
-        const next = res.data?.data?.nextCode ?? "";
-        setNextContractorCode(next);
-        setValue("code", next);
-      } catch {
-        setNextContractorCode("");
-      }
     }
     setIsFormOpen(true);
   };
@@ -148,7 +141,6 @@ export default function ContractorsPage() {
   const handleCloseForm = () => {
     setIsFormOpen(false);
     setEditingContractor(null);
-    setNextContractorCode("");
     reset();
     createMutation.reset();
     updateMutation.reset();
@@ -164,7 +156,6 @@ export default function ContractorsPage() {
       updateMutation.mutate({ id: editingContractor.id, data });
     } else {
       createMutation.mutate({
-        code: data.code || nextContractorCode || undefined,
         name,
         isActive: data.isActive,
       });
@@ -184,10 +175,7 @@ export default function ContractorsPage() {
     let list = contractors;
     const q = searchTerm.trim().toLowerCase();
     if (q) {
-      list = list.filter(
-        (c) =>
-          c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q),
-      );
+      list = list.filter((c) => c.name.toLowerCase().includes(q));
     }
     if (activeFilter === "active") list = list.filter((c) => c.isActive);
     if (activeFilter === "inactive") list = list.filter((c) => !c.isActive);
@@ -210,10 +198,43 @@ export default function ContractorsPage() {
                 Manage contractor master entries
               </p>
             </div>
-            <Button onClick={() => handleOpenForm()} className="shadow-md">
-              <Plus className="w-4 h-4 mr-2" />
-              Add Contractor
-            </Button>
+            <div className="flex items-center gap-2">
+              <input
+                type="file"
+                ref={importFileRef}
+                accept=".xlsx,.xls"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) {
+                    handleImport(f);
+                    e.target.value = "";
+                  }
+                }}
+              />
+              <Button
+                variant="outline"
+                onClick={handleExport}
+                disabled={exportLoading}
+                className="shadow-sm"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Export
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => importFileRef.current?.click()}
+                disabled={importLoading}
+                className="shadow-sm"
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Import
+              </Button>
+              <Button onClick={() => handleOpenForm()} className="shadow-md">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Contractor
+              </Button>
+            </div>
           </div>
 
           <Card className="shadow-sm">
@@ -268,8 +289,8 @@ export default function ContractorsPage() {
                   <table className="w-full text-left text-sm">
                     <thead>
                       <tr className="border-b border-secondary-200 bg-secondary-50">
-                        <th className="px-4 py-3 font-semibold text-text">
-                          Code
+                        <th className="px-4 py-3 font-semibold text-text w-16">
+                          Sr.No
                         </th>
                         <th className="px-4 py-3 font-semibold text-text">
                           Name
@@ -291,8 +312,8 @@ export default function ContractorsPage() {
                           transition={{ delay: idx * 0.03 }}
                           className="border-b border-secondary-100 hover:bg-secondary-50/50"
                         >
-                          <td className="px-4 py-3 font-mono text-secondary-700">
-                            {c.code}
+                          <td className="px-4 py-3 text-secondary-600">
+                            {idx + 1}
                           </td>
                           <td className="px-4 py-3 font-medium text-text">
                             {c.name}
@@ -367,7 +388,7 @@ export default function ContractorsPage() {
           <div className="space-y-4">
             <p className="text-secondary-600">
               {inactiveTarget
-                ? `"${inactiveTarget.name}" (${inactiveTarget.code}) will be marked inactive. You can reactivate it later.`
+                ? `"${inactiveTarget.name}" will be marked inactive. You can reactivate it later.`
                 : ""}
             </p>
             <div className="flex gap-3 pt-2">
@@ -405,26 +426,10 @@ export default function ContractorsPage() {
               editingContractor ? "Update contractor" : "Add new contractor"
             }
           >
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="contractor-code">Contractor Master Code</Label>
-                <Input
-                  id="contractor-code"
-                  placeholder="CTR-001"
-                  disabled
-                  readOnly
-                  value={
-                    editingContractor
-                      ? editingContractor.code
-                      : nextContractorCode
-                  }
-                  className="mt-1 bg-secondary-50"
-                />
-              </div>
-              <div>
-                <Label htmlFor="contractor-name-input">
-                  Contractor Master Name *
-                </Label>
+            <div>
+              <Label htmlFor="contractor-name-input">
+                Contractor Master Name *
+              </Label>
                 <Input
                   id="contractor-name-input"
                   {...register("name")}
@@ -447,7 +452,6 @@ export default function ContractorsPage() {
                     {errors.name.message}
                   </p>
                 )}
-              </div>
             </div>
             {editingContractor && (
               <div>

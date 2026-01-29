@@ -1,13 +1,11 @@
 import { prisma } from "../external-libraries/dbClient";
 
 type CreateItemCategoryInput = {
-  code: string;
   name: string;
   isActive?: boolean;
 };
 
 type UpdateItemCategoryInput = {
-  code?: string;
   name?: string;
   isActive?: boolean;
 };
@@ -22,12 +20,6 @@ const ItemCategory = {
   findById: async (id: number) => {
     return prisma.itemCategory.findUnique({
       where: { id },
-    });
-  },
-
-  findByCode: async (code: string) => {
-    return prisma.itemCategory.findUnique({
-      where: { code },
     });
   },
 
@@ -55,13 +47,6 @@ const ItemCategory = {
       where: { id },
       data,
     });
-  },
-
-  codeExists: async (code: string): Promise<boolean> => {
-    const count = await prisma.itemCategory.count({
-      where: { code },
-    });
-    return count > 0;
   },
 
   nameExists: async (name: string): Promise<boolean> => {

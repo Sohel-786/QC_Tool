@@ -23,15 +23,15 @@ import {
   Image as ImageIcon,
   X,
   Upload,
-  RefreshCw,
-  Trash2,
+  Download,
 } from "lucide-react";
+import { CameraPhotoInput } from "@/components/ui/camera-photo-input";
+import { useMasterExportImport } from "@/hooks/use-master-export-import";
 import { toast } from "react-hot-toast";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 const itemSchema = z.object({
-  itemCode: z.string().optional(),
   itemName: z.string().min(1, "Item name is required"),
   serialNumber: z.string().min(1, "Serial number is required"),
   categoryId: z.number().min(1, "Item category is required"),
@@ -47,15 +47,17 @@ export default function ItemsPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [inactiveTarget, setInactiveTarget] = useState<Item | null>(null);
-  const [nextItemCode, setNextItemCode] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>("all");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [isDragOver, setIsDragOver] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
+  const [imageRemovedByUser, setImageRemovedByUser] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const importFileRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+  const { handleExport, handleImport, exportLoading, importLoading } =
+    useMasterExportImport("items", ["items"]);
 
   const { data: items = [], isLoading } = useQuery<Item[]>({
     queryKey: ["items"],
@@ -83,11 +85,27 @@ export default function ItemsPage() {
     register,
     handleSubmit,
     reset,
+    watch,
     formState: { errors },
     setValue,
   } = useForm<ItemForm>({
     resolver: zodResolver(itemSchema),
   });
+
+  const watchedItemName = watch("itemName");
+  const watchedSerialNumber = watch("serialNumber");
+  const watchedCategoryId = watch("categoryId");
+  const hasRequiredFields =
+    typeof watchedItemName === "string" &&
+    watchedItemName.trim().length > 0 &&
+    typeof watchedSerialNumber === "string" &&
+    watchedSerialNumber.trim().length > 0 &&
+    typeof watchedCategoryId === "number" &&
+    !Number.isNaN(watchedCategoryId) &&
+    watchedCategoryId >= 1;
+  const hasRequiredImage = editingItem
+    ? !imageRemovedByUser || !!imageFile
+    : !!imageFile;
 
   useEffect(() => {
     if (!isFormOpen) return;
@@ -155,30 +173,22 @@ export default function ItemsPage() {
     },
   });
 
-  const handleOpenForm = async (item?: Item) => {
+  const handleOpenForm = (item?: Item) => {
     if (item) {
       setEditingItem(item);
-      setValue("itemCode", item.itemCode);
       setValue("itemName", item.itemName);
       setValue("serialNumber", item.serialNumber ?? "");
       setValue("description", item.description ?? "");
       setValue("categoryId", item.categoryId ?? categories[0]?.id ?? 0);
       setValue("status", item.status);
       setValue("isActive", item.isActive);
-      setNextItemCode("");
       setImagePreview(item.image ? `${API_BASE}/storage/${item.image}` : null);
+      setImageRemovedByUser(false);
     } else {
       setEditingItem(null);
       reset();
       setImagePreview(null);
-      try {
-        const res = await api.get("/items/next-code");
-        const next = res.data?.data?.nextCode ?? "";
-        setNextItemCode(next);
-        setValue("itemCode", next);
-      } catch {
-        setNextItemCode("");
-      }
+      setImageRemovedByUser(false);
     }
     setImageFile(null);
     setImageError(null);
@@ -187,30 +197,51 @@ export default function ItemsPage() {
   };
 
   const handleCloseForm = () => {
+    if (imagePreview && imagePreview.startsWith("blob:")) {
+      URL.revokeObjectURL(imagePreview);
+    }
     setIsFormOpen(false);
     setEditingItem(null);
-    setNextItemCode("");
     setImageFile(null);
     setImagePreview(null);
-    setIsDragOver(false);
     setImageError(null);
+    setImageRemovedByUser(false);
     reset();
     createMutation.reset();
     updateMutation.reset();
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  const handleImageCapture = (file: File | null) => {
+    if (imagePreview && imagePreview.startsWith("blob:")) {
+      URL.revokeObjectURL(imagePreview);
+    }
+    setImageFile(file);
+    setImagePreview(file ? URL.createObjectURL(file) : null);
+    setImageError(null);
+    if (!file) setImageRemovedByUser(true);
+  };
+
   const onSubmit = (data: ItemForm) => {
+    const hasImage =
+      !!imageFile ||
+      (!!editingItem?.image && !imageFile && !imageRemovedByUser);
+    if (!editingItem && !imageFile) {
+      toast.error("Item image is required. Please take a photo.");
+      setImageError("Take a photo to continue.");
+      return;
+    }
+    if (editingItem && !hasImage) {
+      toast.error("Item image is required. Please take a photo.");
+      setImageError("Take a photo to continue.");
+      return;
+    }
     const fd = new FormData();
-    const code = editingItem
-      ? editingItem.itemCode
-      : data.itemCode || nextItemCode;
-    if (code) fd.append("itemCode", code);
     fd.append("itemName", (data.itemName ?? "").trim());
     fd.append("serialNumber", (data.serialNumber ?? "").trim());
     fd.append("categoryId", String(data.categoryId));
     if (data.description) fd.append("description", data.description.trim());
-    if (data.status) fd.append("status", data.status);
+    if (!editingItem && data.status) fd.append("status", data.status);
     if (data.isActive !== undefined)
       fd.append("isActive", String(data.isActive));
     if (imageFile) fd.append("image", imageFile);
@@ -231,78 +262,6 @@ export default function ItemsPage() {
     toggleActiveMutation.mutate({ id: item.id, isActive: true });
   };
 
-  const ACCEPTED_IMAGE_TYPES = [
-    "image/jpeg",
-    "image/jpg",
-    "image/png",
-    "image/webp",
-  ];
-  const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
-
-  const formatBytes = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
-
-  const validateImageFile = (f: File): string | null => {
-    if (!ACCEPTED_IMAGE_TYPES.includes(f.type)) {
-      return "Use JPG, PNG or WebP only.";
-    }
-    if (f.size > MAX_IMAGE_SIZE) {
-      return "Image must be under 5MB.";
-    }
-    return null;
-  };
-
-  const applyImageFile = (f: File) => {
-    const err = validateImageFile(f);
-    if (err) {
-      setImageError(err);
-      toast.error(err);
-      return;
-    }
-    setImageError(null);
-    setImageFile(f);
-    const r = new FileReader();
-    r.onloadend = () => setImagePreview(r.result as string);
-    r.readAsDataURL(f);
-  };
-
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    applyImageFile(f);
-    e.target.value = "";
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    const f = e.dataTransfer.files?.[0];
-    if (!f) return;
-    applyImageFile(f);
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragOver(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragOver(false);
-  };
-
-  const handleRemoveImage = () => {
-    setImageFile(null);
-    setImagePreview(null);
-    setImageError(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
-
   const filteredItems = useMemo(() => {
     let list = items;
     const q = searchTerm.trim().toLowerCase();
@@ -310,7 +269,6 @@ export default function ItemsPage() {
       list = list.filter(
         (i) =>
           i.itemName.toLowerCase().includes(q) ||
-          i.itemCode.toLowerCase().includes(q) ||
           (i.serialNumber?.toLowerCase().includes(q) ?? false),
       );
     }
@@ -344,10 +302,43 @@ export default function ItemsPage() {
               <h1 className="text-3xl font-bold text-text mb-2">Item Master</h1>
               <p className="text-secondary-600">Manage item master entries</p>
             </div>
-            <Button onClick={() => handleOpenForm()} className="shadow-md">
-              <Plus className="w-4 h-4 mr-2" />
-              Add Item
-            </Button>
+            <div className="flex items-center gap-2">
+              <input
+                type="file"
+                ref={importFileRef}
+                accept=".xlsx,.xls"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) {
+                    handleImport(f);
+                    e.target.value = "";
+                  }
+                }}
+              />
+              <Button
+                variant="outline"
+                onClick={handleExport}
+                disabled={exportLoading}
+                className="shadow-sm"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Export
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => importFileRef.current?.click()}
+                disabled={importLoading}
+                className="shadow-sm"
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Import
+              </Button>
+              <Button onClick={() => handleOpenForm()} className="shadow-md">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Item
+              </Button>
+            </div>
           </div>
 
           <Card className="shadow-sm">
@@ -400,17 +391,14 @@ export default function ItemsPage() {
                   <table className="w-full text-left text-sm">
                     <thead>
                       <tr className="border-b border-secondary-200 bg-secondary-50">
-                        <th className="px-2 py-3 font-semibold text-text w-12">
-                          Image
-                        </th>
-                        <th className="px-4 py-3 font-semibold text-text">
-                          Code
+                        <th className="px-4 py-3 font-semibold text-text w-16">
+                          Sr.No
                         </th>
                         <th className="px-4 py-3 font-semibold text-text">
                           Name
                         </th>
                         <th className="px-4 py-3 font-semibold text-text">
-                          Serial
+                          Serial Number
                         </th>
                         <th className="px-4 py-3 font-semibold text-text">
                           Category
@@ -420,6 +408,9 @@ export default function ItemsPage() {
                         </th>
                         <th className="px-4 py-3 font-semibold text-text">
                           Active
+                        </th>
+                        <th className="px-2 py-3 font-semibold text-text w-12">
+                          Image
                         </th>
                         <th className="px-4 py-3 font-semibold text-text text-right">
                           Actions
@@ -435,25 +426,8 @@ export default function ItemsPage() {
                           transition={{ delay: idx * 0.03 }}
                           className="border-b border-secondary-100 hover:bg-secondary-50/50"
                         >
-                          <td className="px-2 py-3">
-                            <div className="w-[30px] h-[30px] rounded overflow-hidden border border-secondary-200 bg-secondary-50 shrink-0">
-                              {i.image ? (
-                                <img
-                                  src={`${API_BASE}/storage/${i.image}`}
-                                  alt=""
-                                  className="w-full h-full object-cover"
-                                  width={30}
-                                  height={30}
-                                />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center">
-                                  <ImageIcon className="w-4 h-4 text-secondary-400" />
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 font-mono text-secondary-700">
-                            {i.itemCode}
+                          <td className="px-4 py-3 text-secondary-600">
+                            {idx + 1}
                           </td>
                           <td className="px-4 py-3 font-medium text-text">
                             {i.itemName}
@@ -485,6 +459,23 @@ export default function ItemsPage() {
                             >
                               {i.isActive ? "Active" : "Inactive"}
                             </span>
+                          </td>
+                          <td className="px-2 py-3">
+                            <div className="w-[30px] h-[30px] rounded overflow-hidden border border-secondary-200 bg-secondary-50 shrink-0">
+                              {i.image ? (
+                                <img
+                                  src={`${API_BASE}/storage/${i.image}`}
+                                  alt=""
+                                  className="w-full h-full object-cover"
+                                  width={30}
+                                  height={30}
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <ImageIcon className="w-4 h-4 text-secondary-400" />
+                                </div>
+                              )}
+                            </div>
                           </td>
                           <td className="px-4 py-3 text-right">
                             <div className="flex items-center justify-end gap-1">
@@ -545,7 +536,7 @@ export default function ItemsPage() {
           <div className="space-y-4">
             <p className="text-secondary-600">
               {inactiveTarget
-                ? `"${inactiveTarget.itemName}" (${inactiveTarget.itemCode}) will be marked inactive. You can reactivate it later.`
+                ? `"${inactiveTarget.itemName}" will be marked inactive. You can reactivate it later.`
                 : ""}
             </p>
             <div className="flex gap-3 pt-2">
@@ -617,24 +608,6 @@ export default function ItemsPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <Label
-                        htmlFor="item-code"
-                        className="text-sm font-medium text-secondary-700"
-                      >
-                        Item Master Code
-                      </Label>
-                      <Input
-                        id="item-code"
-                        disabled
-                        readOnly
-                        value={
-                          editingItem ? editingItem.itemCode : nextItemCode
-                        }
-                        className="mt-1.5 h-10 bg-secondary-50 border-secondary-200 text-secondary-600"
-                        aria-readonly="true"
-                      />
-                    </div>
-                    <div>
-                      <Label
                         htmlFor="serialNumber"
                         className="text-sm font-medium text-secondary-700"
                       >
@@ -704,25 +677,18 @@ export default function ItemsPage() {
                   </div>
 
                   {editingItem && (
-                    <div className="flex flex-wrap gap-6 pt-2">
+                    <div className="flex flex-wrap gap-6 pt-2 items-center">
                       <div>
-                        <Label
-                          htmlFor="status"
-                          className="text-sm font-medium text-secondary-700"
-                        >
+                        <Label className="text-sm font-medium text-secondary-700 block mb-1.5">
                           Status
                         </Label>
-                        <select
-                          id="status"
-                          {...register("status")}
-                          className="mt-1.5 flex h-10 w-full min-w-[140px] rounded-md border border-secondary-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
+                        <span
+                          className={`inline-flex px-3 py-1.5 rounded-full text-sm font-medium border ${statusColor(
+                            editingItem.status,
+                          )}`}
                         >
-                          <option value={ItemStatus.AVAILABLE}>
-                            Available
-                          </option>
-                          <option value={ItemStatus.ISSUED}>Issued</option>
-                          <option value={ItemStatus.MISSING}>Missing</option>
-                        </select>
+                          {editingItem.status}
+                        </span>
                       </div>
                       <div className="flex items-end">
                         <Label
@@ -744,110 +710,37 @@ export default function ItemsPage() {
                   )}
                 </div>
 
-                {/* Right column – image upload (~35%) */}
+                {/* Right column – camera photo */}
                 <div className="lg:min-h-[320px]">
                   <div className="rounded-xl border border-secondary-200 bg-secondary-50/50 overflow-hidden h-full min-h-[260px] flex flex-col">
-                    <div className="px-4 py-3 border-b border-secondary-200 bg-white">
-                      <h3 className="text-sm font-semibold text-text">
-                        Item Image
-                      </h3>
-                      <p className="text-xs text-secondary-500 mt-0.5">
-                        JPG, PNG or WebP · Max 5MB
-                      </p>
-                    </div>
                     <div className="flex-1 p-4 flex flex-col">
-                      <input
-                        type="file"
-                        accept="image/jpeg,image/jpg,image/png,image/webp"
-                        onChange={handleImageChange}
-                        ref={fileInputRef}
-                        className="hidden"
-                        tabIndex={-1}
-                        aria-hidden="true"
+                      <CameraPhotoInput
+                        label="Item Image"
+                        required={!editingItem}
+                        hint="Use your camera to capture the item photo"
+                        previewUrl={
+                          imagePreview ??
+                          (!imageRemovedByUser &&
+                          editingItem?.image &&
+                          !imageFile
+                            ? `${API_BASE}/storage/${editingItem.image}`
+                            : null)
+                        }
+                        onCapture={handleImageCapture}
+                        hasExistingImage={
+                          !!editingItem?.image &&
+                          !imageFile &&
+                          !imageRemovedByUser
+                        }
+                        aspectRatio="square"
                       />
-                      {imagePreview ? (
-                        <div className="flex flex-col flex-1 min-h-0">
-                          <div className="relative rounded-lg overflow-hidden border border-secondary-200 bg-white aspect-square max-h-[220px] flex-shrink-0">
-                            <img
-                              src={imagePreview}
-                              alt="Item preview"
-                              className="w-full h-full object-contain"
-                            />
-                          </div>
-                          {imageFile && (
-                            <p
-                              className="mt-2 text-xs text-secondary-600 truncate"
-                              title={imageFile.name}
-                            >
-                              {imageFile.name} · {formatBytes(imageFile.size)}
-                            </p>
-                          )}
-                          {!imageFile && editingItem?.image && (
-                            <p className="mt-2 text-xs text-secondary-600">
-                              Current image
-                            </p>
-                          )}
-                          {imageError && (
-                            <p
-                              className="mt-1 text-xs text-red-600"
-                              role="alert"
-                            >
-                              {imageError}
-                            </p>
-                          )}
-                          <div className="flex gap-2 mt-3">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => fileInputRef.current?.click()}
-                              className="flex-1"
-                            >
-                              <RefreshCw className="w-4 h-4 mr-1.5" />
-                              Replace
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={handleRemoveImage}
-                              className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
-                            >
-                              <Trash2 className="w-4 h-4 mr-1.5" />
-                              Remove
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => fileInputRef.current?.click()}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
-                              fileInputRef.current?.click();
-                            }
-                          }}
-                          onDrop={handleDrop}
-                          onDragOver={handleDragOver}
-                          onDragLeave={handleDragLeave}
-                          className={`flex-1 min-h-[200px] rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors ${isDragOver ? "border-primary-400 bg-primary-50/50" : "border-secondary-300 bg-white hover:border-primary-300 hover:bg-primary-50/30"}`}
-                          aria-label="Upload image; drag and drop or click to select"
+                      {imageError && (
+                        <p
+                          className="mt-2 text-xs text-red-600"
+                          role="alert"
                         >
-                          <Upload className="w-10 h-10 text-secondary-400" />
-                          <span className="text-sm font-medium text-secondary-600">
-                            Drag & drop or click to upload
-                          </span>
-                          <span className="text-xs text-secondary-500">
-                            JPG, PNG, WebP · Max 5MB
-                          </span>
-                          {imageError && (
-                            <p className="text-xs text-red-600" role="alert">
-                              {imageError}
-                            </p>
-                          )}
-                        </div>
+                          {imageError}
+                        </p>
                       )}
                     </div>
                   </div>
@@ -863,7 +756,12 @@ export default function ItemsPage() {
             <div className="flex-none flex gap-3 px-6 py-4 border-t border-secondary-200 bg-secondary-50/50">
               <Button
                 type="submit"
-                disabled={createMutation.isPending || updateMutation.isPending}
+                disabled={
+                  createMutation.isPending ||
+                  updateMutation.isPending ||
+                  !hasRequiredFields ||
+                  !hasRequiredImage
+                }
                 className="flex-1 bg-primary-600 hover:bg-primary-700 text-white"
                 aria-describedby="item-form-hint"
               >

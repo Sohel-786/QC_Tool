@@ -4,12 +4,14 @@ import {
   getAllItemCategories,
   getActiveItemCategories,
   getItemCategoryById,
-  getNextItemCategoryCode,
   updateItemCategory,
+  exportItemCategories,
+  importItemCategories,
 } from "../controllers/itemCategories.controller";
 import { authMiddleware } from "../middleware/auth.middleware";
 import { body } from "express-validator";
 import { validate as validateMiddleware } from "../middleware/validation.middleware";
+import { uploadImportExcel } from "../middleware/multer.middleware";
 
 const router = Router();
 
@@ -17,8 +19,15 @@ router.use(authMiddleware());
 
 router.get("/", getAllItemCategories);
 router.get("/active", getActiveItemCategories);
-router.get("/next-code", getNextItemCategoryCode);
+router.get("/export", exportItemCategories);
 router.get("/:id", getItemCategoryById);
+
+router.post(
+  "/import",
+  authMiddleware(["QC_USER", "QC_MANAGER"]),
+  uploadImportExcel.single("file"),
+  importItemCategories
+);
 
 router.post(
   "/",

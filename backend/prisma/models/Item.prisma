@@ -6,7 +6,6 @@ enum ItemStatus {
 
 model Item {
   id           Int         @id @default(autoincrement())
-  itemCode     String      @unique @map("toolCode")
   itemName     String      @map("toolName")
   serialNumber String?     @unique
   description  String?
@@ -26,7 +25,6 @@ model Item {
 
 model ItemCategory {
   id        Int      @id @default(autoincrement())
-  code      String?  @unique
   name      String   @unique
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())

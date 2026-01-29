@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import api from "@/lib/api";
@@ -13,11 +13,11 @@ import { Dialog } from "@/components/ui/dialog";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Plus, Edit2, Search, Ban, CheckCircle } from "lucide-react";
+import { Plus, Edit2, Search, Ban, CheckCircle, Download, Upload } from "lucide-react";
 import { toast } from "react-hot-toast";
+import { useMasterExportImport } from "@/hooks/use-master-export-import";
 
 const categorySchema = z.object({
-  code: z.string().optional(),
   name: z
     .string()
     .min(2, "Category name must be at least 2 characters")
@@ -40,6 +40,9 @@ export default function ItemCategoriesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>("all");
   const queryClient = useQueryClient();
+  const importFileRef = useRef<HTMLInputElement>(null);
+  const { handleExport, handleImport, exportLoading, importLoading } =
+    useMasterExportImport("item-categories", ["item-categories"]);
 
   const { data: categories = [], isLoading } = useQuery<ItemCategory[]>({
     queryKey: ["item-categories"],
@@ -69,7 +72,6 @@ export default function ItemCategoriesPage() {
 
   const createMutation = useMutation({
     mutationFn: async (data: {
-      code?: string;
       name: string;
       isActive?: boolean;
     }) => {
@@ -127,23 +129,14 @@ export default function ItemCategoriesPage() {
     },
   });
 
-  const handleOpenForm = async (category?: ItemCategory) => {
+  const handleOpenForm = (category?: ItemCategory) => {
     if (category) {
       setEditingCategory(category);
-      setValue("code", category.code ?? "");
       setValue("name", category.name);
       setValue("isActive", category.isActive);
-      setNextCategoryCode("");
     } else {
       setEditingCategory(null);
       reset();
-      try {
-        const res = await api.get("/item-categories/next-code");
-        setNextCategoryCode(res.data?.data?.nextCode ?? "");
-        setValue("code", res.data?.data?.nextCode ?? "");
-      } catch {
-        setNextCategoryCode("");
-      }
     }
     setIsFormOpen(true);
   };
@@ -151,7 +144,6 @@ export default function ItemCategoriesPage() {
   const handleCloseForm = () => {
     setIsFormOpen(false);
     setEditingCategory(null);
-    setNextCategoryCode("");
     reset();
     createMutation.reset();
     updateMutation.reset();
@@ -167,7 +159,6 @@ export default function ItemCategoriesPage() {
       updateMutation.mutate({ id: editingCategory.id, data });
     } else {
       createMutation.mutate({
-        code: data.code || nextCategoryCode || undefined,
         name,
         isActive: data.isActive,
       });
@@ -187,11 +178,7 @@ export default function ItemCategoriesPage() {
     let list = categories;
     const q = searchTerm.trim().toLowerCase();
     if (q) {
-      list = list.filter(
-        (c) =>
-          c.name.toLowerCase().includes(q) ||
-          (c.code?.toLowerCase().includes(q) ?? false),
-      );
+      list = list.filter((c) => c.name.toLowerCase().includes(q));
     }
     if (activeFilter === "active") list = list.filter((c) => c.isActive);
     if (activeFilter === "inactive") list = list.filter((c) => !c.isActive);
@@ -214,10 +201,43 @@ export default function ItemCategoriesPage() {
                 Manage item category master entries
               </p>
             </div>
-            <Button onClick={() => handleOpenForm()} className="shadow-md">
-              <Plus className="w-4 h-4 mr-2" />
-              Add Item Category
-            </Button>
+            <div className="flex items-center gap-2">
+              <input
+                type="file"
+                ref={importFileRef}
+                accept=".xlsx,.xls"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) {
+                    handleImport(f);
+                    e.target.value = "";
+                  }
+                }}
+              />
+              <Button
+                variant="outline"
+                onClick={handleExport}
+                disabled={exportLoading}
+                className="shadow-sm"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Export
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => importFileRef.current?.click()}
+                disabled={importLoading}
+                className="shadow-sm"
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Import
+              </Button>
+              <Button onClick={() => handleOpenForm()} className="shadow-md">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Item Category
+              </Button>
+            </div>
           </div>
 
           <Card className="shadow-sm">
@@ -226,7 +246,7 @@ export default function ItemCategoriesPage() {
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400 w-5 h-5" />
                   <Input
-                    placeholder="Search by master name or code..."
+                    placeholder="Search by name..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10"
@@ -272,8 +292,8 @@ export default function ItemCategoriesPage() {
                   <table className="w-full text-left text-sm">
                     <thead>
                       <tr className="border-b border-secondary-200 bg-secondary-50">
-                        <th className="px-4 py-3 font-semibold text-text">
-                          Code
+                        <th className="px-4 py-3 font-semibold text-text w-16">
+                          Sr.No
                         </th>
                         <th className="px-4 py-3 font-semibold text-text">
                           Name
@@ -295,8 +315,8 @@ export default function ItemCategoriesPage() {
                           transition={{ delay: idx * 0.03 }}
                           className="border-b border-secondary-100 hover:bg-secondary-50/50"
                         >
-                          <td className="px-4 py-3 font-mono text-secondary-700">
-                            {c.code ?? "—"}
+                          <td className="px-4 py-3 text-secondary-600">
+                            {idx + 1}
                           </td>
                           <td className="px-4 py-3 font-medium text-text">
                             {c.name}
@@ -371,7 +391,7 @@ export default function ItemCategoriesPage() {
           <div className="space-y-4">
             <p className="text-secondary-600">
               {inactiveTarget
-                ? `"${inactiveTarget.name}"${inactiveTarget.code ? ` (${inactiveTarget.code})` : ""} will be marked inactive. You can reactivate it later.`
+                ? `"${inactiveTarget.name}" will be marked inactive. You can reactivate it later.`
                 : ""}
             </p>
             <div className="flex gap-3 pt-2">
@@ -413,26 +433,10 @@ export default function ItemCategoriesPage() {
               editingCategory ? "Update category" : "Add new category"
             }
           >
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="category-code">Category Code</Label>
-                <Input
-                  id="category-code"
-                  placeholder="CAT-001"
-                  disabled
-                  readOnly
-                  value={
-                    editingCategory
-                      ? (editingCategory.code ?? nextCategoryCode)
-                      : nextCategoryCode
-                  }
-                  className="mt-1 bg-secondary-50"
-                />
-              </div>
-              <div>
-                <Label htmlFor="category-name-input">
-                  Item Category Master Name *
-                </Label>
+            <div>
+              <Label htmlFor="category-name-input">
+                Item Category Master Name *
+              </Label>
                 <Input
                   id="category-name-input"
                   {...register("name")}
@@ -453,7 +457,6 @@ export default function ItemCategoriesPage() {
                     {errors.name.message}
                   </p>
                 )}
-              </div>
             </div>
             {editingCategory && (
               <div>

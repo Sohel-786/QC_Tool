@@ -16,6 +16,10 @@ interface DialogProps {
   overlayClassName?: string;
   /** When false, content area uses overflow-hidden and flex column; use for forms with internal scroll + sticky footer */
   contentScroll?: boolean;
+  /** When false, clicking the backdrop does not close the dialog (default true) */
+  closeOnBackdropClick?: boolean;
+  /** When true, the header close (X) button is disabled */
+  closeButtonDisabled?: boolean;
 }
 
 export function Dialog({
@@ -26,6 +30,8 @@ export function Dialog({
   size = "md",
   overlayClassName,
   contentScroll = true,
+  closeOnBackdropClick = true,
+  closeButtonDisabled = false,
 }: DialogProps) {
   // Lock body scroll when dialog is open
   useEffect(() => {
@@ -50,12 +56,15 @@ export function Dialog({
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Backdrop with blur */}
+          {/* Backdrop with blur - stopPropagation so nested dialogs don't close parent */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={onClose}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (closeOnBackdropClick) onClose();
+            }}
             className={cn(
               "fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-start justify-center p-4 pt-20",
               overlayClassName,
@@ -76,10 +85,17 @@ export function Dialog({
               <div className="flex items-center justify-between p-6 border-b border-secondary-200">
                 <h2 className="text-xl font-semibold text-text">{title}</h2>
                 <Button
+                  type="button"
                   variant="ghost"
                   size="sm"
-                  onClick={onClose}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    onClose();
+                  }}
+                  disabled={closeButtonDisabled}
                   className="h-8 w-8 p-0"
+                  title={closeButtonDisabled ? "Please wait" : "Close"}
                 >
                   <X className="h-4 w-4" />
                 </Button>

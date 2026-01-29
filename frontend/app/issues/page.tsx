@@ -25,17 +25,24 @@ import { Dialog } from "@/components/ui/dialog";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Plus, ArrowRight } from "lucide-react";
-import { formatDate, formatDateTime } from "@/lib/utils";
+import { Plus, Edit2, Ban, CheckCircle, LogIn } from "lucide-react";
+import { formatDate } from "@/lib/utils";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { toast } from "react-hot-toast";
+import {
+  TransactionFilters,
+  defaultFilters,
+  type TransactionFiltersState,
+} from "@/components/filters/transaction-filters";
+import { buildFilterParams, hasActiveFilters } from "@/lib/filters";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
 const issueSchema = z.object({
   categoryId: z.number().min(1, "Item category is required"),
   itemId: z.number().min(1, "Item is required"),
-  companyId: z.number().optional(),
-  contractorId: z.number().optional(),
-  machineId: z.number().optional(),
+  companyId: z.number().min(1, "Company is required"),
+  contractorId: z.number().min(1, "Contractor is required"),
+  machineId: z.number().min(1, "Machine is required"),
   issuedTo: z.string().optional(),
   remarks: z.string().optional(),
 });
@@ -44,16 +51,27 @@ type IssueForm = z.infer<typeof issueSchema>;
 
 export default function IssuesPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
+  const [inactiveTarget, setInactiveTarget] = useState<Issue | null>(null);
   const [nextIssueCode, setNextIssueCode] = useState<string>("");
+  const [filters, setFilters] = useState<TransactionFiltersState>(defaultFilters);
   const queryClient = useQueryClient();
   const router = useRouter();
   const { user: currentUser } = useCurrentUser();
   const isManager = currentUser?.role === Role.QC_MANAGER;
+  const isViewOnly = !!editingIssue?.isReturned;
 
-  const { data: issues = [] } = useQuery<Issue[]>({
-    queryKey: ["issues"],
+  const debouncedSearch = useDebouncedValue(filters.search, 400);
+  const filtersForApi = useMemo(
+    () => ({ ...filters, search: debouncedSearch }),
+    [filters, debouncedSearch],
+  );
+  const filterKey = useMemo(() => JSON.stringify(filtersForApi), [filtersForApi]);
+
+  const { data: issues = [], isFetching: issuesLoading } = useQuery<Issue[]>({
+    queryKey: ["issues", filterKey],
     queryFn: async () => {
-      const res = await api.get("/issues");
+      const res = await api.get("/issues", { params: buildFilterParams(filtersForApi) });
       return res.data?.data ?? [];
     },
   });
@@ -90,6 +108,14 @@ export default function IssuesPage() {
     },
   });
 
+  const { data: filterItems = [] } = useQuery<Item[]>({
+    queryKey: ["items", "active"],
+    queryFn: async () => {
+      const res = await api.get("/items/active");
+      return res.data?.data ?? [];
+    },
+  });
+
   const {
     register,
     handleSubmit,
@@ -103,6 +129,26 @@ export default function IssuesPage() {
 
   const selectedCategoryId = watch("categoryId");
   const selectedItemId = watch("itemId");
+  const watchedCompanyId = watch("companyId");
+  const watchedContractorId = watch("contractorId");
+  const watchedMachineId = watch("machineId");
+
+  const hasAllRequired =
+    typeof selectedCategoryId === "number" &&
+    !Number.isNaN(selectedCategoryId) &&
+    selectedCategoryId >= 1 &&
+    typeof selectedItemId === "number" &&
+    !Number.isNaN(selectedItemId) &&
+    selectedItemId >= 1 &&
+    typeof watchedCompanyId === "number" &&
+    !Number.isNaN(watchedCompanyId) &&
+    watchedCompanyId >= 1 &&
+    typeof watchedContractorId === "number" &&
+    !Number.isNaN(watchedContractorId) &&
+    watchedContractorId >= 1 &&
+    typeof watchedMachineId === "number" &&
+    !Number.isNaN(watchedMachineId) &&
+    watchedMachineId >= 1;
 
   const { data: itemsByCategory = [], isLoading: itemsLoading } = useQuery<
     Item[]
@@ -130,6 +176,7 @@ export default function IssuesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["issues"] });
+      queryClient.invalidateQueries({ queryKey: ["active-issues"] });
       queryClient.invalidateQueries({ queryKey: ["items-by-category"] });
       queryClient.invalidateQueries({ queryKey: ["available-items"] });
       handleCloseForm();
@@ -143,15 +190,81 @@ export default function IssuesPage() {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: Partial<IssueForm> }) => {
+      const res = await api.patch(`/issues/${id}`, {
+        companyId: data.companyId ?? undefined,
+        contractorId: data.contractorId ?? undefined,
+        machineId: data.machineId ?? undefined,
+        issuedTo: data.issuedTo ?? undefined,
+        remarks: data.remarks ?? undefined,
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["issues"] });
+      queryClient.invalidateQueries({ queryKey: ["active-issues"] });
+      handleCloseForm();
+      toast.success("Outward entry updated");
+    },
+    onError: (e: unknown) => {
+      const msg =
+        (e as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message ?? "Failed to update outward entry.";
+      toast.error(msg);
+    },
+  });
+
+  const setInactiveMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await api.patch(`/issues/${id}/inactive`);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["issues"] });
+      queryClient.invalidateQueries({ queryKey: ["active-issues"] });
+      setInactiveTarget(null);
+      toast.success("Outward marked inactive");
+    },
+    onError: (e: unknown) => {
+      const msg =
+        (e as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message ?? "Failed to update.";
+      toast.error(msg);
+    },
+  });
+
+  const setActiveMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await api.patch(`/issues/${id}/active`);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["issues"] });
+      queryClient.invalidateQueries({ queryKey: ["active-issues"] });
+      toast.success("Outward marked active");
+    },
+    onError: (e: unknown) => {
+      const msg =
+        (e as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message ?? "Failed to update.";
+      toast.error(msg);
+    },
+  });
+
   useEffect(() => {
     if (!isFormOpen) return;
     const t = setTimeout(() => {
-      document.getElementById("outward-category-id")?.focus();
+      const el = editingIssue
+        ? document.getElementById("outward-company-id")
+        : document.getElementById("outward-category-id");
+      el?.focus();
     }, 100);
     return () => clearTimeout(t);
-  }, [isFormOpen]);
+  }, [isFormOpen, editingIssue]);
 
   const handleOpenForm = async () => {
+    setEditingIssue(null);
     reset();
     try {
       const res = await api.get("/issues/next-code");
@@ -162,25 +275,70 @@ export default function IssuesPage() {
     setIsFormOpen(true);
   };
 
+  const handleOpenEdit = (issue: Issue) => {
+    setEditingIssue(issue);
+    setNextIssueCode("");
+    reset();
+    setValue("categoryId", issue.item?.categoryId ?? 0);
+    setValue("itemId", issue.itemId);
+    setValue("companyId", issue.companyId ?? undefined);
+    setValue("contractorId", issue.contractorId ?? undefined);
+    setValue("machineId", issue.machineId ?? undefined);
+    setValue("issuedTo", issue.issuedTo ?? "");
+    setValue("remarks", issue.remarks ?? "");
+    setIsFormOpen(true);
+  };
+
   const handleCloseForm = () => {
     setIsFormOpen(false);
+    setEditingIssue(null);
     reset();
     setNextIssueCode("");
     createMutation.reset();
+    updateMutation.reset();
   };
 
   const onSubmit = (data: IssueForm) => {
-    createMutation.mutate({
-      ...data,
-      categoryId: Number(data.categoryId),
-      itemId: Number(data.itemId),
-    });
+    if (editingIssue) {
+      if (editingIssue.isReturned) return;
+      updateMutation.mutate({
+        id: editingIssue.id,
+        data: {
+          companyId: data.companyId,
+          contractorId: data.contractorId,
+          machineId: data.machineId,
+          issuedTo: data.issuedTo,
+          remarks: data.remarks,
+        },
+      });
+    } else {
+      createMutation.mutate({
+        ...data,
+        categoryId: Number(data.categoryId),
+        itemId: Number(data.itemId),
+      });
+    }
   };
+
+  const handleMarkInactiveConfirm = () => {
+    if (!inactiveTarget) return;
+    setInactiveMutation.mutate(inactiveTarget.id);
+  };
+
+  const filterOptions = useMemo(
+    () => ({
+      company: companies.map((c) => ({ value: c.id, label: c.name })),
+      contractor: contractors.map((c) => ({ value: c.id, label: c.name })),
+      machine: machines.map((m) => ({ value: m.id, label: m.name })),
+      item: filterItems.map((i) => ({ value: i.id, label: i.serialNumber ? `${i.itemName} (${i.serialNumber})` : i.itemName })),
+    }),
+    [companies, contractors, machines, filterItems],
+  );
 
   const itemSelectOptions = useMemo(() => {
     return itemsByCategory.map((item) => ({
       value: item.id,
-      label: `${item.itemName} (${item.itemCode})${item.status !== ItemStatus.AVAILABLE ? ` — ${item.status}` : ""}`,
+      label: `${item.itemName}${item.serialNumber ? ` (${item.serialNumber})` : ""}${item.status !== ItemStatus.AVAILABLE ? ` — ${item.status}` : ""}`,
       disabled: item.status !== ItemStatus.AVAILABLE,
     }));
   }, [itemsByCategory]);
@@ -213,42 +371,61 @@ export default function IssuesPage() {
             )}
           </div>
 
+          <TransactionFilters
+            filters={filters}
+            onFiltersChange={setFilters}
+            companyOptions={filterOptions.company}
+            contractorOptions={filterOptions.contractor}
+            machineOptions={filterOptions.machine}
+            itemOptions={filterOptions.item}
+            onClear={() => setFilters(defaultFilters)}
+            searchPlaceholder="Search by outward no., item, company, operator…"
+            className="shadow-sm"
+          />
+
           <Card className="shadow-sm">
             <CardHeader>
               <CardTitle>Outward Entries ({issues.length})</CardTitle>
             </CardHeader>
             <CardContent>
-              {issues.length > 0 ? (
+              {issuesLoading ? (
+                <div className="flex justify-center py-12">
+                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-600 border-t-transparent" />
+                </div>
+              ) : issues.length > 0 ? (
                 <div className="overflow-x-auto rounded-lg border border-secondary-200">
                   <table className="w-full text-left text-sm">
                     <thead>
                       <tr className="border-b border-secondary-200 bg-secondary-50">
-                        <th className="px-4 py-3 font-semibold text-text">
+                        <th className="px-4 py-3 font-semibold text-text text-center">
                           Issue No
                         </th>
-                        <th className="px-4 py-3 font-semibold text-text">
+                        <th className="px-4 py-3 font-semibold text-text text-center">
                           Outward Date
                         </th>
-                        <th className="px-4 py-3 font-semibold text-text">
+                        <th className="px-4 py-3 font-semibold text-text text-center">
                           Item
                         </th>
-                        <th className="px-4 py-3 font-semibold text-text">
+                        <th className="px-4 py-3 font-semibold text-text text-center">
                           Company
                         </th>
-                        <th className="px-4 py-3 font-semibold text-text">
+                        <th className="px-4 py-3 font-semibold text-text text-center">
                           Contractor
                         </th>
-                        <th className="px-4 py-3 font-semibold text-text">
+                        <th className="px-4 py-3 font-semibold text-text text-center">
                           Machine
                         </th>
-                        <th className="px-4 py-3 font-semibold text-text">
+                        <th className="px-4 py-3 font-semibold text-text text-center">
                           Operator
                         </th>
-                        <th className="px-4 py-3 font-semibold text-text">
+                        <th className="px-4 py-3 font-semibold text-text text-center">
+                          Status
+                        </th>
+                        <th className="px-4 py-3 font-semibold text-text text-center">
                           Inward Done
                         </th>
                         {!isManager && (
-                          <th className="px-4 py-3 font-semibold text-text text-right">
+                          <th className="px-4 py-3 font-semibold text-text text-center min-w-[200px]">
                             Actions
                           </th>
                         )}
@@ -263,28 +440,39 @@ export default function IssuesPage() {
                           transition={{ delay: idx * 0.02 }}
                           className="border-b border-secondary-100 hover:bg-secondary-50/50"
                         >
-                          <td className="px-4 py-3 font-mono text-secondary-700">
+                          <td className="px-4 py-3 font-mono text-secondary-700 text-center">
                             {issue.issueNo}
                           </td>
-                          <td className="px-4 py-3 text-secondary-600">
+                          <td className="px-4 py-3 text-secondary-600 text-center">
                             {formatDate(issue.issuedAt)}
                           </td>
-                          <td className="px-4 py-3 font-medium text-text">
+                          <td className="px-4 py-3 font-medium text-text text-center">
                             {issue.item?.itemName ?? "—"}
                           </td>
-                          <td className="px-4 py-3 text-secondary-600">
+                          <td className="px-4 py-3 text-secondary-600 text-center">
                             {issue.company?.name ?? "—"}
                           </td>
-                          <td className="px-4 py-3 text-secondary-600">
+                          <td className="px-4 py-3 text-secondary-600 text-center">
                             {issue.contractor?.name ?? "—"}
                           </td>
-                          <td className="px-4 py-3 text-secondary-600">
+                          <td className="px-4 py-3 text-secondary-600 text-center">
                             {issue.machine?.name ?? "—"}
                           </td>
-                          <td className="px-4 py-3 text-secondary-600">
+                          <td className="px-4 py-3 text-secondary-600 text-center">
                             {issue.issuedTo ?? "—"}
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-3 text-center">
+                            <span
+                              className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${
+                                issue.isActive
+                                  ? "bg-green-100 text-green-700 border border-green-200"
+                                  : "bg-red-100 text-red-700 border border-red-200"
+                              }`}
+                            >
+                              {issue.isActive ? "Active" : "Inactive"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-center">
                             <span
                               className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${
                                 issue.isReturned
@@ -296,18 +484,53 @@ export default function IssuesPage() {
                             </span>
                           </td>
                           {!isManager && (
-                            <td className="px-4 py-3 text-right">
-                              {!issue.isReturned && (
+                            <td className="px-4 py-3 min-w-[200px]">
+                              <div className="flex flex-nowrap items-center justify-center gap-1 whitespace-nowrap">
+                                {!issue.isReturned && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => goToInward(issue)}
+                                    className="shrink-0 text-primary-600 border-primary-200 hover:bg-primary-50 hover:border-primary-300"
+                                  >
+                                    <LogIn className="w-4 h-4 mr-1" />
+                                    Inward
+                                  </Button>
+                                )}
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => goToInward(issue)}
-                                  className="text-primary-600 hover:bg-primary-50"
+                                  onClick={() => handleOpenEdit(issue)}
+                                  title={issue.isReturned ? "View only (inward done)" : "Edit outward"}
+                                  className="shrink-0"
                                 >
-                                  <ArrowRight className="w-4 h-4 mr-1" />
-                                  Go to Inward
+                                  <Edit2 className="w-4 h-4" />
                                 </Button>
-                              )}
+                                {issue.isActive && !issue.isReturned && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setInactiveTarget(issue)}
+                                    title="Mark outward inactive"
+                                    className="shrink-0 text-amber-600 hover:bg-amber-50"
+                                    disabled={setInactiveMutation.isPending}
+                                  >
+                                    <Ban className="w-4 h-4" />
+                                  </Button>
+                                )}
+                                {!issue.isActive && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setActiveMutation.mutate(issue.id)}
+                                    title="Mark outward active"
+                                    className="shrink-0 text-green-600 hover:bg-green-50"
+                                    disabled={setActiveMutation.isPending}
+                                  >
+                                    <CheckCircle className="w-4 h-4" />
+                                  </Button>
+                                )}
+                              </div>
                             </td>
                           )}
                         </motion.tr>
@@ -318,7 +541,9 @@ export default function IssuesPage() {
               ) : (
                 <div className="text-center py-12">
                   <p className="text-secondary-500 text-lg">
-                    No outward entries yet. Create one above.
+                    {hasActiveFilters(filters)
+                      ? "No outward entries match your filters."
+                      : "No outward entries yet. Create one above."}
                   </p>
                 </div>
               )}
@@ -327,9 +552,49 @@ export default function IssuesPage() {
         </div>
 
         <Dialog
+          isOpen={!!inactiveTarget}
+          onClose={() => setInactiveTarget(null)}
+          title="Mark outward inactive?"
+          size="sm"
+        >
+          <div className="space-y-4">
+            <p className="text-secondary-600">
+              {inactiveTarget
+                ? `"${inactiveTarget.issueNo}" — ${inactiveTarget.item?.itemName ?? "Item"} will be marked inactive. You can reactivate it later.`
+                : ""}
+            </p>
+            <div className="flex gap-3 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setInactiveTarget(null)}
+                className="flex-1"
+                disabled={setInactiveMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                className="flex-1 bg-amber-600 hover:bg-amber-700"
+                onClick={handleMarkInactiveConfirm}
+                disabled={setInactiveMutation.isPending}
+              >
+                {setInactiveMutation.isPending ? "Updating…" : "Mark inactive"}
+              </Button>
+            </div>
+          </div>
+        </Dialog>
+
+        <Dialog
           isOpen={isFormOpen}
           onClose={handleCloseForm}
-          title="Outward Entry"
+          title={
+            editingIssue
+              ? editingIssue.isReturned
+                ? "View Outward"
+                : "Edit Outward"
+              : "Outward Entry"
+          }
           size="2xl"
           contentScroll={false}
         >
@@ -340,7 +605,7 @@ export default function IssuesPage() {
           >
             <div className="flex-1 min-h-0 overflow-y-auto px-6 pt-6 pb-4">
               <div className="space-y-5">
-                {nextIssueCode && (
+                {(nextIssueCode || editingIssue) && (
                   <div>
                     <Label
                       htmlFor="outward-issue-no"
@@ -350,7 +615,7 @@ export default function IssuesPage() {
                     </Label>
                     <Input
                       id="outward-issue-no"
-                      value={nextIssueCode}
+                      value={editingIssue ? editingIssue.issueNo : nextIssueCode}
                       disabled
                       readOnly
                       className="mt-1.5 h-10 bg-secondary-50 border-secondary-200"
@@ -359,69 +624,92 @@ export default function IssuesPage() {
                 )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <Label
-                      htmlFor="outward-category-id"
-                      className="text-sm font-medium text-secondary-700"
-                    >
-                      Item Category <span className="text-red-500">*</span>
-                    </Label>
-                    <select
-                      id="outward-category-id"
-                      value={selectedCategoryId ?? ""}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        const n = v ? Number(v) : 0;
-                        setValue("categoryId", n);
-                        setValue("itemId", 0 as any);
-                      }}
-                      className="mt-1.5 flex h-10 w-full rounded-md border border-secondary-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
-                      aria-required="true"
-                    >
-                      <option value="">Select category</option>
-                      {categories.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                    {errors.categoryId && (
-                      <p className="text-sm text-red-600 mt-1" role="alert">
-                        {errors.categoryId.message}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label
-                      htmlFor="outward-item-id"
-                      className="text-sm font-medium text-secondary-700"
-                    >
-                      Item <span className="text-red-500">*</span>
-                    </Label>
-                    <div className="mt-1.5">
-                      <SearchableSelect
-                        id="outward-item-id"
-                        options={itemSelectOptions}
-                        value={selectedItemId ?? ""}
-                        onChange={(v) => setValue("itemId", Number(v))}
-                        placeholder={
-                          selectedCategoryId
-                            ? "Select item"
-                            : "Select category first"
-                        }
-                        disabled={
-                          !selectedCategoryId || selectedCategoryId === 0
-                        }
-                        searchPlaceholder="Search items..."
-                        error={errors.itemId?.message}
-                      />
-                    </div>
-                    {/* {selectedCategoryId && itemsLoading && (
-                      <p className="text-xs text-secondary-500 mt-1">
-                        Loading items…
-                      </p>
-                    )} */}
-                  </div>
+                  {editingIssue ? (
+                    <>
+                      <div>
+                        <Label className="text-sm font-medium text-secondary-700">
+                          Item Category
+                        </Label>
+                        <p className="mt-1.5 h-10 px-3 py-2 rounded-md border border-secondary-200 bg-secondary-50 text-sm text-secondary-700 flex items-center">
+                          {editingIssue.item?.categoryId != null
+                            ? categories.find(
+                                (c) => c.id === editingIssue.item?.categoryId
+                              )?.name ?? "—"
+                            : "—"}
+                        </p>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-secondary-700">
+                          Item
+                        </Label>
+                        <p className="mt-1.5 h-10 px-3 py-2 rounded-md border border-secondary-200 bg-secondary-50 text-sm text-secondary-700 flex items-center">
+                          {editingIssue.item?.itemName ?? "—"}
+                        </p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div>
+                        <Label
+                          htmlFor="outward-category-id"
+                          className="text-sm font-medium text-secondary-700"
+                        >
+                          Item Category <span className="text-red-500">*</span>
+                        </Label>
+                        <select
+                          id="outward-category-id"
+                          value={selectedCategoryId ?? ""}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            const n = v ? Number(v) : 0;
+                            setValue("categoryId", n);
+                            setValue("itemId", 0 as any);
+                          }}
+                          className="mt-1.5 flex h-10 w-full rounded-md border border-secondary-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
+                          aria-required="true"
+                        >
+                          <option value="">Select category</option>
+                          {categories.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </select>
+                        {errors.categoryId && (
+                          <p className="text-sm text-red-600 mt-1" role="alert">
+                            {errors.categoryId.message}
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <Label
+                          htmlFor="outward-item-id"
+                          className="text-sm font-medium text-secondary-700"
+                        >
+                          Item <span className="text-red-500">*</span>
+                        </Label>
+                        <div className="mt-1.5">
+                          <SearchableSelect
+                            id="outward-item-id"
+                            options={itemSelectOptions}
+                            value={selectedItemId ?? ""}
+                            onChange={(v) => setValue("itemId", Number(v))}
+                            placeholder={
+                              selectedCategoryId
+                                ? "Select item"
+                                : "Select category first"
+                            }
+                            disabled={
+                              !selectedCategoryId ||
+                              selectedCategoryId === 0
+                            }
+                            searchPlaceholder="Search items..."
+                            error={errors.itemId?.message}
+                          />
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -430,10 +718,7 @@ export default function IssuesPage() {
                       htmlFor="outward-company-id"
                       className="text-sm font-medium text-secondary-700"
                     >
-                      Company{" "}
-                      <span className="text-secondary-400 font-normal">
-                        (optional)
-                      </span>
+                      Company <span className="text-red-500">*</span>
                     </Label>
                     <select
                       id="outward-company-id"
@@ -441,7 +726,9 @@ export default function IssuesPage() {
                         setValueAs: (v) =>
                           v === "" || v == null ? undefined : Number(v),
                       })}
-                      className="mt-1.5 flex h-10 w-full rounded-md border border-secondary-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
+                      disabled={isViewOnly}
+                      className="mt-1.5 flex h-10 w-full rounded-md border border-secondary-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 disabled:opacity-60 disabled:cursor-not-allowed"
+                      aria-required="true"
                     >
                       <option value="">Select company</option>
                       {companies.map((c) => (
@@ -450,16 +737,18 @@ export default function IssuesPage() {
                         </option>
                       ))}
                     </select>
+                    {errors.companyId && (
+                      <p className="mt-1 text-sm text-red-600" role="alert">
+                        {errors.companyId.message}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <Label
                       htmlFor="outward-contractor-id"
                       className="text-sm font-medium text-secondary-700"
                     >
-                      Contractor{" "}
-                      <span className="text-secondary-400 font-normal">
-                        (optional)
-                      </span>
+                      Contractor <span className="text-red-500">*</span>
                     </Label>
                     <select
                       id="outward-contractor-id"
@@ -467,7 +756,9 @@ export default function IssuesPage() {
                         setValueAs: (v) =>
                           v === "" || v == null ? undefined : Number(v),
                       })}
-                      className="mt-1.5 flex h-10 w-full rounded-md border border-secondary-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
+                      disabled={isViewOnly}
+                      className="mt-1.5 flex h-10 w-full rounded-md border border-secondary-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 disabled:opacity-60 disabled:cursor-not-allowed"
+                      aria-required="true"
                     >
                       <option value="">Select contractor</option>
                       {contractors.map((c) => (
@@ -476,16 +767,18 @@ export default function IssuesPage() {
                         </option>
                       ))}
                     </select>
+                    {errors.contractorId && (
+                      <p className="mt-1 text-sm text-red-600" role="alert">
+                        {errors.contractorId.message}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <Label
                       htmlFor="outward-machine-id"
                       className="text-sm font-medium text-secondary-700"
                     >
-                      Machine{" "}
-                      <span className="text-secondary-400 font-normal">
-                        (optional)
-                      </span>
+                      Machine <span className="text-red-500">*</span>
                     </Label>
                     <select
                       id="outward-machine-id"
@@ -493,7 +786,9 @@ export default function IssuesPage() {
                         setValueAs: (v) =>
                           v === "" || v == null ? undefined : Number(v),
                       })}
-                      className="mt-1.5 flex h-10 w-full rounded-md border border-secondary-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
+                      disabled={isViewOnly}
+                      className="mt-1.5 flex h-10 w-full rounded-md border border-secondary-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 disabled:opacity-60 disabled:cursor-not-allowed"
+                      aria-required="true"
                     >
                       <option value="">Select machine</option>
                       {machines.map((m) => (
@@ -502,6 +797,11 @@ export default function IssuesPage() {
                         </option>
                       ))}
                     </select>
+                    {errors.machineId && (
+                      <p className="mt-1 text-sm text-red-600" role="alert">
+                        {errors.machineId.message}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <Label
@@ -517,7 +817,8 @@ export default function IssuesPage() {
                       id="outward-operator"
                       {...register("issuedTo")}
                       placeholder="Operator name"
-                      className="mt-1.5 h-10 border-secondary-300 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
+                      disabled={isViewOnly}
+                      className="mt-1.5 h-10 border-secondary-300 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 disabled:opacity-60 disabled:cursor-not-allowed"
                     />
                   </div>
                 </div>
@@ -537,7 +838,8 @@ export default function IssuesPage() {
                     {...register("remarks")}
                     placeholder="Optional remarks..."
                     rows={3}
-                    className="mt-1.5 border-secondary-300 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 resize-y"
+                    disabled={isViewOnly}
+                    className="mt-1.5 border-secondary-300 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 resize-y disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
               </div>
@@ -548,19 +850,29 @@ export default function IssuesPage() {
             </p>
 
             <div className="flex-none flex gap-3 px-6 py-4 border-t border-secondary-200 bg-secondary-50/50">
-              <Button
-                type="submit"
-                disabled={createMutation.isPending}
-                className="flex-1 bg-primary-600 hover:bg-primary-700 text-white"
-                aria-describedby="outward-form-hint"
-              >
-                {createMutation.isPending ? "Saving…" : "Save"}
-              </Button>
+              {!isViewOnly && (
+                <Button
+                  type="submit"
+                  disabled={
+                    createMutation.isPending ||
+                    updateMutation.isPending ||
+                    !hasAllRequired
+                  }
+                  className="flex-1 bg-primary-600 hover:bg-primary-700 text-white"
+                  aria-describedby="outward-form-hint"
+                >
+                  {createMutation.isPending || updateMutation.isPending
+                    ? "Saving…"
+                    : editingIssue
+                      ? "Update"
+                      : "Save"}
+                </Button>
+              )}
               <Button
                 type="button"
                 variant="outline"
                 onClick={handleCloseForm}
-                className="flex-1 border-secondary-300"
+                className={isViewOnly ? "flex-1" : "flex-1 border-secondary-300"}
               >
                 Close
               </Button>

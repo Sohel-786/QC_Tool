@@ -1,13 +1,11 @@
 import { prisma } from "../external-libraries/dbClient";
 
 type CreateStatusInput = {
-  code: string;
   name: string;
   isActive?: boolean;
 };
 
 type UpdateStatusInput = {
-  code?: string;
   name?: string;
   isActive?: boolean;
 };
@@ -22,12 +20,6 @@ const Status = {
   findById: async (id: number) => {
     return prisma.status.findUnique({
       where: { id },
-    });
-  },
-
-  findByCode: async (code: string) => {
-    return prisma.status.findUnique({
-      where: { code },
     });
   },
 
@@ -49,13 +41,6 @@ const Status = {
       where: { id },
       data,
     });
-  },
-
-  codeExists: async (code: string): Promise<boolean> => {
-    const count = await prisma.status.count({
-      where: { code },
-    });
-    return count > 0;
   },
 
   getCount: async (): Promise<number> => {

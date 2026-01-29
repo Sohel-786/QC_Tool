@@ -1,4 +1,6 @@
 import { prisma } from "../external-libraries/dbClient";
+import type { Prisma } from "@prisma/client";
+import type { TransactionListFilters } from "../types/filter";
 
 type CreateIssueInput = {
   issueNo: string;
@@ -6,9 +8,9 @@ type CreateIssueInput = {
   issuedBy: number;
   issuedTo?: string;
   remarks?: string;
-  companyId?: number;
-  contractorId?: number;
-  machineId?: number;
+  companyId: number;
+  contractorId: number;
+  machineId: number;
 };
 
 const Issue = {
@@ -20,9 +22,9 @@ const Issue = {
         issuedBy: data.issuedBy,
         issuedTo: data.issuedTo ?? null,
         remarks: data.remarks ?? null,
-        companyId: data.companyId ?? null,
-        contractorId: data.contractorId ?? null,
-        machineId: data.machineId ?? null,
+        companyId: data.companyId,
+        contractorId: data.contractorId,
+        machineId: data.machineId,
       },
       include: {
         item: true,
@@ -113,6 +115,54 @@ const Issue = {
     });
   },
 
+  findAllFiltered: async (filters: TransactionListFilters) => {
+    const conditions: Prisma.IssueWhereInput[] = [];
+    if (filters.status === "active") conditions.push({ isActive: true });
+    if (filters.status === "inactive") conditions.push({ isActive: false });
+    if (filters.companyIds.length) conditions.push({ companyId: { in: filters.companyIds } });
+    if (filters.contractorIds.length) conditions.push({ contractorId: { in: filters.contractorIds } });
+    if (filters.machineIds.length) conditions.push({ machineId: { in: filters.machineIds } });
+    if (filters.itemIds.length) conditions.push({ itemId: { in: filters.itemIds } });
+    if (filters.operatorName.length) {
+      conditions.push({
+        issuedTo: { contains: filters.operatorName },
+      });
+    }
+    const searchTerm = filters.search?.trim() ?? "";
+    if (searchTerm.length > 0) {
+      conditions.push({
+        OR: [
+          { issueNo: { contains: searchTerm } },
+          { item: { itemName: { contains: searchTerm } } },
+          { item: { serialNumber: { contains: searchTerm } } },
+          { company: { name: { contains: searchTerm } } },
+          { contractor: { name: { contains: searchTerm } } },
+          { machine: { name: { contains: searchTerm } } },
+          { issuedTo: { contains: searchTerm } },
+        ],
+      });
+    }
+    const where: Prisma.IssueWhereInput = conditions.length ? { AND: conditions } : {};
+    return prisma.issue.findMany({
+      where,
+      include: {
+        item: true,
+        company: true,
+        contractor: true,
+        machine: true,
+        issuedByUser: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+      orderBy: { issuedAt: "desc" },
+    });
+  },
+
   findActive: async () => {
     return prisma.issue.findMany({
       where: { isReturned: false },
@@ -138,6 +188,37 @@ const Issue = {
     return prisma.issue.update({
       where: { id },
       data: { isReturned: true },
+    });
+  },
+
+  update: async (
+    id: number,
+    data: {
+      issuedTo?: string | null;
+      remarks?: string | null;
+      companyId?: number;
+      contractorId?: number;
+      machineId?: number;
+      isActive?: boolean;
+    }
+  ) => {
+    return prisma.issue.update({
+      where: { id },
+      data,
+      include: {
+        item: true,
+        company: true,
+        contractor: true,
+        machine: true,
+        issuedByUser: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
     });
   },
 

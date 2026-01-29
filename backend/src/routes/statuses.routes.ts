@@ -4,12 +4,14 @@ import {
   getAllStatuses,
   getActiveStatuses,
   getStatusById,
-  getNextStatusCode,
   updateStatus,
+  exportStatuses,
+  importStatuses,
 } from "../controllers/statuses.controller";
 import { authMiddleware } from "../middleware/auth.middleware";
 import { body } from "express-validator";
 import { validate as validateMiddleware } from "../middleware/validation.middleware";
+import { uploadImportExcel } from "../middleware/multer.middleware";
 
 const router = Router();
 
@@ -17,8 +19,15 @@ router.use(authMiddleware());
 
 router.get("/", getAllStatuses);
 router.get("/active", getActiveStatuses);
-router.get("/next-code", getNextStatusCode);
+router.get("/export", exportStatuses);
 router.get("/:id", getStatusById);
+
+router.post(
+  "/import",
+  authMiddleware(["QC_USER", "QC_MANAGER"]),
+  uploadImportExcel.single("file"),
+  importStatuses
+);
 
 router.post(
   "/",

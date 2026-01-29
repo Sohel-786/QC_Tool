@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import api from "@/lib/api";
@@ -13,11 +13,11 @@ import { Dialog } from "@/components/ui/dialog";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Plus, Edit2, Search, Ban, CheckCircle } from "lucide-react";
+import { Plus, Edit2, Search, Ban, CheckCircle, Download, Upload } from "lucide-react";
+import { useMasterExportImport } from "@/hooks/use-master-export-import";
 import { toast } from "react-hot-toast";
 
 const companySchema = z.object({
-  code: z.string().optional(),
   name: z.string().min(1, "Company name is required"),
   isActive: z.boolean().optional(),
 });
@@ -30,10 +30,12 @@ export default function CompaniesPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
   const [inactiveTarget, setInactiveTarget] = useState<Company | null>(null);
-  const [nextCompanyCode, setNextCompanyCode] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>("all");
   const queryClient = useQueryClient();
+  const importFileRef = useRef<HTMLInputElement>(null);
+  const { handleExport, handleImport, exportLoading, importLoading } =
+    useMasterExportImport("companies", ["companies"]);
 
   const { data: companies = [], isLoading } = useQuery<Company[]>({
     queryKey: ["companies"],
@@ -63,7 +65,6 @@ export default function CompaniesPage() {
 
   const createMutation = useMutation({
     mutationFn: async (data: {
-      code?: string;
       name: string;
       isActive?: boolean;
     }) => {
@@ -121,24 +122,14 @@ export default function CompaniesPage() {
     },
   });
 
-  const handleOpenForm = async (company?: Company) => {
+  const handleOpenForm = (company?: Company) => {
     if (company) {
       setEditingCompany(company);
-      setValue("code", company.code);
       setValue("name", company.name);
       setValue("isActive", company.isActive);
-      setNextCompanyCode("");
     } else {
       setEditingCompany(null);
       reset();
-      try {
-        const res = await api.get("/companies/next-code");
-        const next = res.data?.data?.nextCode ?? "";
-        setNextCompanyCode(next);
-        setValue("code", next);
-      } catch {
-        setNextCompanyCode("");
-      }
     }
     setIsFormOpen(true);
   };
@@ -146,7 +137,6 @@ export default function CompaniesPage() {
   const handleCloseForm = () => {
     setIsFormOpen(false);
     setEditingCompany(null);
-    setNextCompanyCode("");
     reset();
     createMutation.reset();
     updateMutation.reset();
@@ -162,7 +152,6 @@ export default function CompaniesPage() {
       updateMutation.mutate({ id: editingCompany.id, data });
     } else {
       createMutation.mutate({
-        code: data.code || nextCompanyCode || undefined,
         name,
         isActive: data.isActive,
       });
@@ -182,10 +171,7 @@ export default function CompaniesPage() {
     let list = companies;
     const q = searchTerm.trim().toLowerCase();
     if (q) {
-      list = list.filter(
-        (c) =>
-          c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q),
-      );
+      list = list.filter((c) => c.name.toLowerCase().includes(q));
     }
     if (activeFilter === "active") list = list.filter((c) => c.isActive);
     if (activeFilter === "inactive") list = list.filter((c) => !c.isActive);
@@ -208,10 +194,43 @@ export default function CompaniesPage() {
                 Manage company master entries
               </p>
             </div>
-            <Button onClick={() => handleOpenForm()} className="shadow-md">
-              <Plus className="w-4 h-4 mr-2" />
-              Add Company
-            </Button>
+            <div className="flex items-center gap-2">
+              <input
+                type="file"
+                ref={importFileRef}
+                accept=".xlsx,.xls"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) {
+                    handleImport(f);
+                    e.target.value = "";
+                  }
+                }}
+              />
+              <Button
+                variant="outline"
+                onClick={handleExport}
+                disabled={exportLoading}
+                className="shadow-sm"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Export
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => importFileRef.current?.click()}
+                disabled={importLoading}
+                className="shadow-sm"
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Import
+              </Button>
+              <Button onClick={() => handleOpenForm()} className="shadow-md">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Company
+              </Button>
+            </div>
           </div>
 
           <Card className="shadow-sm">
@@ -220,7 +239,7 @@ export default function CompaniesPage() {
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400 w-5 h-5" />
                   <Input
-                    placeholder="Search by master name or code..."
+                    placeholder="Search by name..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10"
@@ -264,8 +283,8 @@ export default function CompaniesPage() {
                   <table className="w-full text-left text-sm">
                     <thead>
                       <tr className="border-b border-secondary-200 bg-secondary-50">
-                        <th className="px-4 py-3 font-semibold text-text">
-                          Code
+                        <th className="px-4 py-3 font-semibold text-text w-16">
+                          Sr.No
                         </th>
                         <th className="px-4 py-3 font-semibold text-text">
                           Name
@@ -287,8 +306,8 @@ export default function CompaniesPage() {
                           transition={{ delay: idx * 0.03 }}
                           className="border-b border-secondary-100 hover:bg-secondary-50/50"
                         >
-                          <td className="px-4 py-3 font-mono text-secondary-700">
-                            {company.code}
+                          <td className="px-4 py-3 text-secondary-600">
+                            {idx + 1}
                           </td>
                           <td className="px-4 py-3 font-medium text-text">
                             {company.name}
@@ -363,7 +382,7 @@ export default function CompaniesPage() {
           <div className="space-y-4">
             <p className="text-secondary-600">
               {inactiveTarget
-                ? `"${inactiveTarget.name}" (${inactiveTarget.code}) will be marked inactive. You can reactivate it later.`
+                ? `"${inactiveTarget.name}" will be marked inactive. You can reactivate it later.`
                 : ""}
             </p>
             <div className="flex gap-3 pt-2">
@@ -401,22 +420,10 @@ export default function CompaniesPage() {
             className="space-y-4"
             aria-label={editingCompany ? "Update company" : "Add new company"}
           >
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="company-code">Company Code</Label>
-                <Input
-                  id="company-code"
-                  placeholder="COM-001"
-                  disabled
-                  readOnly
-                  value={editingCompany ? editingCompany.code : nextCompanyCode}
-                  className="mt-1 bg-secondary-50"
-                />
-              </div>
-              <div>
-                <Label htmlFor="company-name-input">
-                  Company Master Name *
-                </Label>
+            <div>
+              <Label htmlFor="company-name-input">
+                Company Master Name *
+              </Label>
                 <Input
                   id="company-name-input"
                   {...register("name")}
@@ -437,7 +444,6 @@ export default function CompaniesPage() {
                     {errors.name.message}
                   </p>
                 )}
-              </div>
             </div>
             {editingCompany && (
               <div>

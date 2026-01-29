@@ -4,12 +4,14 @@ import {
   getAllCompanies,
   getActiveCompanies,
   getCompanyById,
-  getNextCompanyCode,
   updateCompany,
+  exportCompanies,
+  importCompanies,
 } from "../controllers/companies.controller";
 import { authMiddleware } from "../middleware/auth.middleware";
 import { body } from "express-validator";
 import { validate as validateMiddleware } from "../middleware/validation.middleware";
+import { uploadImportExcel } from "../middleware/multer.middleware";
 
 const router = Router();
 
@@ -17,8 +19,15 @@ router.use(authMiddleware());
 
 router.get("/", getAllCompanies);
 router.get("/active", getActiveCompanies);
-router.get("/next-code", getNextCompanyCode);
+router.get("/export", exportCompanies);
 router.get("/:id", getCompanyById);
+
+router.post(
+  "/import",
+  authMiddleware(["QC_USER", "QC_MANAGER"]),
+  uploadImportExcel.single("file"),
+  importCompanies
+);
 
 router.post(
   "/",

@@ -9,6 +9,11 @@ import {
 } from "../utils/errors";
 import { ItemStatus } from "@prisma/client";
 import { generateNextCode } from "../utils/codeGenerator";
+import {
+  parseTransactionFiltersFromQuery,
+  hasActiveFilters,
+} from "../types/filter";
+import { getInwardImagePath } from "../utils/storagePath";
 
 export const createReturn = async (
   req: Request,
@@ -16,18 +21,22 @@ export const createReturn = async (
   next: NextFunction
 ) => {
   try {
-    const { issueId, remarks } = req.body;
+    const { issueId, remarks, statusId } = req.body;
     const returnedBy = req.user!.id;
     const file = req.file;
 
-    if (!issueId) {
+    const parsedIssueId = Number(issueId);
+    if (issueId == null || issueId === "" || Number.isNaN(parsedIssueId) || parsedIssueId < 1) {
       return next(new ValidationError("Issue ID is required"));
     }
     if (!file) {
       return next(new ValidationError("Return image is required"));
     }
+    if (statusId == null || statusId === "") {
+      return next(new ValidationError("Status is required"));
+    }
 
-    const issue = await Issue.findById(issueId);
+    const issue = await Issue.findById(parsedIssueId);
     if (!issue) {
       return next(new NotFoundError("Issue not found"));
     }
@@ -35,19 +44,28 @@ export const createReturn = async (
       return next(new BadRequestError("This issue has already been returned"));
     }
 
-    const imagePath = `returns/${file.filename}`;
+    const itemSerial =
+      (issue as { item?: { serialNumber?: string | null } }).item?.serialNumber ??
+      "";
+    const imagePath = getInwardImagePath(itemSerial, file.filename);
     const returnCount = await Return.getCount();
     const returnCode = generateNextCode("INWARD", returnCount);
 
+    const parsedStatusId = Number(statusId);
+    if (Number.isNaN(parsedStatusId)) {
+      return next(new ValidationError("Invalid status"));
+    }
+
     const return_ = await Return.create({
       returnCode,
-      issueId,
+      issueId: parsedIssueId,
       returnedBy,
       returnImage: imagePath,
-      remarks,
+      remarks: remarks || undefined,
+      statusId: parsedStatusId,
     });
 
-    await Issue.markAsReturned(issueId);
+    await Issue.markAsReturned(parsedIssueId);
     await Item.update(issue.itemId, { status: ItemStatus.AVAILABLE });
 
     res.status(201).json({ success: true, data: return_ });
@@ -62,7 +80,10 @@ export const getAllReturns = async (
   next: NextFunction
 ) => {
   try {
-    const returns = await Return.findAll();
+    const filters = parseTransactionFiltersFromQuery(req.query as Record<string, string>);
+    const returns = hasActiveFilters(filters)
+      ? await Return.findAllFiltered(filters)
+      : await Return.findAll();
     res.json({ success: true, data: returns });
   } catch (e) {
     next(e);

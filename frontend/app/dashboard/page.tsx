@@ -258,8 +258,8 @@ export default function DashboardPage() {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-secondary-200 bg-secondary-50/50">
-                        <th className="text-left py-3 px-4 font-semibold text-sm text-secondary-700">
-                          Item Code
+                        <th className="text-left py-3 px-4 font-semibold text-sm text-secondary-700 w-16">
+                          Sr.No
                         </th>
                         <th className="text-left py-3 px-4 font-semibold text-sm text-secondary-700">
                           Item Category
@@ -287,8 +287,8 @@ export default function DashboardPage() {
                           transition={{ delay: index * 0.03 }}
                           className="border-b border-secondary-100 hover:bg-secondary-50 transition-colors"
                         >
-                          <td className="py-3 px-4 font-mono text-sm">
-                            {item.itemCode}
+                          <td className="py-3 px-4 text-secondary-600">
+                            {index + 1}
                           </td>
                           <td className="py-3 px-4 text-sm text-secondary-600">
                             {item.categoryId != null ? categoryMap[item.categoryId] ?? '—' : '—'}

@@ -4,12 +4,14 @@ import {
   getAllLocations,
   getActiveLocations,
   getLocationById,
-  getNextLocationCode,
   updateLocation,
+  exportLocations,
+  importLocations,
 } from "../controllers/locations.controller";
 import { authMiddleware } from "../middleware/auth.middleware";
 import { body } from "express-validator";
 import { validate as validateMiddleware } from "../middleware/validation.middleware";
+import { uploadImportExcel } from "../middleware/multer.middleware";
 
 const router = Router();
 
@@ -17,8 +19,15 @@ router.use(authMiddleware());
 
 router.get("/", getAllLocations);
 router.get("/active", getActiveLocations);
-router.get("/next-code", getNextLocationCode);
+router.get("/export", exportLocations);
 router.get("/:id", getLocationById);
+
+router.post(
+  "/import",
+  authMiddleware(["QC_USER", "QC_MANAGER"]),
+  uploadImportExcel.single("file"),
+  importLocations
+);
 
 router.post(
   "/",

@@ -9,7 +9,13 @@ import {
 import { ItemStatus } from "@prisma/client";
 import fs from "fs";
 import path from "path";
-import { generateNextCode } from "../utils/codeGenerator";
+import {
+  buildExcelBuffer,
+  parseExcelBuffer,
+  normalizeRowKeys,
+  getExcelMime,
+} from "../utils/excel";
+import { getItemMasterImagePath } from "../utils/storagePath";
 
 export const createItem = async (
   req: Request,
@@ -17,26 +23,24 @@ export const createItem = async (
   next: NextFunction
 ) => {
   try {
-    let { itemCode, itemName, description, serialNumber, categoryId, isActive } =
+    const { itemName, description, serialNumber, categoryId, isActive } =
       req.body;
     const file = req.file;
 
-    if (!itemName) {
+    const trimmedItemName = itemName != null ? String(itemName).trim() : "";
+    const trimmedSerial = serialNumber != null ? String(serialNumber).trim() : "";
+    if (!trimmedItemName) {
       return next(new ValidationError("Item name is required"));
     }
-    if (!serialNumber) {
+    if (!trimmedSerial) {
       return next(new ValidationError("Serial number is required"));
     }
-
-    if (!itemCode) {
-      const count = await Item.getCount();
-      itemCode = generateNextCode("ITEM", count);
+    if (!file) {
+      return next(
+        new ValidationError("Item image is required. Please take a photo.")
+      );
     }
 
-    if (await Item.codeExists(itemCode)) {
-      return next(new ConflictError("Item with this code already exists"));
-    }
-    const trimmedSerial = String(serialNumber).trim();
     if (await Item.serialNumberExists(trimmedSerial)) {
       return next(
         new ConflictError("Item with this serial number already exists")
@@ -62,14 +66,10 @@ export const createItem = async (
       parsedCategoryId = id;
     }
 
-    let imagePath: string | null = null;
-    if (file) {
-      imagePath = `items/${file.filename}`;
-    }
+    const imagePath = getItemMasterImagePath(trimmedSerial, file.filename);
 
     const item = await Item.create({
-      itemCode,
-      itemName,
+      itemName: trimmedItemName,
       serialNumber: trimmedSerial,
       description: description || null,
       image: imagePath,
@@ -172,7 +172,6 @@ export const updateItem = async (
       return next(new ValidationError("Invalid item id"));
     }
     const {
-      itemCode,
       itemName,
       description,
       status,
@@ -189,15 +188,13 @@ export const updateItem = async (
 
     const updateData: Record<string, unknown> = {};
 
-    if (itemCode && itemCode !== item.itemCode) {
-      if (await Item.codeExists(itemCode)) {
-        return next(
-          new ConflictError("Item with this code already exists")
-        );
+    if (itemName != null) {
+      const trimmedName = String(itemName).trim();
+      if (!trimmedName) {
+        return next(new ValidationError("Item name is required"));
       }
-      updateData.itemCode = itemCode;
+      updateData.itemName = trimmedName;
     }
-    if (itemName != null) updateData.itemName = itemName;
     if (description !== undefined) updateData.description = description;
     if (status != null) updateData.status = status;
     if (isActive !== undefined) {
@@ -209,9 +206,7 @@ export const updateItem = async (
       if (!trimmed) {
         updateData.serialNumber = null;
       } else if (trimmed !== item.serialNumber) {
-        if (
-          await Item.serialNumberExistsExcluding(trimmed, id)
-        ) {
+        if (await Item.serialNumberExistsExcluding(trimmed, id)) {
           return next(
             new ConflictError(
               "Item with this serial number already exists"
@@ -255,7 +250,10 @@ export const updateItem = async (
           console.error("Error deleting old item image:", err);
         }
       }
-      updateData.image = `items/${file.filename}`;
+      updateData.image = getItemMasterImagePath(
+        item.serialNumber ?? "",
+        file.filename
+      );
     }
 
     const updated = await Item.update(id, updateData);
@@ -265,15 +263,102 @@ export const updateItem = async (
   }
 };
 
-export const getNextItemCode = async (
+export const exportItems = async (
   req: Request,
   res: Response,
   next: NextFunction
 ) => {
   try {
-    const count = await Item.getCount();
-    const nextCode = generateNextCode("ITEM", count);
-    res.json({ success: true, data: { nextCode } });
+    const [items, categories] = await Promise.all([
+      Item.findAll(),
+      ItemCategory.findAll(),
+    ]);
+    const categoryMap: Record<number, string> = {};
+    for (const c of categories) categoryMap[c.id] = c.name;
+    const rows = items.map((i) => ({
+      Name: i.itemName,
+      "Serial Number": i.serialNumber ?? "",
+      Category: i.categoryId != null ? categoryMap[i.categoryId] ?? "" : "",
+      Description: i.description ?? "",
+      Active: i.isActive ? "Yes" : "No",
+    }));
+    const buffer = buildExcelBuffer(rows, "Items");
+    const filename = `items-export-${new Date().toISOString().split("T")[0]}.xlsx`;
+    res.setHeader("Content-Type", getExcelMime());
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send(buffer);
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const importItems = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const file = req.file;
+    if (!file) {
+      return next(new ValidationError("No file uploaded. Please upload an Excel file."));
+    }
+    const buffer = fs.readFileSync(file.path);
+    const rawRows = parseExcelBuffer(buffer);
+    fs.unlinkSync(file.path);
+    const categories = await ItemCategory.findAll();
+    const categoryByName: Record<string, number> = {};
+    for (const c of categories) categoryByName[c.name.toLowerCase().trim()] = c.id;
+    const seenSerialInThisFile = new Set<string>();
+    const results = { imported: 0, errors: [] as { row: number; message: string }[] };
+    for (let i = 0; i < rawRows.length; i++) {
+      const row = normalizeRowKeys(rawRows[i] as Record<string, unknown>);
+      const itemName = row.name != null ? String(row.name).trim() : "";
+      const serialNumber = row.serial_number != null ? String(row.serial_number).trim() : row.serialnumber != null ? String(row.serialnumber).trim() : "";
+      if (!itemName) {
+        results.errors.push({ row: i + 2, message: "Name is required" });
+        continue;
+      }
+      if (!serialNumber) {
+        results.errors.push({ row: i + 2, message: "Serial Number is required" });
+        continue;
+      }
+      const serialKey = serialNumber.toLowerCase();
+      if (seenSerialInThisFile.has(serialKey)) continue;
+      if (await Item.serialNumberExists(serialNumber)) continue;
+      let categoryId: number | null = null;
+      const categoryVal = row.category != null ? String(row.category).trim() : "";
+      if (categoryVal) {
+        const found = categoryByName[categoryVal.toLowerCase()];
+        if (found) categoryId = found;
+        else {
+          results.errors.push({ row: i + 2, message: `Category "${categoryVal}" not found` });
+          continue;
+        }
+      }
+      const description = row.description != null ? String(row.description).trim() || null : null;
+      const isActive =
+        row.active == null ? true : /^(1|true|yes|y)$/i.test(String(row.active).trim());
+      try {
+        await Item.create({
+          itemName,
+          serialNumber,
+          description,
+          categoryId,
+          isActive,
+        });
+        results.imported += 1;
+        seenSerialInThisFile.add(serialKey);
+      } catch (err) {
+        results.errors.push({
+          row: i + 2,
+          message: err instanceof Error ? err.message : "Failed to create",
+        });
+      }
+    }
+    res.json({
+      success: true,
+      data: { imported: results.imported, totalRows: rawRows.length, errors: results.errors },
+    });
   } catch (e) {
     next(e);
   }
