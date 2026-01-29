@@ -4,6 +4,7 @@ import {
   getAllItems,
   getActiveItems,
   getAvailableItems,
+  getItemsByCategory,
   getItemById,
   getNextItemCode,
   updateItem,
@@ -20,6 +21,7 @@ router.use(authMiddleware());
 router.get("/", getAllItems);
 router.get("/active", getActiveItems);
 router.get("/available", getAvailableItems);
+router.get("/by-category/:categoryId", getItemsByCategory);
 router.get("/next-code", getNextItemCode);
 router.get("/:id", getItemById);
 

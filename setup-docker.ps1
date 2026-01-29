@@ -9,7 +9,7 @@ function Test-Docker {
     try {
         $dockerVersion = docker --version 2>&1
         if ($LASTEXITCODE -eq 0) {
-            Write-Host "✅ Docker is installed: $dockerVersion" -ForegroundColor Green
+            Write-Host " Docker is installed: $dockerVersion" -ForegroundColor Green
             return $true
         }
     } catch {
@@ -23,7 +23,7 @@ function Test-DockerRunning {
     try {
         $dockerInfo = docker info 2>&1
         if ($LASTEXITCODE -eq 0) {
-            Write-Host "✅ Docker is running" -ForegroundColor Green
+            Write-Host " Docker is running" -ForegroundColor Green
             return $true
         } else {
             Write-Host "⚠️  Docker is installed but not running" -ForegroundColor Yellow
@@ -81,7 +81,7 @@ if (-not $dockerRunning) {
         if (Test-Path $path) {
             Write-Host "   Found Docker Desktop at: $path" -ForegroundColor Gray
             Start-Process $path
-            Write-Host "   ✅ Docker Desktop is starting..." -ForegroundColor Green
+            Write-Host "    Docker Desktop is starting..." -ForegroundColor Green
             Write-Host "   ⏳ Please wait 30-60 seconds for Docker to fully start" -ForegroundColor Yellow
             $started = $true
             break
@@ -104,7 +104,7 @@ if (-not $dockerRunning) {
         Write-Host "   Attempt $attempt/$maxAttempts..." -ForegroundColor Gray
         
         if (Test-DockerRunning) {
-            Write-Host "   ✅ Docker is now running!" -ForegroundColor Green
+            Write-Host "    Docker is now running!" -ForegroundColor Green
             $dockerRunning = $true
             break
         }
@@ -121,7 +121,7 @@ if (-not $dockerRunning) {
 }
 
 # Docker is installed and running, proceed with starting the project
-Write-Host "`n✅ Docker is ready!" -ForegroundColor Green
+Write-Host "`n Docker is ready!" -ForegroundColor Green
 Write-Host "`n🚀 Starting QC Tool project..." -ForegroundColor Cyan
 
 # Change to project directory
@@ -136,7 +136,7 @@ if (Test-Path "start-docker.ps1") {
     docker compose up -d --build
     
     if ($LASTEXITCODE -eq 0) {
-        Write-Host "`n✅ Docker containers started successfully!" -ForegroundColor Green
+        Write-Host "`n Docker containers started successfully!" -ForegroundColor Green
         Write-Host "`n🌐 Access the application:" -ForegroundColor Cyan
         Write-Host "   Frontend: http://localhost:3000" -ForegroundColor White
         Write-Host "   Backend:  http://localhost:3001" -ForegroundColor White

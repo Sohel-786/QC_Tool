@@ -6,6 +6,9 @@ type CreateIssueInput = {
   issuedBy: number;
   issuedTo?: string;
   remarks?: string;
+  companyId?: number;
+  contractorId?: number;
+  machineId?: number;
 };
 
 const Issue = {
@@ -15,11 +18,17 @@ const Issue = {
         issueNo: data.issueNo,
         itemId: data.itemId,
         issuedBy: data.issuedBy,
-        issuedTo: data.issuedTo,
-        remarks: data.remarks,
+        issuedTo: data.issuedTo ?? null,
+        remarks: data.remarks ?? null,
+        companyId: data.companyId ?? null,
+        contractorId: data.contractorId ?? null,
+        machineId: data.machineId ?? null,
       },
       include: {
         item: true,
+        company: true,
+        contractor: true,
+        machine: true,
         issuedByUser: {
           select: {
             id: true,
@@ -37,6 +46,9 @@ const Issue = {
       where: { id },
       include: {
         item: true,
+        company: true,
+        contractor: true,
+        machine: true,
         issuedByUser: {
           select: {
             id: true,
@@ -66,6 +78,9 @@ const Issue = {
       where: { issueNo },
       include: {
         item: true,
+        company: true,
+        contractor: true,
+        machine: true,
         issuedByUser: {
           select: {
             id: true,
@@ -82,6 +97,9 @@ const Issue = {
     return prisma.issue.findMany({
       include: {
         item: true,
+        company: true,
+        contractor: true,
+        machine: true,
         issuedByUser: {
           select: {
             id: true,
@@ -100,6 +118,9 @@ const Issue = {
       where: { isReturned: false },
       include: {
         item: true,
+        company: true,
+        contractor: true,
+        machine: true,
         issuedByUser: {
           select: {
             id: true,

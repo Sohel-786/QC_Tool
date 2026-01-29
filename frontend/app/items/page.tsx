@@ -231,7 +231,12 @@ export default function ItemsPage() {
     toggleActiveMutation.mutate({ id: item.id, isActive: true });
   };
 
-  const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+  const ACCEPTED_IMAGE_TYPES = [
+    "image/jpeg",
+    "image/jpg",
+    "image/png",
+    "image/webp",
+  ];
   const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 
   const formatBytes = (bytes: number) => {
@@ -582,7 +587,10 @@ export default function ItemsPage() {
                 {/* Left column – form fields (~65%) */}
                 <div className="space-y-5">
                   <div>
-                    <Label htmlFor="item-name-input" className="text-sm font-medium text-secondary-700">
+                    <Label
+                      htmlFor="item-name-input"
+                      className="text-sm font-medium text-secondary-700"
+                    >
                       Item Master Name <span className="text-red-500">*</span>
                     </Label>
                     <Input
@@ -592,30 +600,44 @@ export default function ItemsPage() {
                       className="mt-1.5 h-10 border-secondary-300 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
                       aria-required="true"
                       aria-invalid={!!errors.itemName}
-                      aria-describedby={errors.itemName ? "item-name-error" : "item-form-hint"}
+                      aria-describedby={
+                        errors.itemName ? "item-name-error" : "item-form-hint"
+                      }
                     />
                     {errors.itemName && (
-                      <p id="item-name-error" className="text-sm text-red-600 mt-1" role="alert">
+                      <p
+                        id="item-name-error"
+                        className="text-sm text-red-600 mt-1"
+                        role="alert"
+                      >
                         {errors.itemName.message}
                       </p>
                     )}
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="item-code" className="text-sm font-medium text-secondary-700">
+                      <Label
+                        htmlFor="item-code"
+                        className="text-sm font-medium text-secondary-700"
+                      >
                         Item Master Code
                       </Label>
                       <Input
                         id="item-code"
                         disabled
                         readOnly
-                        value={editingItem ? editingItem.itemCode : nextItemCode}
+                        value={
+                          editingItem ? editingItem.itemCode : nextItemCode
+                        }
                         className="mt-1.5 h-10 bg-secondary-50 border-secondary-200 text-secondary-600"
                         aria-readonly="true"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="serialNumber" className="text-sm font-medium text-secondary-700">
+                      <Label
+                        htmlFor="serialNumber"
+                        className="text-sm font-medium text-secondary-700"
+                      >
                         Serial Number <span className="text-red-500">*</span>
                       </Label>
                       <Input
@@ -634,8 +656,12 @@ export default function ItemsPage() {
                     </div>
                   </div>
                   <div>
-                    <Label htmlFor="categoryId" className="text-sm font-medium text-secondary-700">
-                      Item Category Master <span className="text-red-500">*</span>
+                    <Label
+                      htmlFor="categoryId"
+                      className="text-sm font-medium text-secondary-700"
+                    >
+                      Item Category Master{" "}
+                      <span className="text-red-500">*</span>
                     </Label>
                     <select
                       id="categoryId"
@@ -659,8 +685,14 @@ export default function ItemsPage() {
                   </div>
 
                   <div>
-                    <Label htmlFor="description" className="text-sm font-medium text-secondary-700">
-                      Description <span className="text-secondary-400 font-normal">(optional)</span>
+                    <Label
+                      htmlFor="description"
+                      className="text-sm font-medium text-secondary-700"
+                    >
+                      Description{" "}
+                      <span className="text-secondary-400 font-normal">
+                        (optional)
+                      </span>
                     </Label>
                     <Textarea
                       id="description"
@@ -674,7 +706,10 @@ export default function ItemsPage() {
                   {editingItem && (
                     <div className="flex flex-wrap gap-6 pt-2">
                       <div>
-                        <Label htmlFor="status" className="text-sm font-medium text-secondary-700">
+                        <Label
+                          htmlFor="status"
+                          className="text-sm font-medium text-secondary-700"
+                        >
                           Status
                         </Label>
                         <select
@@ -682,20 +717,27 @@ export default function ItemsPage() {
                           {...register("status")}
                           className="mt-1.5 flex h-10 w-full min-w-[140px] rounded-md border border-secondary-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
                         >
-                          <option value={ItemStatus.AVAILABLE}>Available</option>
+                          <option value={ItemStatus.AVAILABLE}>
+                            Available
+                          </option>
                           <option value={ItemStatus.ISSUED}>Issued</option>
                           <option value={ItemStatus.MISSING}>Missing</option>
                         </select>
                       </div>
                       <div className="flex items-end">
-                        <Label htmlFor="isActive" className="flex items-center gap-2 cursor-pointer">
+                        <Label
+                          htmlFor="isActive"
+                          className="flex items-center gap-2 cursor-pointer"
+                        >
                           <input
                             type="checkbox"
                             id="isActive"
                             {...register("isActive")}
                             className="rounded w-4 h-4 text-primary-600 focus:ring-2 focus:ring-primary-500 border-secondary-300"
                           />
-                          <span className="text-sm font-medium text-secondary-700">Active</span>
+                          <span className="text-sm font-medium text-secondary-700">
+                            Active
+                          </span>
                         </Label>
                       </div>
                     </div>
@@ -706,8 +748,12 @@ export default function ItemsPage() {
                 <div className="lg:min-h-[320px]">
                   <div className="rounded-xl border border-secondary-200 bg-secondary-50/50 overflow-hidden h-full min-h-[260px] flex flex-col">
                     <div className="px-4 py-3 border-b border-secondary-200 bg-white">
-                      <h3 className="text-sm font-semibold text-text">Item Image</h3>
-                      <p className="text-xs text-secondary-500 mt-0.5">JPG, PNG or WebP · Max 5MB</p>
+                      <h3 className="text-sm font-semibold text-text">
+                        Item Image
+                      </h3>
+                      <p className="text-xs text-secondary-500 mt-0.5">
+                        JPG, PNG or WebP · Max 5MB
+                      </p>
                     </div>
                     <div className="flex-1 p-4 flex flex-col">
                       <input
@@ -729,15 +775,23 @@ export default function ItemsPage() {
                             />
                           </div>
                           {imageFile && (
-                            <p className="mt-2 text-xs text-secondary-600 truncate" title={imageFile.name}>
+                            <p
+                              className="mt-2 text-xs text-secondary-600 truncate"
+                              title={imageFile.name}
+                            >
                               {imageFile.name} · {formatBytes(imageFile.size)}
                             </p>
                           )}
                           {!imageFile && editingItem?.image && (
-                            <p className="mt-2 text-xs text-secondary-600">Current image</p>
+                            <p className="mt-2 text-xs text-secondary-600">
+                              Current image
+                            </p>
                           )}
                           {imageError && (
-                            <p className="mt-1 text-xs text-red-600" role="alert">
+                            <p
+                              className="mt-1 text-xs text-red-600"
+                              role="alert"
+                            >
                               {imageError}
                             </p>
                           )}
@@ -782,8 +836,12 @@ export default function ItemsPage() {
                           aria-label="Upload image; drag and drop or click to select"
                         >
                           <Upload className="w-10 h-10 text-secondary-400" />
-                          <span className="text-sm font-medium text-secondary-600">Drag & drop or click to upload</span>
-                          <span className="text-xs text-secondary-500">JPG, PNG, WebP · Max 5MB</span>
+                          <span className="text-sm font-medium text-secondary-600">
+                            Drag & drop or click to upload
+                          </span>
+                          <span className="text-xs text-secondary-500">
+                            JPG, PNG, WebP · Max 5MB
+                          </span>
                           {imageError && (
                             <p className="text-xs text-red-600" role="alert">
                               {imageError}

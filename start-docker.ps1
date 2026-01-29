@@ -25,13 +25,13 @@ Write-Host "`n🗄️  Initializing database schema..." -ForegroundColor Yellow
 docker exec qc-tool-backend npx prisma db push
 
 if ($LASTEXITCODE -eq 0) {
-    Write-Host "✅ Database schema initialized!" -ForegroundColor Green
+    Write-Host " Database schema initialized!" -ForegroundColor Green
 } else {
     Write-Host "⚠️  Database push failed. Check backend logs." -ForegroundColor Yellow
 }
 
 # Step 5: Seed the database
-Write-Host "`n🌱 Seeding database..." -ForegroundColor Yellow
+Write-Host "`n Seeding database..." -ForegroundColor Yellow
 Write-Host "   Note: Seeding requires NODE_ENV=development or manual execution" -ForegroundColor Gray
 Write-Host "   Run: docker exec -it qc-tool-backend npm run seed" -ForegroundColor Gray
 Write-Host "   Or use the seed-database.ps1 script" -ForegroundColor Gray
@@ -40,7 +40,7 @@ Write-Host "   Or use the seed-database.ps1 script" -ForegroundColor Gray
 Write-Host "`n📊 Final Container Status:" -ForegroundColor Cyan
 docker compose ps
 
-Write-Host "`n✅ Docker services started!" -ForegroundColor Green
+Write-Host "`n Docker services started!" -ForegroundColor Green
 Write-Host "`n🌐 Access the application:" -ForegroundColor Cyan
 Write-Host "   Frontend: http://localhost:3000" -ForegroundColor White
 Write-Host "   Backend:  http://localhost:3001" -ForegroundColor White

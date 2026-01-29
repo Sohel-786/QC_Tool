@@ -7,11 +7,11 @@ export async function seedDatabase() {
     // Check if users already exist
     const existingUsers = await prisma.user.count();
     if (existingUsers > 0) {
-      console.log('✅ Database already seeded');
+      console.log('Database already seeded');
       return;
     }
 
-    console.log('🌱 Seeding database with default users...');
+    console.log('Seeding database with default users...');
 
     // Create default manager
     const managerPassword = await hashPassword('password123');
@@ -39,11 +39,11 @@ export async function seedDatabase() {
       },
     });
 
-    console.log('✅ Database seeded successfully');
-    console.log('👤 Manager: qc_manager / password123');
-    console.log('👤 User: qc_user / password123');
+    console.log('Database seeded successfully');
+    console.log('Manager: qc_manager / password123');
+    console.log('User: qc_user / password123');
   } catch (error: any) {
-    console.error('❌ Error seeding database:', error);
+    console.error('Error seeding database:', error);
     throw error;
   }
 }

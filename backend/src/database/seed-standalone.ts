@@ -14,12 +14,12 @@ async function hashPassword(password: string): Promise<string> {
 
 async function main() {
   try {
-    console.log('🌱 Starting database seed...');
+    console.log(' Starting database seed...');
 
     // Check if users already exist
     const existingUsers = await prisma.user.count();
     if (existingUsers > 0) {
-      console.log('✅ Database already seeded');
+      console.log('Database already seeded');
       return;
     }
 
@@ -60,8 +60,7 @@ async function main() {
   }
 }
 
-main()
-  .catch((error) => {
-    console.error(error);
-    process.exit(1);
-  });
+main().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

@@ -1,20 +1,29 @@
 model Issue {
-  id          Int      @id @default(autoincrement())
-  issueNo     String   @unique
-  itemId      Int      @map("toolId")
-  issuedBy    Int
-  issuedTo    String?
-  remarks     String?
-  isReturned  Boolean  @default(false)
-  issuedAt    DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           Int       @id @default(autoincrement())
+  issueNo      String    @unique
+  itemId       Int       @map("toolId")
+  issuedBy     Int
+  issuedTo     String?
+  remarks      String?
+  companyId    Int?
+  contractorId Int?
+  machineId    Int?
+  isReturned   Boolean   @default(false)
+  issuedAt     DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   // Relations
-  item         Item    @relation("ItemIssues", fields: [itemId], references: [id], onDelete: Cascade)
-  issuedByUser User    @relation("IssuedBy", fields: [issuedBy], references: [id], onDelete: Cascade)
+  item         Item      @relation("ItemIssues", fields: [itemId], references: [id], onDelete: Cascade)
+  issuedByUser User      @relation("IssuedBy", fields: [issuedBy], references: [id], onDelete: Cascade)
+  company      Company?  @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  contractor   Contractor? @relation(fields: [contractorId], references: [id], onDelete: SetNull)
+  machine      Machine?  @relation(fields: [machineId], references: [id], onDelete: SetNull)
   returns      Return[]
 
   @@map("issues")
   @@index([itemId])
   @@index([issuedBy])
+  @@index([companyId])
+  @@index([contractorId])
+  @@index([machineId])
 }

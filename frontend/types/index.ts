@@ -98,7 +98,13 @@ export interface Issue {
   isReturned: boolean;
   issuedAt: string;
   updatedAt: string;
+  companyId?: number | null;
+  contractorId?: number | null;
+  machineId?: number | null;
   item?: Item;
+  company?: Company;
+  contractor?: Contractor;
+  machine?: Machine;
   user?: User;
   issuedByUser?: User;
 }

@@ -25,10 +25,9 @@ router.post(
   '/',
   authMiddleware(['QC_USER']),
   upload.single('image'),
-  [
+  validateMiddleware([
     body('issueId').isInt().withMessage('Valid issue ID is required'),
-    validateMiddleware,
-  ],
+  ]),
   createReturn
 );
 

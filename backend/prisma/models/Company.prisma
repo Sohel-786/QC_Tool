@@ -6,5 +6,7 @@ model Company {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  issues Issue[]
+
   @@map("companies")
 }

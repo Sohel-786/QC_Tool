@@ -15,7 +15,15 @@ export const createIssue = async (
   next: NextFunction
 ) => {
   try {
-    const { itemId, issuedTo, remarks, categoryId } = req.body;
+    const {
+      itemId,
+      issuedTo,
+      remarks,
+      categoryId,
+      companyId,
+      contractorId,
+      machineId,
+    } = req.body;
     const issuedBy = req.user!.id;
 
     if (!itemId) {
@@ -53,12 +61,31 @@ export const createIssue = async (
 
     const issueNo = await Issue.generateIssueNo();
 
+    let parsedCompanyId: number | undefined;
+    if (companyId != null && companyId !== "") {
+      const n = Number(companyId);
+      if (!Number.isNaN(n)) parsedCompanyId = n;
+    }
+    let parsedContractorId: number | undefined;
+    if (contractorId != null && contractorId !== "") {
+      const n = Number(contractorId);
+      if (!Number.isNaN(n)) parsedContractorId = n;
+    }
+    let parsedMachineId: number | undefined;
+    if (machineId != null && machineId !== "") {
+      const n = Number(machineId);
+      if (!Number.isNaN(n)) parsedMachineId = n;
+    }
+
     const issue = await Issue.create({
       issueNo,
       itemId,
       issuedBy,
       issuedTo: issuedTo || undefined,
       remarks: remarks || undefined,
+      companyId: parsedCompanyId,
+      contractorId: parsedContractorId,
+      machineId: parsedMachineId,
     });
 
     await Item.update(itemId, { status: ItemStatus.ISSUED });

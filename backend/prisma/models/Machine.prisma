@@ -6,5 +6,7 @@ model Machine {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  issues Issue[]
+
   @@map("machines")
 }

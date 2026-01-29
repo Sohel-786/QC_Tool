@@ -76,6 +76,13 @@ const Item = {
     });
   },
 
+  findActiveByCategory: async (categoryId: number) => {
+    return prisma.item.findMany({
+      where: { categoryId, isActive: true },
+      orderBy: { itemName: "asc" },
+    });
+  },
+
   update: async (id: number, data: UpdateItemInput) => {
     return prisma.item.update({
       where: { id },

@@ -124,6 +124,23 @@ export const getAvailableItems = async (
   }
 };
 
+export const getItemsByCategory = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const categoryId = parseInt(req.params.categoryId);
+    if (Number.isNaN(categoryId)) {
+      return next(new ValidationError("Invalid category id"));
+    }
+    const items = await Item.findActiveByCategory(categoryId);
+    res.json({ success: true, data: items });
+  } catch (e) {
+    next(e);
+  }
+};
+
 export const getItemById = async (
   req: Request,
   res: Response,

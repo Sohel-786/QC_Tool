@@ -10,6 +10,7 @@ import { Label } from "./label";
 export interface SearchableSelectOption {
   value: number | string;
   label: string;
+  disabled?: boolean;
 }
 
 export interface SearchableSelectProps {
@@ -66,6 +67,15 @@ export function SearchableSelect({
     }
   }, [isOpen]);
 
+  const moveHighlight = (delta: number) => {
+    setHighlightIndex((i) => {
+      let next = i + delta;
+      if (next < 0) next = 0;
+      if (next >= filteredOptions.length) next = filteredOptions.length - 1;
+      return next;
+    });
+  };
+
   useEffect(() => {
     if (!isOpen) return;
     const el = listRef.current;
@@ -101,18 +111,18 @@ export function SearchableSelect({
     }
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setHighlightIndex((i) => Math.min(i + 1, filteredOptions.length - 1));
+      moveHighlight(1);
       return;
     }
     if (e.key === "ArrowUp") {
       e.preventDefault();
-      setHighlightIndex((i) => Math.max(i - 1, 0));
+      moveHighlight(-1);
       return;
     }
     if (e.key === "Enter") {
       e.preventDefault();
       const opt = filteredOptions[highlightIndex];
-      if (opt) {
+      if (opt && !opt.disabled) {
         onChange(opt.value);
         setIsOpen(false);
       }
@@ -191,19 +201,24 @@ export function SearchableSelect({
                   key={opt.value}
                   role="option"
                   aria-selected={value === opt.value}
+                  aria-disabled={opt.disabled}
                   className={cn(
-                    "cursor-pointer px-3 py-2 text-sm",
-                    value === opt.value
+                    "px-3 py-2 text-sm",
+                    opt.disabled
+                      ? "cursor-not-allowed bg-secondary-50 text-secondary-400"
+                      : "cursor-pointer",
+                    !opt.disabled && value === opt.value
                       ? "bg-primary-100 text-primary-800"
-                      : index === highlightIndex
+                      : !opt.disabled && index === highlightIndex
                         ? "bg-secondary-100 text-text"
-                        : "text-text hover:bg-secondary-50",
+                        : !opt.disabled && "text-text hover:bg-secondary-50",
                   )}
                   onClick={() => {
+                    if (opt.disabled) return;
                     onChange(opt.value);
                     setIsOpen(false);
                   }}
-                  onMouseEnter={() => setHighlightIndex(index)}
+                  onMouseEnter={() => !opt.disabled && setHighlightIndex(index)}
                 >
                   {opt.label}
                 </li>
