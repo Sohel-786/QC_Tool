@@ -1,10 +1,8 @@
 import { prisma } from "../external-libraries/dbClient";
-import { ToolStatus } from "@prisma/client";
 
 type CreateIssueInput = {
   issueNo: string;
-  toolId: number;
-  divisionId: number;
+  itemId: number;
   issuedBy: number;
   issuedTo?: string;
   remarks?: string;
@@ -13,10 +11,15 @@ type CreateIssueInput = {
 const Issue = {
   create: async (data: CreateIssueInput) => {
     return prisma.issue.create({
-      data,
+      data: {
+        issueNo: data.issueNo,
+        itemId: data.itemId,
+        issuedBy: data.issuedBy,
+        issuedTo: data.issuedTo,
+        remarks: data.remarks,
+      },
       include: {
-        tool: true,
-        division: true,
+        item: true,
         issuedByUser: {
           select: {
             id: true,
@@ -33,8 +36,7 @@ const Issue = {
     return prisma.issue.findUnique({
       where: { id },
       include: {
-        tool: true,
-        division: true,
+        item: true,
         issuedByUser: {
           select: {
             id: true,
@@ -63,8 +65,7 @@ const Issue = {
     return prisma.issue.findUnique({
       where: { issueNo },
       include: {
-        tool: true,
-        division: true,
+        item: true,
         issuedByUser: {
           select: {
             id: true,
@@ -80,8 +81,7 @@ const Issue = {
   findAll: async () => {
     return prisma.issue.findMany({
       include: {
-        tool: true,
-        division: true,
+        item: true,
         issuedByUser: {
           select: {
             id: true,
@@ -91,7 +91,7 @@ const Issue = {
           },
         },
       },
-      orderBy: { issuedAt: 'desc' },
+      orderBy: { issuedAt: "desc" },
     });
   },
 
@@ -99,8 +99,7 @@ const Issue = {
     return prisma.issue.findMany({
       where: { isReturned: false },
       include: {
-        tool: true,
-        division: true,
+        item: true,
         issuedByUser: {
           select: {
             id: true,
@@ -110,7 +109,7 @@ const Issue = {
           },
         },
       },
-      orderBy: { issuedAt: 'desc' },
+      orderBy: { issuedAt: "desc" },
     });
   },
 
@@ -123,7 +122,7 @@ const Issue = {
 
   generateIssueNo: async (): Promise<string> => {
     const count = await prisma.issue.count();
-    const sequence = String(count + 1).padStart(3, '0');
+    const sequence = String(count + 1).padStart(3, "0");
     return `OUTWARD-${sequence}`;
   },
 

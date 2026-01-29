@@ -126,13 +126,13 @@ export default function ReturnsPage() {
                 Tool Returns
               </h1>
               <p className="text-secondary-600">
-                {isManager ? "View tool returns" : "Return issued tools"}
+                {isManager ? "View returns" : "Return issued items"}
               </p>
             </div>
             {!isManager && (
               <Button onClick={handleOpenForm} className="shadow-md">
                 <Plus className="w-4 h-4 mr-2" />
-                Return Tool
+                Return Item
               </Button>
             )}
           </div>
@@ -156,7 +156,7 @@ export default function ReturnsPage() {
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex-1">
                           <h3 className="font-semibold text-lg text-text mb-2">
-                            {return_.issue?.tool?.toolName}
+                            {return_.issue?.item?.itemName}
                           </h3>
                           {return_.returnCode && (
                             <p className="text-sm text-secondary-600 mb-1">
@@ -193,7 +193,7 @@ export default function ReturnsPage() {
               ) : (
                 <div className="text-center py-12">
                   <p className="text-secondary-500 text-lg">
-                    No returns found. Return your first tool above.
+                    No returns found. Return your first item above.
                   </p>
                 </div>
               )}
@@ -233,8 +233,8 @@ export default function ReturnsPage() {
                     Array.isArray(activeIssues) &&
                     activeIssues.map((issue) => (
                       <option key={issue.id} value={issue.id}>
-                        {issue.issueNo} - {issue.tool?.toolName} (
-                        {issue.division?.name})
+                        {issue.issueNo} — {issue.item?.itemName}
+                        {issue.issuedTo ? ` (${issue.issuedTo})` : ""}
                       </option>
                     ))}
                 </Select>
@@ -279,7 +279,7 @@ export default function ReturnsPage() {
                 disabled={createMutation.isPending}
                 className="flex-1"
               >
-                {createMutation.isPending ? "Returning..." : "Return Tool"}
+                {createMutation.isPending ? "Returning..." : "Return Item"}
               </Button>
               <Button
                 type="button"

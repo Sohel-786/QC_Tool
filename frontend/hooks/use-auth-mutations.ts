@@ -34,7 +34,7 @@ export function useLogin() {
         // Redirect based on user role
         // Small delay to ensure localStorage is set and cookie is available
         setTimeout(() => {
-          const redirectPath = data.user.role === Role.QC_MANAGER ? '/dashboard' : '/tools';
+          const redirectPath = data.user.role === Role.QC_MANAGER ? '/dashboard' : '/items';
           router.push(redirectPath);
         }, 150);
       }

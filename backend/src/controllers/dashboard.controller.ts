@@ -1,22 +1,26 @@
-import { Request, Response, NextFunction } from 'express';
-import { prisma } from '../external-libraries/dbClient';
-import { ToolStatus } from '@prisma/client';
+import { Request, Response, NextFunction } from "express";
+import { prisma } from "../external-libraries/dbClient";
+import { ItemStatus } from "@prisma/client";
 
-export const getMetrics = async (req: Request, res: Response, next: NextFunction) => {
+export const getMetrics = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
     const [
-      totalTools,
-      availableTools,
-      issuedTools,
-      missingTools,
+      totalItems,
+      availableItems,
+      issuedItems,
+      missingItems,
       totalIssues,
       activeIssues,
       totalReturns,
     ] = await Promise.all([
-      prisma.tool.count(),
-      prisma.tool.count({ where: { status: ToolStatus.AVAILABLE } }),
-      prisma.tool.count({ where: { status: ToolStatus.ISSUED } }),
-      prisma.tool.count({ where: { status: ToolStatus.MISSING } }),
+      prisma.item.count(),
+      prisma.item.count({ where: { status: ItemStatus.AVAILABLE } }),
+      prisma.item.count({ where: { status: ItemStatus.ISSUED } }),
+      prisma.item.count({ where: { status: ItemStatus.MISSING } }),
       prisma.issue.count(),
       prisma.issue.count({ where: { isReturned: false } }),
       prisma.return.count(),
@@ -25,11 +29,11 @@ export const getMetrics = async (req: Request, res: Response, next: NextFunction
     res.json({
       success: true,
       data: {
-        tools: {
-          total: totalTools,
-          available: availableTools,
-          issued: issuedTools,
-          missing: missingTools,
+        items: {
+          total: totalItems,
+          available: availableItems,
+          issued: issuedItems,
+          missing: missingItems,
         },
         issues: {
           total: totalIssues,
@@ -40,18 +44,21 @@ export const getMetrics = async (req: Request, res: Response, next: NextFunction
         },
       },
     });
-  } catch (error: any) {
-    next(error);
+  } catch (e) {
+    next(e);
   }
 };
 
-export const getRecentIssues = async (req: Request, res: Response, next: NextFunction) => {
+export const getRecentIssues = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const limit = parseInt(req.query.limit as string) || 10;
+    const limit = parseInt(String(req.query.limit), 10) || 10;
     const issues = await prisma.issue.findMany({
       include: {
-        tool: true,
-        division: true,
+        item: true,
         issuedByUser: {
           select: {
             id: true,
@@ -61,27 +68,27 @@ export const getRecentIssues = async (req: Request, res: Response, next: NextFun
           },
         },
       },
-      orderBy: { issuedAt: 'desc' },
+      orderBy: { issuedAt: "desc" },
       take: limit,
     });
-
-    res.json({
-      success: true,
-      data: issues,
-    });
-  } catch (error: any) {
-    next(error);
+    res.json({ success: true, data: issues });
+  } catch (e) {
+    next(e);
   }
 };
 
-export const getRecentReturns = async (req: Request, res: Response, next: NextFunction) => {
+export const getRecentReturns = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const limit = parseInt(req.query.limit as string) || 10;
+    const limit = parseInt(String(req.query.limit), 10) || 10;
     const returns = await prisma.return.findMany({
       include: {
         issue: {
           include: {
-            tool: true,
+            item: true,
           },
         },
         returnedByUser: {
@@ -93,15 +100,11 @@ export const getRecentReturns = async (req: Request, res: Response, next: NextFu
           },
         },
       },
-      orderBy: { returnedAt: 'desc' },
+      orderBy: { returnedAt: "desc" },
       take: limit,
     });
-
-    res.json({
-      success: true,
-      data: returns,
-    });
-  } catch (error: any) {
-    next(error);
+    res.json({ success: true, data: returns });
+  } catch (e) {
+    next(e);
   }
 };

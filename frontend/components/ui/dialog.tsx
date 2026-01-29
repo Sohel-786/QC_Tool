@@ -11,9 +11,11 @@ interface DialogProps {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
-  size?: "sm" | "md" | "lg" | "xl";
+  size?: "sm" | "md" | "lg" | "xl" | "2xl";
   /** Optional class for the overlay (e.g. z-[110] for nested dialogs) */
   overlayClassName?: string;
+  /** When false, content area uses overflow-hidden and flex column; use for forms with internal scroll + sticky footer */
+  contentScroll?: boolean;
 }
 
 export function Dialog({
@@ -23,6 +25,7 @@ export function Dialog({
   children,
   size = "md",
   overlayClassName,
+  contentScroll = true,
 }: DialogProps) {
   // Lock body scroll when dialog is open
   useEffect(() => {
@@ -64,7 +67,10 @@ export function Dialog({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               onClick={(e) => e.stopPropagation()}
-              className={`bg-white rounded-xl shadow-2xl ${sizeClasses[size]} w-full max-h-[90vh] flex flex-col`}
+              className={cn(
+                "bg-white rounded-xl shadow-2xl w-full max-h-[90vh] flex flex-col",
+                sizeClasses[size]
+              )}
             >
               {/* Header */}
               <div className="flex items-center justify-between p-6 border-b border-secondary-200">
@@ -79,8 +85,17 @@ export function Dialog({
                 </Button>
               </div>
 
-              {/* Content - scrollable */}
-              <div className="flex-1 overflow-y-auto p-6">{children}</div>
+              {/* Content - scrollable by default; use contentScroll={false} for internal scroll + sticky footer */}
+              <div
+                className={cn(
+                  "flex-1 min-h-0 p-6",
+                  contentScroll
+                    ? "overflow-y-auto"
+                    : "overflow-hidden flex flex-col"
+                )}
+              >
+                {children}
+              </div>
             </motion.div>
           </motion.div>
         </>

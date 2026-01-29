@@ -1,47 +1,46 @@
-import { Request, Response, NextFunction } from 'express';
-import { prisma } from '../external-libraries/dbClient';
-import { ToolStatus } from '@prisma/client';
-import { NotFoundError } from '../utils/errors';
+import { Request, Response, NextFunction } from "express";
+import { prisma } from "../external-libraries/dbClient";
+import { ItemStatus } from "@prisma/client";
+import { NotFoundError } from "../utils/errors";
 
-// Helper function to convert data to CSV
-const convertToCSV = (data: any[], headers: string[], fields: string[]): string => {
-  const csvRows = [];
-  
-  // Add headers
-  csvRows.push(headers.join(','));
-  
-  // Add data rows
+const convertToCSV = (
+  data: Record<string, unknown>[],
+  headers: string[],
+  fields: string[]
+): string => {
+  const rows = [headers.join(",")];
   for (const row of data) {
-    const values = fields.map(field => {
-      const value = field.split('.').reduce((obj, key) => obj?.[key], row);
-      // Escape commas and quotes in CSV
-      if (value === null || value === undefined) return '';
-      const stringValue = String(value).replace(/"/g, '""');
-      return `"${stringValue}"`;
+    const values = fields.map((f) => {
+      const v = f.split(".").reduce((o: unknown, k) => (o as Record<string, unknown>)?.[k], row);
+      if (v == null) return "";
+      const s = String(v).replace(/"/g, '""');
+      return `"${s}"`;
     });
-    csvRows.push(values.join(','));
+    rows.push(values.join(","));
   }
-  
-  return csvRows.join('\n');
+  return rows.join("\n");
 };
 
-export const getIssuedToolsReport = async (req: Request, res: Response, next: NextFunction) => {
+export const getIssuedItemsReport = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
     const { startDate, endDate } = req.query;
-
-    const where: any = { isReturned: false };
+    const where: { isReturned: boolean; issuedAt?: { gte: Date; lte: Date } } = {
+      isReturned: false,
+    };
     if (startDate && endDate) {
       where.issuedAt = {
         gte: new Date(startDate as string),
         lte: new Date(endDate as string),
       };
     }
-
     const issues = await prisma.issue.findMany({
       where,
       include: {
-        tool: true,
-        division: true,
+        item: true,
         issuedByUser: {
           select: {
             id: true,
@@ -51,53 +50,50 @@ export const getIssuedToolsReport = async (req: Request, res: Response, next: Ne
           },
         },
       },
-      orderBy: { issuedAt: 'desc' },
+      orderBy: { issuedAt: "desc" },
     });
-
-    res.json({
-      success: true,
-      data: issues,
-    });
-  } catch (error: any) {
-    next(error);
+    res.json({ success: true, data: issues });
+  } catch (e) {
+    next(e);
   }
 };
 
-export const getMissingToolsReport = async (req: Request, res: Response, next: NextFunction) => {
+export const getMissingItemsReport = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const tools = await prisma.tool.findMany({
-      where: { status: ToolStatus.MISSING },
-      include: {
-        issues: true,
-      },
-      orderBy: { toolName: 'asc' },
+    const items = await prisma.item.findMany({
+      where: { status: ItemStatus.MISSING },
+      include: { issues: true },
+      orderBy: { itemName: "asc" },
     });
-
-    res.json({
-      success: true,
-      data: tools,
-    });
-  } catch (error: any) {
-    next(error);
+    res.json({ success: true, data: items });
+  } catch (e) {
+    next(e);
   }
 };
 
-export const getToolHistoryLedger = async (req: Request, res: Response, next: NextFunction) => {
+export const getItemHistoryLedger = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const { toolId } = req.params;
-
-    const tool = await prisma.tool.findUnique({
-      where: { id: parseInt(toolId) },
-    });
-
-    if (!tool) {
-      return next(new NotFoundError('Tool not found'));
+    const itemId = parseInt(req.params.itemId);
+    if (Number.isNaN(itemId)) {
+      return next(new NotFoundError("Invalid item ID"));
     }
-
+    const item = await prisma.item.findUnique({
+      where: { id: itemId },
+    });
+    if (!item) {
+      return next(new NotFoundError("Item not found"));
+    }
     const issues = await prisma.issue.findMany({
-      where: { toolId: parseInt(toolId) },
+      where: { itemId },
       include: {
-        division: true,
         issuedByUser: {
           select: {
             id: true,
@@ -119,42 +115,79 @@ export const getToolHistoryLedger = async (req: Request, res: Response, next: Ne
           },
         },
       },
-      orderBy: { issuedAt: 'desc' },
+      orderBy: { issuedAt: "desc" },
     });
-
     res.json({
       success: true,
-      data: {
-        tool,
-        history: issues.map((issue) => ({
-          issue,
-          returns: issue.returns,
-        })),
-      },
+      data: { item, history: issues.map((i) => ({ issue: i, returns: i.returns })) },
     });
-  } catch (error: any) {
-    next(error);
+  } catch (e) {
+    next(e);
   }
 };
 
-// Export functions
-export const exportIssuedToolsReport = async (req: Request, res: Response, next: NextFunction) => {
+export const getAllItemsHistory = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const items = await prisma.item.findMany({
+      include: {
+        issues: {
+          include: {
+            issuedByUser: {
+              select: {
+                id: true,
+                username: true,
+                firstName: true,
+                lastName: true,
+              },
+            },
+            returns: {
+              include: {
+                returnedByUser: {
+                  select: {
+                    id: true,
+                    username: true,
+                    firstName: true,
+                    lastName: true,
+                  },
+                },
+              },
+            },
+          },
+          orderBy: { issuedAt: "desc" },
+        },
+      },
+      orderBy: { itemName: "asc" },
+    });
+    res.json({ success: true, data: items });
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const exportIssuedItemsReport = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
     const { startDate, endDate } = req.query;
-
-    const where: any = { isReturned: false };
+    const where: { isReturned: boolean; issuedAt?: { gte: Date; lte: Date } } = {
+      isReturned: false,
+    };
     if (startDate && endDate) {
       where.issuedAt = {
         gte: new Date(startDate as string),
         lte: new Date(endDate as string),
       };
     }
-
     const issues = await prisma.issue.findMany({
       where,
       include: {
-        tool: true,
-        division: true,
+        item: true,
         issuedByUser: {
           select: {
             id: true,
@@ -164,116 +197,112 @@ export const exportIssuedToolsReport = async (req: Request, res: Response, next:
           },
         },
       },
-      orderBy: { issuedAt: 'desc' },
+      orderBy: { issuedAt: "desc" },
     });
-
     const headers = [
-      'Issue No',
-      'Tool Code',
-      'Tool Name',
-      'Division',
-      'Issued To',
-      'Issued By',
-      'Status',
-      'Issued Date',
-      'Remarks'
+      "Issue No",
+      "Item Code",
+      "Item Name",
+      "Issued To",
+      "Issued By",
+      "Status",
+      "Issued Date",
+      "Remarks",
     ];
-
-    // Transform data for CSV export
     const csvData = issues.map((issue) => ({
       issueNo: issue.issueNo,
-      toolCode: issue.tool?.toolCode || 'N/A',
-      toolName: issue.tool?.toolName || 'N/A',
-      division: issue.division?.name || 'N/A',
-      issuedTo: issue.issuedTo || 'N/A',
+      itemCode: issue.item?.itemCode ?? "N/A",
+      itemName: issue.item?.itemName ?? "N/A",
+      issuedTo: issue.issuedTo ?? "N/A",
       issuedBy: issue.issuedByUser
         ? `${issue.issuedByUser.firstName} ${issue.issuedByUser.lastName}`
-        : 'N/A',
-      status: issue.isReturned ? 'Returned' : 'Active',
+        : "N/A",
+      status: issue.isReturned ? "Returned" : "Active",
       issuedDate: new Date(issue.issuedAt).toLocaleString(),
-      remarks: issue.remarks || 'N/A',
+      remarks: issue.remarks ?? "N/A",
     }));
-
     const fields = [
-      'issueNo',
-      'toolCode',
-      'toolName',
-      'division',
-      'issuedTo',
-      'issuedBy',
-      'status',
-      'issuedDate',
-      'remarks',
+      "issueNo",
+      "itemCode",
+      "itemName",
+      "issuedTo",
+      "issuedBy",
+      "status",
+      "issuedDate",
+      "remarks",
     ];
-
     const csv = convertToCSV(csvData, headers, fields);
-    
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename="issued-tools-report-${new Date().toISOString().split('T')[0]}.csv"`);
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="issued-items-report-${new Date().toISOString().split("T")[0]}.csv"`
+    );
     res.send(csv);
-  } catch (error: any) {
-    next(error);
+  } catch (e) {
+    next(e);
   }
 };
 
-export const exportMissingToolsReport = async (req: Request, res: Response, next: NextFunction) => {
+export const exportMissingItemsReport = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const tools = await prisma.tool.findMany({
-      where: { status: ToolStatus.MISSING },
-      include: {
-        issues: true,
-      },
-      orderBy: { toolName: 'asc' },
+    const items = await prisma.item.findMany({
+      where: { status: ItemStatus.MISSING },
+      include: { issues: true },
+      orderBy: { itemName: "asc" },
     });
-
     const headers = [
-      'Tool Code',
-      'Tool Name',
-      'Description',
-      'Status',
-      'Total Issues',
-      'Created At',
-      'Last Updated'
+      "Item Code",
+      "Item Name",
+      "Description",
+      "Status",
+      "Total Issues",
+      "Created At",
+      "Last Updated",
     ];
-
-    // Transform data for CSV export
-    const csvData = tools.map((tool) => ({
-      toolCode: tool.toolCode,
-      toolName: tool.toolName,
-      description: tool.description || 'N/A',
-      status: tool.status,
-      totalIssues: tool.issues?.length || 0,
-      createdAt: new Date(tool.createdAt).toLocaleString(),
-      updatedAt: new Date(tool.updatedAt).toLocaleString(),
+    const csvData = items.map((item) => ({
+      itemCode: item.itemCode,
+      itemName: item.itemName,
+      description: item.description ?? "N/A",
+      status: item.status,
+      totalIssues: item.issues?.length ?? 0,
+      createdAt: new Date(item.createdAt).toLocaleString(),
+      updatedAt: new Date(item.updatedAt).toLocaleString(),
     }));
-
     const fields = [
-      'toolCode',
-      'toolName',
-      'description',
-      'status',
-      'totalIssues',
-      'createdAt',
-      'updatedAt',
+      "itemCode",
+      "itemName",
+      "description",
+      "status",
+      "totalIssues",
+      "createdAt",
+      "updatedAt",
     ];
-
     const csv = convertToCSV(csvData, headers, fields);
-    
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename="missing-tools-report-${new Date().toISOString().split('T')[0]}.csv"`);
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="missing-items-report-${new Date().toISOString().split("T")[0]}.csv"`
+    );
     res.send(csv);
-  } catch (error: any) {
-    next(error);
+  } catch (e) {
+    next(e);
   }
 };
 
-export const getAllToolsHistory = async (req: Request, res: Response, next: NextFunction) => {
+export const exportItemHistoryReport = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const allTools = await prisma.tool.findMany({
+    const items = await prisma.item.findMany({
       include: {
         issues: {
           include: {
-            division: true,
             issuedByUser: {
               select: {
                 id: true,
@@ -295,138 +324,87 @@ export const getAllToolsHistory = async (req: Request, res: Response, next: Next
               },
             },
           },
-          orderBy: { issuedAt: 'desc' },
+          orderBy: { issuedAt: "desc" },
         },
       },
-      orderBy: { toolName: 'asc' },
+      orderBy: { itemName: "asc" },
     });
-
-    res.json({
-      success: true,
-      data: allTools,
-    });
-  } catch (error: any) {
-    next(error);
-  }
-};
-
-export const exportToolHistoryReport = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const allTools = await prisma.tool.findMany({
-      include: {
-        issues: {
-          include: {
-            division: true,
-            issuedByUser: {
-              select: {
-                id: true,
-                username: true,
-                firstName: true,
-                lastName: true,
-              },
-            },
-            returns: {
-              include: {
-                returnedByUser: {
-                  select: {
-                    id: true,
-                    username: true,
-                    firstName: true,
-                    lastName: true,
-                  },
-                },
-              },
-            },
-          },
-          orderBy: { issuedAt: 'desc' },
-        },
-      },
-      orderBy: { toolName: 'asc' },
-    });
-
-    // Flatten the data for CSV export
-    const historyRows: any[] = [];
-    for (const tool of allTools) {
-      if (tool.issues.length === 0) {
+    const historyRows: Record<string, unknown>[] = [];
+    for (const item of items) {
+      if (item.issues.length === 0) {
         historyRows.push({
-          toolCode: tool.toolCode,
-          toolName: tool.toolName,
-          issueNo: 'N/A',
-          division: 'N/A',
-          issuedBy: 'N/A',
-          issuedTo: 'N/A',
-          issuedDate: 'N/A',
-          returnedDate: 'N/A',
-          returnedBy: 'N/A',
-          status: tool.status,
+          itemCode: item.itemCode,
+          itemName: item.itemName,
+          issueNo: "N/A",
+          issuedBy: "N/A",
+          issuedTo: "N/A",
+          issuedDate: "N/A",
+          returnedDate: "N/A",
+          returnedBy: "N/A",
+          status: item.status,
         });
       } else {
-        for (const issue of tool.issues) {
+        for (const issue of item.issues) {
           if (issue.returns.length > 0) {
-            for (const return_ of issue.returns) {
+            for (const r of issue.returns) {
               historyRows.push({
-                toolCode: tool.toolCode,
-                toolName: tool.toolName,
+                itemCode: item.itemCode,
+                itemName: item.itemName,
                 issueNo: issue.issueNo,
-                division: issue.division?.name || 'N/A',
-                issuedBy: `${issue.issuedByUser?.firstName || ''} ${issue.issuedByUser?.lastName || ''}`.trim() || 'N/A',
-                issuedTo: issue.issuedTo || 'N/A',
+                issuedBy: `${issue.issuedByUser?.firstName ?? ""} ${issue.issuedByUser?.lastName ?? ""}`.trim() || "N/A",
+                issuedTo: issue.issuedTo ?? "N/A",
                 issuedDate: issue.issuedAt,
-                returnedDate: return_.returnedAt,
-                returnedBy: `${return_.returnedByUser?.firstName || ''} ${return_.returnedByUser?.lastName || ''}`.trim() || 'N/A',
-                status: issue.isReturned ? 'Returned' : 'Active',
+                returnedDate: r.returnedAt,
+                returnedBy: `${r.returnedByUser?.firstName ?? ""} ${r.returnedByUser?.lastName ?? ""}`.trim() || "N/A",
+                status: issue.isReturned ? "Returned" : "Active",
               });
             }
           } else {
             historyRows.push({
-              toolCode: tool.toolCode,
-              toolName: tool.toolName,
+              itemCode: item.itemCode,
+              itemName: item.itemName,
               issueNo: issue.issueNo,
-              division: issue.division?.name || 'N/A',
-              issuedBy: `${issue.issuedByUser?.firstName || ''} ${issue.issuedByUser?.lastName || ''}`.trim() || 'N/A',
-              issuedTo: issue.issuedTo || 'N/A',
+              issuedBy: `${issue.issuedByUser?.firstName ?? ""} ${issue.issuedByUser?.lastName ?? ""}`.trim() || "N/A",
+              issuedTo: issue.issuedTo ?? "N/A",
               issuedDate: issue.issuedAt,
-              returnedDate: 'N/A',
-              returnedBy: 'N/A',
-              status: issue.isReturned ? 'Returned' : 'Active',
+              returnedDate: "N/A",
+              returnedBy: "N/A",
+              status: issue.isReturned ? "Returned" : "Active",
             });
           }
         }
       }
     }
-
     const headers = [
-      'Tool Code',
-      'Tool Name',
-      'Issue No',
-      'Division',
-      'Issued By',
-      'Issued To',
-      'Issued Date',
-      'Returned Date',
-      'Returned By',
-      'Status'
+      "Item Code",
+      "Item Name",
+      "Issue No",
+      "Issued By",
+      "Issued To",
+      "Issued Date",
+      "Returned Date",
+      "Returned By",
+      "Status",
     ];
-
     const fields = [
-      'toolCode',
-      'toolName',
-      'issueNo',
-      'division',
-      'issuedBy',
-      'issuedTo',
-      'issuedDate',
-      'returnedDate',
-      'returnedBy',
-      'status'
+      "itemCode",
+      "itemName",
+      "issueNo",
+      "issuedBy",
+      "issuedTo",
+      "issuedDate",
+      "returnedDate",
+      "returnedBy",
+      "status",
     ];
-
     const csv = convertToCSV(historyRows, headers, fields);
-    
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename="tool-history-report-${new Date().toISOString().split('T')[0]}.csv"`);
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="item-history-report-${new Date().toISOString().split("T")[0]}.csv"`
+    );
     res.send(csv);
-  } catch (error: any) {
-    next(error);
+  } catch (e) {
+    next(e);
   }
 };

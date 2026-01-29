@@ -5,11 +5,11 @@ import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
-import { DashboardMetrics, Tool } from '@/types';
+import { DashboardMetrics, Item, ItemCategory } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
-  Wrench,
+  Package,
   CheckCircle,
   AlertCircle,
   ClipboardList,
@@ -22,11 +22,6 @@ import Link from 'next/link';
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 type TableView = 'available' | 'total' | null;
-
-interface ToolCategory {
-  id: number;
-  name: string;
-}
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -68,28 +63,28 @@ export default function DashboardPage() {
     },
   });
 
-  const { data: availableTools, isLoading: loadingAvailable } = useQuery<Tool[]>({
-    queryKey: ['tools', 'available'],
+  const { data: availableItems, isLoading: loadingAvailable } = useQuery<Item[]>({
+    queryKey: ['items', 'available'],
     queryFn: async () => {
-      const response = await api.get('/tools?status=AVAILABLE');
+      const response = await api.get('/items/available');
       return response.data?.data || [];
     },
     enabled: tableView === 'available',
   });
 
-  const { data: allTools, isLoading: loadingTotal } = useQuery<Tool[]>({
-    queryKey: ['tools'],
+  const { data: allItems, isLoading: loadingTotal } = useQuery<Item[]>({
+    queryKey: ['items'],
     queryFn: async () => {
-      const response = await api.get('/tools');
+      const response = await api.get('/items');
       return response.data?.data || [];
     },
     enabled: tableView === 'total',
   });
 
-  const { data: categories } = useQuery<ToolCategory[]>({
-    queryKey: ['tool-categories'],
+  const { data: categories } = useQuery<ItemCategory[]>({
+    queryKey: ['item-categories'],
     queryFn: async () => {
-      const response = await api.get('/tool-categories');
+      const response = await api.get('/item-categories');
       return response.data?.data || [];
     },
     enabled: tableView === 'available' || tableView === 'total',
@@ -100,11 +95,11 @@ export default function DashboardPage() {
     return acc;
   }, {});
 
-  const totalToolsList =
-    tableView === 'total' && allTools
-      ? allTools.filter((t) => t.status === 'AVAILABLE' || t.status === 'MISSING')
+  const totalItemsList =
+    tableView === 'total' && allItems
+      ? allItems.filter((i) => i.status === 'AVAILABLE' || i.status === 'MISSING')
       : [];
-  const tableData = tableView === 'available' ? availableTools || [] : totalToolsList;
+  const tableData = tableView === 'available' ? availableItems || [] : totalItemsList;
   const tableLoading = tableView === 'available' ? loadingAvailable : loadingTotal;
 
   if (loading) {
@@ -119,7 +114,7 @@ export default function DashboardPage() {
   }
 
   const handleCardClick = (title: string) => {
-    if (title === 'Total Tools') setTableView('total');
+    if (title === 'Total Items') setTableView('total');
     else if (title === 'Available') setTableView('available');
     else if (title === 'Missing') router.push('/reports?section=missing');
     else if (title === 'Active Issues') router.push('/reports?section=active-issues');
@@ -127,18 +122,18 @@ export default function DashboardPage() {
 
   const statCards = [
     {
-      title: 'Total Tools',
-      value: metrics?.tools.total || 0,
-      icon: Wrench,
+      title: 'Total Items',
+      value: metrics?.items.total || 0,
+      icon: Package,
       color: 'text-primary-600',
       bgColor: 'bg-gradient-to-br from-primary-50 to-primary-100',
       iconBg: 'bg-primary-600',
       trend: null,
-      onClick: () => handleCardClick('Total Tools'),
+      onClick: () => handleCardClick('Total Items'),
     },
     {
       title: 'Available',
-      value: metrics?.tools.available || 0,
+      value: metrics?.items.available || 0,
       icon: CheckCircle,
       color: 'text-green-600',
       bgColor: 'bg-gradient-to-br from-green-50 to-green-100',
@@ -148,7 +143,7 @@ export default function DashboardPage() {
     },
     {
       title: 'Missing',
-      value: metrics?.tools.missing || 0,
+      value: metrics?.items.missing || 0,
       icon: AlertCircle,
       color: 'text-red-600',
       bgColor: 'bg-gradient-to-br from-red-50 to-red-100',
@@ -179,12 +174,12 @@ export default function DashboardPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-text mb-2">Dashboard</h1>
-            <p className="text-secondary-600">Plan, prioritize, and manage your QC tools with ease.</p>
+            <p className="text-secondary-600">Plan, prioritize, and manage your QC items with ease.</p>
           </div>
           <div className="flex items-center space-x-3">
-            <Link href="/tools">
+            <Link href="/items">
               <Button variant="outline" className="shadow-sm">
-                View All Tools
+                View All Items
               </Button>
             </Link>
             <Link href="/reports">
@@ -244,12 +239,12 @@ export default function DashboardPage() {
           })}
         </div>
 
-        {/* Tools Table (shown when Available or Total Tools is clicked) */}
+        {/* Items table (shown when Available or Total Items is clicked) */}
         {(tableView === 'available' || tableView === 'total') && (
           <Card className="shadow-lg border-0">
             <CardHeader className="border-b border-secondary-200">
               <CardTitle className="text-xl font-bold text-text">
-                {tableView === 'available' ? 'Available Tools' : 'Total Tools (Available & Missing)'}
+                {tableView === 'available' ? 'Available Items' : 'Total Items (Available & Missing)'}
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
@@ -264,13 +259,13 @@ export default function DashboardPage() {
                     <thead>
                       <tr className="border-b border-secondary-200 bg-secondary-50/50">
                         <th className="text-left py-3 px-4 font-semibold text-sm text-secondary-700">
-                          Tool Code
+                          Item Code
                         </th>
                         <th className="text-left py-3 px-4 font-semibold text-sm text-secondary-700">
-                          Tool Category
+                          Item Category
                         </th>
                         <th className="text-left py-3 px-4 font-semibold text-sm text-secondary-700">
-                          Tool Name
+                          Item Name
                         </th>
                         <th className="text-left py-3 px-4 font-semibold text-sm text-secondary-700">
                           Status
@@ -284,48 +279,50 @@ export default function DashboardPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {tableData.map((tool, index) => (
+                      {tableData.map((item, index) => (
                         <motion.tr
-                          key={tool.id}
+                          key={item.id}
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: index * 0.03 }}
                           className="border-b border-secondary-100 hover:bg-secondary-50 transition-colors"
                         >
                           <td className="py-3 px-4 font-mono text-sm">
-                            {tool.toolCode}
+                            {item.itemCode}
                           </td>
                           <td className="py-3 px-4 text-sm text-secondary-600">
-                            {tool.categoryId != null ? categoryMap[tool.categoryId] ?? '—' : '—'}
+                            {item.categoryId != null ? categoryMap[item.categoryId] ?? '—' : '—'}
                           </td>
                           <td className="py-3 px-4 font-medium text-text">
-                            {tool.toolName}
+                            {item.itemName}
                           </td>
                           <td className="py-3 px-4">
                             <span
                               className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                tool.status === 'AVAILABLE'
+                                item.status === 'AVAILABLE'
                                   ? 'bg-green-100 text-green-700 border border-green-200'
-                                  : tool.status === 'MISSING'
+                                  : item.status === 'MISSING'
                                     ? 'bg-red-100 text-red-700 border border-red-200'
                                     : 'bg-secondary-100 text-secondary-700 border border-secondary-200'
                               }`}
                             >
-                              {tool.status}
+                              {item.status}
                             </span>
                           </td>
                           <td className="py-3 px-4 text-sm text-secondary-600 font-mono">
-                            {tool.serialNumber ?? '—'}
+                            {item.serialNumber ?? '—'}
                           </td>
                           <td className="py-3 px-4">
-                            {tool.image ? (
+                            {item.image ? (
                               <img
-                                src={`${API_BASE_URL}/storage/${tool.image}`}
-                                alt={tool.toolName}
-                                className="min-w-[30px] min-h-[30px] w-8 h-8 object-cover rounded border border-secondary-200"
+                                src={`${API_BASE_URL}/storage/${item.image}`}
+                                alt=""
+                                width={30}
+                                height={30}
+                                className="min-w-[30px] min-h-[30px] w-[30px] h-[30px] object-cover rounded border border-secondary-200"
                               />
                             ) : (
-                              <span className="inline-block min-w-[30px] min-h-[30px] w-8 h-8 rounded border border-secondary-200 bg-secondary-100 text-secondary-400 text-xs flex items-center justify-center">
+                              <span className="inline-block min-w-[30px] min-h-[30px] w-[30px] h-[30px] rounded border border-secondary-200 bg-secondary-100 text-secondary-400 text-xs flex items-center justify-center">
                                 —
                               </span>
                             )}
@@ -338,7 +335,7 @@ export default function DashboardPage() {
               ) : (
                 <div className="text-center py-12">
                   <p className="text-secondary-500">
-                    {tableView === 'available' ? 'No available tools.' : 'No tools with Available or Missing status.'}
+                    {tableView === 'available' ? 'No available items.' : 'No items with Available or Missing status.'}
                   </p>
                 </div>
               )}

@@ -16,6 +16,13 @@ const nextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      { source: '/tools', destination: '/items', permanent: true },
+      { source: '/tool-categories', destination: '/item-categories', permanent: true },
+      { source: '/divisions', destination: '/items', permanent: true },
+    ];
+  },
 };
 
 module.exports = nextConfig;

@@ -1,27 +1,26 @@
-import { Router } from 'express';
+import { Router } from "express";
 import {
-  getIssuedToolsReport,
-  getMissingToolsReport,
-  getToolHistoryLedger,
-  exportIssuedToolsReport,
-  exportMissingToolsReport,
-  getAllToolsHistory,
-  exportToolHistoryReport,
-} from '../controllers/reports.controller';
-import { authMiddleware } from '../middleware/auth.middleware';
+  getIssuedItemsReport,
+  getMissingItemsReport,
+  getItemHistoryLedger,
+  getAllItemsHistory,
+  exportIssuedItemsReport,
+  exportMissingItemsReport,
+  exportItemHistoryReport,
+} from "../controllers/reports.controller";
+import { authMiddleware } from "../middleware/auth.middleware";
 
 const router = Router();
 
 router.use(authMiddleware());
 
-router.get('/issued-tools', getIssuedToolsReport);
-router.get('/missing-tools', getMissingToolsReport);
-router.get('/tool-history/:toolId', getToolHistoryLedger);
-router.get('/tool-history', getAllToolsHistory);
+router.get("/issued-items", getIssuedItemsReport);
+router.get("/missing-items", getMissingItemsReport);
+router.get("/item-history/:itemId", getItemHistoryLedger);
+router.get("/item-history", getAllItemsHistory);
 
-// Export routes
-router.get('/export/issued-tools', exportIssuedToolsReport);
-router.get('/export/missing-tools', exportMissingToolsReport);
-router.get('/export/tool-history', exportToolHistoryReport);
+router.get("/export/issued-items", exportIssuedItemsReport);
+router.get("/export/missing-items", exportMissingItemsReport);
+router.get("/export/item-history", exportItemHistoryReport);
 
 export default router;

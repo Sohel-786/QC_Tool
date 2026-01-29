@@ -102,7 +102,7 @@ export default function LoginPage() {
               <div className="w-10 h-10 bg-gradient-to-br from-primary-600 to-primary-700 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-xl">QC</span>
               </div>
-              <h1 className="text-2xl font-bold text-text">QC Tool System</h1>
+              <h1 className="text-2xl font-bold text-text">QC Item System</h1>
             </div>
           </motion.div>
 
@@ -356,7 +356,7 @@ export default function LoginPage() {
               Welcome Back
             </motion.h3>
             <p className="text-xl text-white/90 drop-shadow-md">
-              Manage your QC tools efficiently
+              Manage your QC items efficiently
             </p>
           </motion.div>
         </div>

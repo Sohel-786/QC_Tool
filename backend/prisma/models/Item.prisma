@@ -1,0 +1,39 @@
+enum ItemStatus {
+  AVAILABLE
+  ISSUED
+  MISSING
+}
+
+model Item {
+  id           Int         @id @default(autoincrement())
+  itemCode     String      @unique @map("toolCode")
+  itemName     String      @map("toolName")
+  serialNumber String?     @unique
+  description  String?
+  image        String?
+  categoryId   Int?        @map("categoryId")
+  status       ItemStatus  @default(AVAILABLE)
+  isActive     Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  // Relations
+  issues   Issue[]         @relation("ItemIssues")
+  category ItemCategory?   @relation(fields: [categoryId], references: [id])
+
+  @@map("tools")
+}
+
+model ItemCategory {
+  id        Int      @id @default(autoincrement())
+  code      String?  @unique
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  items Item[]
+
+  @@map("tool_categories")
+}

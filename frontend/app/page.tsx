@@ -16,7 +16,7 @@ export default function Home() {
         if (user.role === Role.QC_MANAGER) {
           router.push('/dashboard');
         } else {
-          router.push('/tools');
+          router.push('/items');
         }
       } else {
         router.push('/login');

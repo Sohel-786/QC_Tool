@@ -1,149 +1,149 @@
-import { Request, Response, NextFunction } from 'express';
-import Issue from '../entities/issue';
-import Tool from '../entities/tool';
-import Division from '../entities/division';
-import { BadRequestError, NotFoundError, ValidationError } from '../utils/errors';
-import { ToolStatus } from '@prisma/client';
-import { generateNextCode } from '../utils/codeGenerator';
+import { Request, Response, NextFunction } from "express";
+import Issue from "../entities/issue";
+import Item from "../entities/item";
+import {
+  BadRequestError,
+  NotFoundError,
+  ValidationError,
+} from "../utils/errors";
+import { ItemStatus } from "@prisma/client";
+import { generateNextCode } from "../utils/codeGenerator";
 
-export const createIssue = async (req: Request, res: Response, next: NextFunction) => {
+export const createIssue = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const { toolId, divisionId, issuedTo, remarks, categoryId } = req.body;
+    const { itemId, issuedTo, remarks, categoryId } = req.body;
     const issuedBy = req.user!.id;
 
-    if (!toolId || !divisionId) {
-      return next(new ValidationError('Tool and division are required'));
+    if (!itemId) {
+      return next(new ValidationError("Item is required"));
     }
 
-    // Check if tool exists and is available
-    const tool = await Tool.findById(toolId);
-    if (!tool) {
-      return next(new NotFoundError('Tool not found'));
+    const item = await Item.findById(itemId);
+    if (!item) {
+      return next(new NotFoundError("Item not found"));
     }
-    if (tool.status !== ToolStatus.AVAILABLE) {
-      return next(new BadRequestError('Tool is not available for issue'));
+    if (item.status !== ItemStatus.AVAILABLE) {
+      return next(new BadRequestError("Item is not available for issue"));
     }
 
-    // Optional category validation for outward record
-    if (categoryId !== undefined && categoryId !== null && categoryId !== '') {
+    if (
+      categoryId !== undefined &&
+      categoryId !== null &&
+      categoryId !== ""
+    ) {
       const parsedCategoryId = Number(categoryId);
       if (Number.isNaN(parsedCategoryId)) {
-        return next(new ValidationError('Invalid tool category'));
+        return next(new ValidationError("Invalid item category"));
       }
-
-      const toolWithCategory = tool as typeof tool & { categoryId?: number | null };
-      if (!toolWithCategory.categoryId || toolWithCategory.categoryId !== parsedCategoryId) {
+      if (
+        !item.categoryId ||
+        item.categoryId !== parsedCategoryId
+      ) {
         return next(
           new BadRequestError(
-            'Selected tool does not belong to the chosen category. Please select a matching tool.',
-          ),
+            "Selected item does not belong to the chosen category. Please select a matching item."
+          )
         );
       }
     }
 
-    // Check if division exists and is active
-    const division = await Division.findById(divisionId);
-    if (!division) {
-      return next(new NotFoundError('Division not found'));
-    }
-    if (!division.isActive) {
-      return next(new BadRequestError('Division is inactive and cannot receive tools'));
-    }
-
-    // Generate issue number
     const issueNo = await Issue.generateIssueNo();
 
-    // Create issue
     const issue = await Issue.create({
       issueNo,
-      toolId,
-      divisionId,
+      itemId,
       issuedBy,
-      issuedTo,
-      remarks,
+      issuedTo: issuedTo || undefined,
+      remarks: remarks || undefined,
     });
 
-    // Update tool status to ISSUED
-    await Tool.updateStatus(toolId, ToolStatus.ISSUED);
+    await Item.update(itemId, { status: ItemStatus.ISSUED });
 
-    res.status(201).json({
-      success: true,
-      data: issue,
-    });
-  } catch (error: any) {
-    next(error);
+    res.status(201).json({ success: true, data: issue });
+  } catch (e) {
+    next(e);
   }
 };
 
-export const getAllIssues = async (req: Request, res: Response, next: NextFunction) => {
+export const getAllIssues = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
     const issues = await Issue.findAll();
-    res.json({
-      success: true,
-      data: issues,
-    });
-  } catch (error: any) {
-    next(error);
+    res.json({ success: true, data: issues });
+  } catch (e) {
+    next(e);
   }
 };
 
-export const getActiveIssues = async (req: Request, res: Response, next: NextFunction) => {
+export const getActiveIssues = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
     const issues = await Issue.findActive();
-    res.json({
-      success: true,
-      data: issues,
-    });
-  } catch (error: any) {
-    next(error);
+    res.json({ success: true, data: issues });
+  } catch (e) {
+    next(e);
   }
 };
 
-export const getIssueById = async (req: Request, res: Response, next: NextFunction) => {
+export const getIssueById = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const { id } = req.params;
-    const issue = await Issue.findById(parseInt(id));
-
+    const id = parseInt(req.params.id);
+    if (Number.isNaN(id)) {
+      return next(new ValidationError("Invalid issue id"));
+    }
+    const issue = await Issue.findById(id);
     if (!issue) {
       return next(new NotFoundError(`Issue with ID ${id} not found`));
     }
-
-    res.json({
-      success: true,
-      data: issue,
-    });
-  } catch (error: any) {
-    next(error);
+    res.json({ success: true, data: issue });
+  } catch (e) {
+    next(e);
   }
 };
 
-export const getIssueByIssueNo = async (req: Request, res: Response, next: NextFunction) => {
+export const getIssueByIssueNo = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
     const { issueNo } = req.params;
     const issue = await Issue.findByIssueNo(issueNo);
-
     if (!issue) {
-      return next(new NotFoundError(`Issue with number ${issueNo} not found`));
+      return next(
+        new NotFoundError(`Issue with number ${issueNo} not found`)
+      );
     }
-
-    res.json({
-      success: true,
-      data: issue,
-    });
-  } catch (error: any) {
-    next(error);
+    res.json({ success: true, data: issue });
+  } catch (e) {
+    next(e);
   }
 };
 
-export const getNextIssueCode = async (req: Request, res: Response, next: NextFunction) => {
+export const getNextIssueCode = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const issueCount = await Issue.getCount();
-    const nextCode = generateNextCode('OUTWARD', issueCount);
-    res.json({
-      success: true,
-      data: { nextCode },
-    });
-  } catch (error: any) {
-    next(error);
+    const count = await Issue.getCount();
+    const nextCode = generateNextCode("OUTWARD", count);
+    res.json({ success: true, data: { nextCode } });
+  } catch (e) {
+    next(e);
   }
 };

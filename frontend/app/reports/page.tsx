@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "@/lib/api";
-import { Issue, Tool } from "@/types";
+import { Issue, Item } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,26 +31,26 @@ export default function ReportsPage() {
     else if (section === "active-issues" || section === "issued") setActiveReport("issued");
   }, [searchParams]);
 
-  const { data: issuedTools, isLoading: loadingIssued } = useQuery<Issue[]>({
-    queryKey: ["issued-tools-report"],
+  const { data: issuedItems, isLoading: loadingIssued } = useQuery<Issue[]>({
+    queryKey: ["issued-items-report"],
     queryFn: async () => {
-      const response = await api.get("/reports/issued-tools");
+      const response = await api.get("/reports/issued-items");
       return response.data?.data || [];
     },
   });
 
-  const { data: missingTools, isLoading: loadingMissing } = useQuery<Tool[]>({
-    queryKey: ["missing-tools-report"],
+  const { data: missingItems, isLoading: loadingMissing } = useQuery<Item[]>({
+    queryKey: ["missing-items-report"],
     queryFn: async () => {
-      const response = await api.get("/reports/missing-tools");
+      const response = await api.get("/reports/missing-items");
       return response.data?.data || [];
     },
   });
 
-  const { data: toolHistory, isLoading: loadingHistory } = useQuery<any[]>({
-    queryKey: ["tool-history-report"],
+  const { data: itemHistory, isLoading: loadingHistory } = useQuery<any[]>({
+    queryKey: ["item-history-report"],
     queryFn: async () => {
-      const response = await api.get("/reports/tool-history");
+      const response = await api.get("/reports/item-history");
       return response.data?.data || [];
     },
     enabled: activeReport === "history",
@@ -63,16 +63,16 @@ export default function ReportsPage() {
 
       switch (type) {
         case "issued":
-          endpoint = "/reports/export/issued-tools";
+          endpoint = "/reports/export/issued-items";
           filename = "active-issues-report";
           break;
         case "missing":
-          endpoint = "/reports/export/missing-tools";
-          filename = "missing-tools-report";
+          endpoint = "/reports/export/missing-items";
+          filename = "missing-items-report";
           break;
         case "history":
-          endpoint = "/reports/export/tool-history";
-          filename = "tool-history-report";
+          endpoint = "/reports/export/item-history";
+          filename = "item-history-report";
           break;
       }
 
@@ -99,41 +99,39 @@ export default function ReportsPage() {
   };
 
   // Filter data based on search term
-  const filteredIssuedTools = useMemo(() => {
-    if (!issuedTools) return [];
-    return issuedTools.filter(
+  const filteredIssuedItems = useMemo(() => {
+    if (!issuedItems) return [];
+    return issuedItems.filter(
       (issue) =>
-        issue.tool?.toolName
+        issue.item?.itemName
           ?.toLowerCase()
           .includes(searchTerm.toLowerCase()) ||
-        issue.tool?.toolCode
+        issue.item?.itemCode
           ?.toLowerCase()
           .includes(searchTerm.toLowerCase()) ||
         issue.issueNo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        issue.division?.name
-          ?.toLowerCase()
-          .includes(searchTerm.toLowerCase()) ||
         issue.issuedTo?.toLowerCase().includes(searchTerm.toLowerCase()),
     );
-  }, [issuedTools, searchTerm]);
+  }, [issuedItems, searchTerm]);
 
-  const filteredMissingTools = useMemo(() => {
-    if (!missingTools) return [];
-    return missingTools.filter(
-      (tool) =>
-        tool.toolName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        tool.toolCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        tool.description?.toLowerCase().includes(searchTerm.toLowerCase()),
+  const filteredMissingItems = useMemo(() => {
+    if (!missingItems) return [];
+    const q = searchTerm.toLowerCase();
+    return missingItems.filter(
+      (item) =>
+        item.itemName?.toLowerCase().includes(q) ||
+        item.itemCode?.toLowerCase().includes(q) ||
+        (item.description != null && item.description.toLowerCase().includes(q)),
     );
-  }, [missingTools, searchTerm]);
+  }, [missingItems, searchTerm]);
 
-  const filteredToolHistory = useMemo(() => {
-    if (!toolHistory) return [];
-    return toolHistory.filter(
-      (tool) =>
-        tool.toolName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        tool.toolCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        tool.issues?.some(
+  const filteredItemHistory = useMemo(() => {
+    if (!itemHistory) return [];
+    return itemHistory.filter(
+      (item) =>
+        item.itemName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.itemCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.issues?.some(
           (issue: any) =>
             issue.issueNo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             issue.division?.name
@@ -141,26 +139,26 @@ export default function ReportsPage() {
               .includes(searchTerm.toLowerCase()),
         ),
     );
-  }, [toolHistory, searchTerm]);
+  }, [itemHistory, searchTerm]);
 
   const reportTabs = [
     {
       id: "issued" as ReportType,
       label: "Active Issues",
       icon: FileText,
-      count: issuedTools?.length || 0,
+      count: issuedItems?.length || 0,
     },
     {
       id: "missing" as ReportType,
-      label: "Missing Tools",
+      label: "Missing Items",
       icon: AlertTriangle,
-      count: missingTools?.length || 0,
+      count: missingItems?.length || 0,
     },
     {
       id: "history" as ReportType,
-      label: "Tool History (Ledger)",
+      label: "Item History (Ledger)",
       icon: History,
-      count: toolHistory?.length || 0,
+      count: itemHistory?.length || 0,
     },
   ];
 
@@ -175,7 +173,7 @@ export default function ReportsPage() {
         <div>
           <h1 className="text-3xl font-bold text-text mb-2">Reports</h1>
           <p className="text-secondary-600">
-            Comprehensive reports and analytics for your QC tools
+            Comprehensive reports and analytics for your QC items
           </p>
         </div>
 
@@ -239,7 +237,7 @@ export default function ReportsPage() {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary-400 w-5 h-5" />
                   <Input
-                    placeholder={`Search ${activeReport === "issued" ? "active issues" : activeReport === "missing" ? "missing tools" : "tool history"}...`}
+                    placeholder={`Search ${activeReport === "issued" ? "active issues" : activeReport === "missing" ? "missing items" : "item history"}...`}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10"
@@ -275,7 +273,7 @@ export default function ReportsPage() {
               <Card className="shadow-sm">
                 <CardHeader>
                   <CardTitle>
-                    Active Issues ({filteredIssuedTools.length})
+                    Active Issues ({filteredIssuedItems.length})
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -284,7 +282,7 @@ export default function ReportsPage() {
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
                       <p className="mt-4 text-secondary-600">Loading...</p>
                     </div>
-                  ) : filteredIssuedTools.length > 0 ? (
+                  ) : filteredIssuedItems.length > 0 ? (
                     <div className="overflow-x-auto">
                       <table className="w-full">
                         <thead>
@@ -293,10 +291,7 @@ export default function ReportsPage() {
                               Issue No
                             </th>
                             <th className="text-left py-3 px-4 font-semibold text-sm text-secondary-700">
-                              Tool
-                            </th>
-                            <th className="text-left py-3 px-4 font-semibold text-sm text-secondary-700">
-                              Division
+                              Item
                             </th>
                             <th className="text-left py-3 px-4 font-semibold text-sm text-secondary-700">
                               Issued To
@@ -313,7 +308,7 @@ export default function ReportsPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {filteredIssuedTools.map((issue: any, index) => (
+                          {filteredIssuedItems.map((issue: any, index) => (
                             <motion.tr
                               key={issue.id}
                               initial={{ opacity: 0, y: 10 }}
@@ -329,15 +324,12 @@ export default function ReportsPage() {
                               <td className="py-4 px-4">
                                 <div>
                                   <p className="font-medium text-text">
-                                    {issue.tool?.toolName}
+                                    {issue.item?.itemName}
                                   </p>
                                   <p className="text-xs text-secondary-500 font-mono">
-                                    {issue.tool?.toolCode}
+                                    {issue.item?.itemCode}
                                   </p>
                                 </div>
-                              </td>
-                              <td className="py-4 px-4 text-sm text-secondary-600">
-                                {issue.division?.name}
                               </td>
                               <td className="py-4 px-4 text-sm text-secondary-600">
                                 {issue.issuedTo || "N/A"}
@@ -391,7 +383,7 @@ export default function ReportsPage() {
               <Card className="shadow-sm">
                 <CardHeader>
                   <CardTitle>
-                    Missing Tools ({filteredMissingTools.length})
+                    Missing Items ({filteredMissingItems.length})
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -400,16 +392,16 @@ export default function ReportsPage() {
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
                       <p className="mt-4 text-secondary-600">Loading...</p>
                     </div>
-                  ) : filteredMissingTools.length > 0 ? (
+                  ) : filteredMissingItems.length > 0 ? (
                     <div className="overflow-x-auto">
                       <table className="w-full">
                         <thead>
                           <tr className="border-b border-secondary-200">
                             <th className="text-left py-3 px-4 font-semibold text-sm text-secondary-700">
-                              Tool Code
+                              Item Code
                             </th>
                             <th className="text-left py-3 px-4 font-semibold text-sm text-secondary-700">
-                              Tool Name
+                              Item Name
                             </th>
                             <th className="text-left py-3 px-4 font-semibold text-sm text-secondary-700">
                               Description
@@ -426,9 +418,9 @@ export default function ReportsPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {filteredMissingTools.map((tool: any, index) => (
+                          {filteredMissingItems.map((item: any, index) => (
                             <motion.tr
-                              key={tool.id}
+                              key={item.id}
                               initial={{ opacity: 0, y: 10 }}
                               animate={{ opacity: 1, y: 0 }}
                               transition={{ delay: index * 0.05 }}
@@ -436,27 +428,27 @@ export default function ReportsPage() {
                             >
                               <td className="py-4 px-4">
                                 <span className="font-mono text-sm font-medium text-red-900">
-                                  {tool.toolCode}
+                                  {item.itemCode}
                                 </span>
                               </td>
                               <td className="py-4 px-4">
                                 <p className="font-medium text-red-900">
-                                  {tool.toolName}
+                                  {item.itemName}
                                 </p>
                               </td>
                               <td className="py-4 px-4 text-sm text-red-700">
-                                {tool.description || "N/A"}
+                                {item.description || "N/A"}
                               </td>
                               <td className="py-4 px-4 text-sm text-red-700">
-                                {tool.issues?.length || 0}
+                                {item.issues?.length || 0}
                               </td>
                               <td className="py-4 px-4">
                                 <span className="px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700 border border-red-200">
-                                  {tool.status}
+                                  {item.status}
                                 </span>
                               </td>
                               <td className="py-4 px-4 text-sm text-red-700">
-                                {formatDateTime(tool.createdAt)}
+                                {formatDateTime(item.createdAt)}
                               </td>
                             </motion.tr>
                           ))}
@@ -467,8 +459,8 @@ export default function ReportsPage() {
                     <div className="text-center py-12">
                       <p className="text-secondary-500 text-lg">
                         {searchTerm
-                          ? "No missing tools found matching your search."
-                          : "No missing tools. Great job!"}
+                          ? "No missing items found matching your search."
+                          : "No missing items. Great job!"}
                       </p>
                     </div>
                   )}
@@ -488,7 +480,7 @@ export default function ReportsPage() {
               <Card className="shadow-sm">
                 <CardHeader>
                   <CardTitle>
-                    Tool History (Ledger) ({filteredToolHistory.length})
+                    Item History (Ledger) ({filteredItemHistory.length})
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -497,75 +489,75 @@ export default function ReportsPage() {
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
                       <p className="mt-4 text-secondary-600">Loading...</p>
                     </div>
-                  ) : filteredToolHistory.length > 0 ? (
+                  ) : filteredItemHistory.length > 0 ? (
                     <div className="space-y-6">
-                      {filteredToolHistory.map((tool, toolIndex) => (
+                      {filteredItemHistory.map((item, itemIndex) => (
                         <motion.div
-                          key={tool.id}
+                          key={item.id}
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: toolIndex * 0.1 }}
+                          transition={{ delay: itemIndex * 0.1 }}
                           className="border border-secondary-200 rounded-lg p-5 bg-white"
                         >
                           <div className="mb-4 pb-4 border-b border-secondary-200">
                             <h3 className="font-semibold text-lg text-text mb-1">
-                              {tool.toolName}
+                              {item.itemName}
                             </h3>
                             <p className="text-sm text-secondary-600 font-mono">
-                              Code: {tool.toolCode}
+                              Code: {item.itemCode}
                             </p>
                             <p className="text-xs text-secondary-500 mt-1">
-                              Status: {tool.status}
+                              Status: {item.status}
                             </p>
                           </div>
-                          {tool.issues && tool.issues.length > 0 ? (
+                          {item.issues && item.issues.length > 0 ? (
                             <div className="space-y-4">
-                              {tool.issues.map(
+                              {item.issues.map(
                                 (issue: any, issueIndex: number) => (
                                   <div
-                                    key={issue.issue.id}
+                                    key={issue.id}
                                     className="pl-4 border-l-2 border-primary-200 space-y-2"
                                   >
                                     <div className="flex items-start justify-between">
                                       <div className="flex-1">
                                         <p className="font-medium text-text">
-                                          Issue #{issue.issue.issueNo} -{" "}
-                                          {issue.issue.division?.name}
+                                          Issue #{issue.issueNo}
+                                          {issue.issuedTo
+                                            ? ` — ${issue.issuedTo}`
+                                            : ""}
                                         </p>
                                         <div className="mt-2 space-y-1 text-sm text-secondary-600">
                                           <p>
                                             <span className="font-medium">
                                               Issued:
                                             </span>{" "}
-                                            {formatDateTime(
-                                              issue.issue.issuedAt,
-                                            )}
-                                            {issue.issue.issuedTo &&
-                                              ` to ${issue.issue.issuedTo}`}
+                                            {formatDateTime(issue.issuedAt)}
+                                            {issue.issuedTo &&
+                                              ` to ${issue.issuedTo}`}
                                           </p>
                                           <p>
                                             <span className="font-medium">
                                               Issued By:
                                             </span>{" "}
-                                            {issue.issue.issuedByUser
-                                              ? `${issue.issue.issuedByUser.firstName} ${issue.issue.issuedByUser.lastName}`
+                                            {issue.issuedByUser
+                                              ? `${issue.issuedByUser.firstName} ${issue.issuedByUser.lastName}`
                                               : "N/A"}
                                           </p>
-                                          {issue.issue.remarks && (
+                                          {issue.remarks && (
                                             <p className="text-secondary-500 italic">
-                                              "{issue.issue.remarks}"
+                                              "{issue.remarks}"
                                             </p>
                                           )}
                                         </div>
                                       </div>
                                       <span
                                         className={`px-3 py-1 rounded-full text-xs font-medium ${
-                                          issue.issue.isReturned
+                                          issue.isReturned
                                             ? "bg-green-100 text-green-700 border border-green-200"
                                             : "bg-blue-100 text-blue-700 border border-blue-200"
                                         }`}
                                       >
-                                        {issue.issue.isReturned
+                                        {issue.isReturned
                                           ? "Returned"
                                           : "Active"}
                                       </span>
@@ -605,7 +597,7 @@ export default function ReportsPage() {
                             </div>
                           ) : (
                             <p className="text-sm text-secondary-500 italic">
-                              No issue history for this tool.
+                              No issue history for this item.
                             </p>
                           )}
                         </motion.div>
@@ -615,8 +607,8 @@ export default function ReportsPage() {
                     <div className="text-center py-12">
                       <p className="text-secondary-500 text-lg">
                         {searchTerm
-                          ? "No tool history found matching your search."
-                          : "No tool history found."}
+                          ? "No item history found matching your search."
+                          : "No item history found."}
                       </p>
                     </div>
                   )}

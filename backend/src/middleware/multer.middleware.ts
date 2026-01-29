@@ -11,7 +11,8 @@ const ensureDirectoryExists = (dir: string) => {
 };
 
 ensureDirectoryExists('./storage/returns');
-ensureDirectoryExists('./storage/tools');
+ensureDirectoryExists('./storage/items');
+ensureDirectoryExists('./storage/tools'); // legacy item images
 
 // Returns storage configuration
 const returnsStorage = multer.diskStorage({
@@ -26,16 +27,16 @@ const returnsStorage = multer.diskStorage({
   },
 });
 
-// Tools storage configuration
-const toolsStorage = multer.diskStorage({
+// Items storage configuration
+const itemsStorage = multer.diskStorage({
   destination: (req: Request, file: Express.Multer.File, cb) => {
-    cb(null, './storage/tools');
+    cb(null, './storage/items');
   },
   filename: (req: Request, file: Express.Multer.File, cb) => {
-    const toolCode = req.body.toolCode || 'unknown';
+    const itemCode = req.body.itemCode || 'unknown';
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
     const ext = path.extname(file.originalname);
-    cb(null, `${toolCode}-${uniqueSuffix}${ext}`);
+    cb(null, `${itemCode}-${uniqueSuffix}${ext}`);
   },
 });
 
@@ -56,9 +57,9 @@ export const upload = multer({
   },
 });
 
-// Upload middleware for tools
-export const uploadToolImage = multer({
-  storage: toolsStorage,
+// Upload middleware for items
+export const uploadItemImage = multer({
+  storage: itemsStorage,
   fileFilter,
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB

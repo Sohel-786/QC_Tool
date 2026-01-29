@@ -3,7 +3,7 @@ export enum Role {
   QC_MANAGER = 'QC_MANAGER',
 }
 
-export enum ToolStatus {
+export enum ItemStatus {
   AVAILABLE = 'AVAILABLE',
   ISSUED = 'ISSUED',
   MISSING = 'MISSING',
@@ -20,20 +20,66 @@ export interface User {
   updatedAt: string;
 }
 
-export interface Tool {
+export interface Item {
   id: number;
-  toolCode: string;
-  toolName: string;
-  description?: string;
-  image?: string;
-  serialNumber?: string;
+  itemCode: string;
+  itemName: string;
+  description?: string | null;
+  image?: string | null;
+  serialNumber?: string | null;
   categoryId?: number | null;
-  status: ToolStatus;
+  status: ItemStatus;
+  isActive: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface Division {
+export interface ItemCategory {
+  id: number;
+  code: string | null;
+  name: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Company {
+  id: number;
+  code: string;
+  name: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Location {
+  id: number;
+  code: string;
+  name: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Contractor {
+  id: number;
+  code: string;
+  name: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Status {
+  id: number;
+  code: string;
+  name: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Machine {
   id: number;
   code: string;
   name: string;
@@ -45,18 +91,15 @@ export interface Division {
 export interface Issue {
   id: number;
   issueNo: string;
-  toolId: number;
-  divisionId: number;
+  itemId: number;
   issuedBy: number;
   issuedTo?: string;
   remarks?: string;
   isReturned: boolean;
   issuedAt: string;
   updatedAt: string;
-  tool?: Tool;
-  division?: Division;
+  item?: Item;
   user?: User;
-  // For reports and history views where backend includes the relation explicitly
   issuedByUser?: User;
 }
 
@@ -74,7 +117,7 @@ export interface Return {
 }
 
 export interface DashboardMetrics {
-  tools: {
+  items: {
     total: number;
     available: number;
     issued: number;

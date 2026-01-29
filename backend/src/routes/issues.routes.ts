@@ -25,11 +25,9 @@ router.get('/:id', getIssueById);
 router.post(
   '/',
   authMiddleware(['QC_USER']),
-  [
-    body('toolId').isInt().withMessage('Valid tool ID is required'),
-    body('divisionId').isInt().withMessage('Valid division ID is required'),
-    validateMiddleware,
-  ],
+  validateMiddleware([
+    body("itemId").isInt().withMessage("Valid item ID is required"),
+  ]),
   createIssue
 );
 

@@ -1,7 +1,7 @@
 import { prisma } from "../external-libraries/dbClient";
 
 type CreateReturnInput = {
-  returnCode: string; // Always set when creating new return
+  returnCode: string;
   issueId: number;
   returnedBy: number;
   returnImage: string;
@@ -15,8 +15,7 @@ const Return = {
       include: {
         issue: {
           include: {
-            tool: true,
-            division: true,
+            item: true,
           },
         },
         returnedByUser: {
@@ -37,8 +36,7 @@ const Return = {
       include: {
         issue: {
           include: {
-            tool: true,
-            division: true,
+            item: true,
           },
         },
         returnedByUser: {
@@ -58,8 +56,7 @@ const Return = {
       include: {
         issue: {
           include: {
-            tool: true,
-            division: true,
+            item: true,
           },
         },
         returnedByUser: {
@@ -71,7 +68,7 @@ const Return = {
           },
         },
       },
-      orderBy: { returnedAt: 'desc' },
+      orderBy: { returnedAt: "desc" },
     });
   },
 
@@ -88,7 +85,7 @@ const Return = {
           },
         },
       },
-      orderBy: { returnedAt: 'desc' },
+      orderBy: { returnedAt: "desc" },
     });
   },
 

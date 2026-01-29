@@ -19,13 +19,17 @@ console.log('✅ All imports loaded successfully');
 // Import routes
 import authRoutes from './routes/auth.routes';
 import userRoutes from './routes/users.routes';
-import toolRoutes from './routes/tools.routes';
-import divisionRoutes from './routes/divisions.routes';
+import itemRoutes from './routes/items.routes';
+import itemCategoryRoutes from './routes/itemCategories.routes';
 import issueRoutes from './routes/issues.routes';
 import returnRoutes from './routes/returns.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 import reportRoutes from './routes/reports.routes';
-import toolCategoryRoutes from './routes/toolCategories.routes';
+import companyRoutes from './routes/companies.routes';
+import locationRoutes from './routes/locations.routes';
+import contractorRoutes from './routes/contractors.routes';
+import statusRoutes from './routes/statuses.routes';
+import machineRoutes from './routes/machines.routes';
 
 console.log('✅ All route modules loaded');
 
@@ -130,30 +134,66 @@ app.use(
 );
 
 app.use(
-  '/tools',
+  '/items',
   (req, res, next) => {
-    console.log('📍 Entering /tools route');
+    console.log('📍 Entering /items route');
     next();
   },
-  toolRoutes,
+  itemRoutes,
 );
 
 app.use(
-  '/tool-categories',
+  '/item-categories',
   (req, res, next) => {
-    console.log('📍 Entering /tool-categories route');
+    console.log('📍 Entering /item-categories route');
     next();
   },
-  toolCategoryRoutes,
+  itemCategoryRoutes,
 );
 
 app.use(
-  '/divisions',
+  '/companies',
   (req, res, next) => {
-    console.log('📍 Entering /divisions route');
+    console.log('📍 Entering /companies route');
     next();
   },
-  divisionRoutes,
+  companyRoutes,
+);
+
+app.use(
+  '/locations',
+  (req, res, next) => {
+    console.log('📍 Entering /locations route');
+    next();
+  },
+  locationRoutes,
+);
+
+app.use(
+  '/contractors',
+  (req, res, next) => {
+    console.log('📍 Entering /contractors route');
+    next();
+  },
+  contractorRoutes,
+);
+
+app.use(
+  '/statuses',
+  (req, res, next) => {
+    console.log('📍 Entering /statuses route');
+    next();
+  },
+  statusRoutes,
+);
+
+app.use(
+  '/machines',
+  (req, res, next) => {
+    console.log('📍 Entering /machines route');
+    next();
+  },
+  machineRoutes,
 );
 
 app.use(

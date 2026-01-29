@@ -1,4 +1,4 @@
-model Division {
+model Location {
   id        Int      @id @default(autoincrement())
   code      String   @unique
   name      String
@@ -6,8 +6,5 @@ model Division {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relations
-  issues Issue[]
-
-  @@map("divisions")
+  @@map("locations")
 }

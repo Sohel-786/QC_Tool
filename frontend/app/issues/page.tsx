@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import api from "@/lib/api";
-import { Issue, Tool, Division, Role } from "@/types";
+import { Issue, Item, Role, ItemCategory } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,19 +21,13 @@ import { formatDateTime } from "@/lib/utils";
 import { useCurrentUser } from "@/hooks/use-current-user";
 
 const issueSchema = z.object({
-  categoryId: z.number().min(1, "Tool category is required"),
-  toolId: z.number().min(1, "Tool is required"),
-  divisionId: z.number().min(1, "Division is required"),
+  categoryId: z.number().min(1, "Item category is required"),
+  itemId: z.number().min(1, "Item is required"),
   issuedTo: z.string().optional(),
   remarks: z.string().optional(),
 });
 
 type IssueForm = z.infer<typeof issueSchema>;
-
-interface ToolCategory {
-  id: number;
-  name: string;
-}
 
 export default function IssuesPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -51,26 +45,18 @@ export default function IssuesPage() {
     },
   });
 
-  const { data: availableTools } = useQuery<Tool[]>({
-    queryKey: ["available-tools"],
+  const { data: availableItems } = useQuery<Item[]>({
+    queryKey: ["available-items"],
     queryFn: async () => {
-      const response = await api.get("/tools/available");
+      const response = await api.get("/items/available");
       return response.data?.data || [];
     },
   });
 
-  const { data: categories } = useQuery<ToolCategory[]>({
-    queryKey: ["tool-categories"],
+  const { data: categories } = useQuery<ItemCategory[]>({
+    queryKey: ["item-categories", "active"],
     queryFn: async () => {
-      const response = await api.get("/tool-categories");
-      return response.data?.data || [];
-    },
-  });
-
-  const { data: activeDivisions } = useQuery<Division[]>({
-    queryKey: ["active-divisions"],
-    queryFn: async () => {
-      const response = await api.get("/divisions/active");
+      const response = await api.get("/item-categories/active");
       return response.data?.data || [];
     },
   });
@@ -86,7 +72,7 @@ export default function IssuesPage() {
     resolver: zodResolver(issueSchema),
   });
 
-  const selectedToolId = watch("toolId");
+  const selectedItemId = watch("itemId");
 
   const createMutation = useMutation({
     mutationFn: async (data: IssueForm) => {
@@ -95,7 +81,7 @@ export default function IssuesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["issues"] });
-      queryClient.invalidateQueries({ queryKey: ["available-tools"] });
+      queryClient.invalidateQueries({ queryKey: ["available-items"] });
       handleCloseForm();
     },
   });
@@ -125,26 +111,25 @@ export default function IssuesPage() {
   const onSubmit = (data: IssueForm) => {
     createMutation.mutate({
       ...data,
-      toolId: Number(data.toolId),
-      divisionId: Number(data.divisionId),
+      itemId: Number(data.itemId),
       categoryId: Number(data.categoryId),
     });
   };
 
-  const toolsByCategory = useMemo(() => {
-    if (!availableTools || !selectedCategoryId) return [];
-    return availableTools.filter(
-      (tool) => tool.categoryId && tool.categoryId === selectedCategoryId,
+  const itemsByCategory = useMemo(() => {
+    if (!availableItems || !selectedCategoryId) return [];
+    return availableItems.filter(
+      (item) => item.categoryId && item.categoryId === selectedCategoryId,
     );
-  }, [availableTools, selectedCategoryId]);
+  }, [availableItems, selectedCategoryId]);
 
-  const toolSelectOptions = useMemo(() => {
-    if (!toolsByCategory) return [];
-    return toolsByCategory.map((tool) => ({
-      value: tool.id,
-      label: `${tool.toolName} (${tool.toolCode})`,
+  const itemSelectOptions = useMemo(() => {
+    if (!itemsByCategory) return [];
+    return itemsByCategory.map((item) => ({
+      value: item.id,
+      label: `${item.itemName} (${item.itemCode})`,
     }));
-  }, [toolsByCategory]);
+  }, [itemsByCategory]);
 
   return (
     <div className="p-6">
@@ -156,15 +141,15 @@ export default function IssuesPage() {
           {/* Header */}
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-text mb-2">Tool Issues</h1>
+              <h1 className="text-3xl font-bold text-text mb-2">Outward</h1>
               <p className="text-secondary-600">
-                {isManager ? "View tool issues" : "Issue tools to divisions"}
+                {isManager ? "View outward (issues)" : "Issue items outward"}
               </p>
             </div>
             {!isManager && (
               <Button onClick={handleOpenForm} className="shadow-md">
                 <Plus className="w-4 h-4 mr-2" />
-                Issue Tool
+                Issue Item
               </Button>
             )}
           </div>
@@ -188,16 +173,12 @@ export default function IssuesPage() {
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
                           <h3 className="font-semibold text-lg text-text mb-2">
-                            {issue.tool?.toolName}
+                            {issue.item?.itemName}
                           </h3>
                           <div className="space-y-1">
                             <p className="text-sm text-secondary-600">
                               <span className="font-medium">Issue No:</span>{" "}
                               {issue.issueNo}
-                            </p>
-                            <p className="text-sm text-secondary-600">
-                              <span className="font-medium">Division:</span>{" "}
-                              {issue.division?.name}
                             </p>
                             {issue.issuedTo && (
                               <p className="text-sm text-secondary-600">
@@ -231,7 +212,7 @@ export default function IssuesPage() {
               ) : (
                 <div className="text-center py-12">
                   <p className="text-secondary-500 text-lg">
-                    No issues found. Issue your first tool above.
+                    No issues found. Issue your first item above.
                   </p>
                 </div>
               )}
@@ -243,7 +224,7 @@ export default function IssuesPage() {
         <Dialog
           isOpen={isFormOpen}
           onClose={handleCloseForm}
-          title="Issue New Tool"
+          title="Issue New Item"
           size="xl"
         >
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -260,9 +241,9 @@ export default function IssuesPage() {
                 </div>
               </div>
             )}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="categoryId">Tool Category *</Label>
+                <Label htmlFor="categoryId">Item Category *</Label>
                 <Select
                   id="categoryId"
                   {...register("categoryId", { valueAsNumber: true })}
@@ -272,7 +253,7 @@ export default function IssuesPage() {
                     const value = e.target.value;
                     const num = value ? Number(value) : "";
                     setSelectedCategoryId(num);
-                    setValue("toolId", 0 as any);
+                    setValue("itemId", 0 as any);
                   }}
                 >
                   <option value="">Select a category</option>
@@ -291,28 +272,6 @@ export default function IssuesPage() {
                 )}
               </div>
               <div>
-                <Label htmlFor="divisionId">Division *</Label>
-                <Select
-                  id="divisionId"
-                  {...register("divisionId", { valueAsNumber: true })}
-                  className="mt-1"
-                >
-                  <option value="">Select a division</option>
-                  {activeDivisions &&
-                    Array.isArray(activeDivisions) &&
-                    activeDivisions.map((division) => (
-                      <option key={division.id} value={division.id}>
-                        {division.name}
-                      </option>
-                    ))}
-                </Select>
-                {errors.divisionId && (
-                  <p className="text-sm text-red-600 mt-1">
-                    {errors.divisionId.message}
-                  </p>
-                )}
-              </div>
-              <div>
                 <Label htmlFor="issuedTo">Issued To (Optional)</Label>
                 <Input
                   id="issuedTo"
@@ -323,25 +282,25 @@ export default function IssuesPage() {
             </div>
             <div>
               <div className="flex items-center justify-between mb-1">
-                <Label htmlFor="toolId">Tool *</Label>
+                <Label htmlFor="itemId">Item *</Label>
                 {selectedCategoryId && (
                   <div className="text-xs text-secondary-500">
-                    {toolSelectOptions.length} tool(s) in category
+                    {itemSelectOptions.length} item(s) in category
                   </div>
                 )}
               </div>
               <SearchableSelect
-                id="toolId"
+                id="itemId"
                 label=""
-                options={toolSelectOptions}
-                value={selectedToolId ?? ""}
-                onChange={(val) => setValue("toolId", Number(val))}
+                options={itemSelectOptions}
+                value={selectedItemId ?? ""}
+                onChange={(val) => setValue("itemId", Number(val))}
                 placeholder={
-                  selectedCategoryId ? "Select a tool" : "Select category first"
+                  selectedCategoryId ? "Select an item" : "Select category first"
                 }
                 disabled={!selectedCategoryId}
-                searchPlaceholder="Search tools by name or code..."
-                error={errors.toolId?.message}
+                searchPlaceholder="Search items by name or code..."
+                error={errors.itemId?.message}
               />
             </div>
             <div>
@@ -359,7 +318,7 @@ export default function IssuesPage() {
                 disabled={createMutation.isPending}
                 className="flex-1"
               >
-                {createMutation.isPending ? "Issuing..." : "Issue Tool"}
+                {createMutation.isPending ? "Issuing..." : "Issue Item"}
               </Button>
               <Button
                 type="button"
