@@ -169,7 +169,140 @@ export const getMissingItemsReport = async (
   }
 };
 
-/** Ledger: traceability for a single item. Returns item + flattened rows (issued then returns) in date order. */
+type LedgerRow = {
+  type: "issue" | "return";
+  date: Date;
+  issueNo: string;
+  description: string;
+  user?: string;
+  remarks?: string | null;
+  returnCode?: string | null;
+  condition?: string | null;
+};
+
+function parseLedgerFilters(
+  query: Record<string, unknown>
+): TransactionListFilters & { dateFrom?: string; dateTo?: string } {
+  const filters = parseTransactionFiltersFromQuery(query as Record<string, string>);
+  const dateFrom = typeof query.dateFrom === "string" ? query.dateFrom.trim() || undefined : undefined;
+  const dateTo = typeof query.dateTo === "string" ? query.dateTo.trim() || undefined : undefined;
+  return { ...filters, dateFrom, dateTo };
+}
+
+function buildLedgerIssueWhere(
+  itemId: number,
+  filters: TransactionListFilters
+): Prisma.IssueWhereInput {
+  const conditions: Prisma.IssueWhereInput[] = [{ itemId }];
+  if (filters.companyIds?.length) conditions.push({ companyId: { in: filters.companyIds } });
+  if (filters.contractorIds?.length) conditions.push({ contractorId: { in: filters.contractorIds } });
+  if (filters.machineIds?.length) conditions.push({ machineId: { in: filters.machineIds } });
+  if (filters.operatorName?.trim()) {
+    conditions.push({ issuedTo: { contains: filters.operatorName.trim() } });
+  }
+  const searchTerm = filters.search?.trim() ?? "";
+  if (searchTerm.length > 0) {
+    conditions.push({
+      OR: [
+        { issueNo: { contains: searchTerm } },
+        { issuedTo: { contains: searchTerm } },
+        { remarks: { contains: searchTerm } },
+      ],
+    });
+  }
+  return { AND: conditions };
+}
+
+function buildLedgerRows(
+  itemId: number,
+  issues: Array<{
+    issueNo: string;
+    issuedAt: Date;
+    issuedTo: string | null;
+    remarks: string | null;
+    issuedByUser: { firstName: string; lastName: string } | null;
+    returns: Array<{
+      returnedAt: Date;
+      returnCode: string | null;
+      remarks: string | null;
+      condition?: string | null;
+      returnedByUser: { firstName: string; lastName: string } | null;
+    }>;
+  }>,
+  standaloneReturns: Array<{
+    returnedAt: Date;
+    returnCode: string | null;
+    remarks: string | null;
+    condition?: string | null;
+    returnedByUser: { firstName: string; lastName: string } | null;
+  }>
+): LedgerRow[] {
+  const rows: LedgerRow[] = [];
+  for (const issue of issues) {
+    const issueUser =
+      issue.issuedByUser &&
+      `${issue.issuedByUser.firstName ?? ""} ${issue.issuedByUser.lastName ?? ""}`.trim();
+    rows.push({
+      type: "issue",
+      date: issue.issuedAt,
+      issueNo: issue.issueNo,
+      description: `Issued to ${issue.issuedTo ?? "—"}`,
+      user: issueUser || undefined,
+      remarks: issue.remarks ?? undefined,
+    });
+    for (const r of issue.returns) {
+      const cond = (r as { condition?: string | null }).condition;
+      const returnUser =
+        r.returnedByUser &&
+        `${r.returnedByUser.firstName ?? ""} ${r.returnedByUser.lastName ?? ""}`.trim();
+      rows.push({
+        type: "return",
+        date: r.returnedAt,
+        issueNo: issue.issueNo,
+        description: cond ? `Returned (${cond})` : "Returned",
+        user: returnUser || undefined,
+        remarks: r.remarks ?? undefined,
+        returnCode: r.returnCode ?? undefined,
+        condition: cond ?? undefined,
+      });
+    }
+  }
+  for (const r of standaloneReturns) {
+    const cond = (r as { condition?: string | null }).condition;
+    const returnUser =
+      r.returnedByUser &&
+      `${r.returnedByUser.firstName ?? ""} ${r.returnedByUser.lastName ?? ""}`.trim();
+    rows.push({
+      type: "return",
+      date: r.returnedAt,
+      issueNo: "—",
+      description: cond ? `Received (Missing item) (${cond})` : "Received (Missing item)",
+      user: returnUser || undefined,
+      remarks: r.remarks ?? undefined,
+      returnCode: r.returnCode ?? undefined,
+      condition: cond ?? undefined,
+    });
+  }
+  return rows;
+}
+
+function filterLedgerRowsByDate(
+  rows: LedgerRow[],
+  dateFrom?: string,
+  dateTo?: string
+): LedgerRow[] {
+  if (!dateFrom && !dateTo) return rows;
+  const from = dateFrom ? new Date(dateFrom) : null;
+  const to = dateTo ? new Date(dateTo) : null;
+  return rows.filter((row) => {
+    const d = new Date(row.date).getTime();
+    if (from != null && d < from.getTime()) return false;
+    if (to != null && d > to.getTime()) return false;
+    return true;
+  });
+}
+
+/** Ledger: traceability for a single item. Full history, filters, newest first. */
 export const getItemHistoryLedger = async (
   req: Request,
   res: Response,
@@ -187,76 +320,88 @@ export const getItemHistoryLedger = async (
     if (!item) {
       return next(new NotFoundError("Item not found"));
     }
-    const issues = await prisma.issue.findMany({
-      where: { itemId },
-      include: {
-        issuedByUser: {
-          select: {
-            id: true,
-            username: true,
-            firstName: true,
-            lastName: true,
+    const filters = parseLedgerFilters(req.query as Record<string, unknown>);
+    const issueWhere = buildLedgerIssueWhere(itemId, filters);
+
+    const [issues, standaloneReturns] = await Promise.all([
+      prisma.issue.findMany({
+        where: issueWhere,
+        include: {
+          issuedByUser: {
+            select: {
+              id: true,
+              username: true,
+              firstName: true,
+              lastName: true,
+            },
           },
-        },
-        returns: {
-          orderBy: { returnedAt: "asc" },
-          include: {
-            returnedByUser: {
-              select: {
-                id: true,
-                username: true,
-                firstName: true,
-                lastName: true,
+          returns: {
+            orderBy: { returnedAt: "asc" },
+            include: {
+              returnedByUser: {
+                select: {
+                  id: true,
+                  username: true,
+                  firstName: true,
+                  lastName: true,
+                },
               },
             },
           },
         },
-      },
-      orderBy: { issuedAt: "desc" },
-    });
-    type LedgerRow = {
-      type: "issue" | "return";
-      date: Date;
-      issueNo: string;
-      description: string;
-      user?: string;
-      remarks?: string | null;
-      returnCode?: string | null;
-    };
-    const rows: LedgerRow[] = [];
-    for (const issue of issues) {
-      rows.push({
-        type: "issue",
-        date: issue.issuedAt,
-        issueNo: issue.issueNo,
-        description: `Issued to ${issue.issuedTo ?? "—"}`,
-        user:
-          issue.issuedByUser &&
-          `${issue.issuedByUser.firstName ?? ""} ${issue.issuedByUser.lastName ?? ""}`.trim(),
-        remarks: issue.remarks ?? undefined,
-      });
-      for (const r of issue.returns) {
-        rows.push({
-          type: "return",
-          date: r.returnedAt,
-          issueNo: issue.issueNo,
-          description: "Returned",
-          user:
-            r.returnedByUser &&
-            `${r.returnedByUser.firstName ?? ""} ${r.returnedByUser.lastName ?? ""}`.trim(),
-          remarks: r.remarks ?? undefined,
-          returnCode: r.returnCode ?? undefined,
-        });
-      }
+        orderBy: { issuedAt: "desc" },
+      }),
+      prisma.return.findMany({
+        where: { itemId, issueId: null, isActive: true },
+        include: {
+          returnedByUser: {
+            select: {
+              id: true,
+              username: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
+        },
+        orderBy: { returnedAt: "asc" },
+      }),
+    ]);
+
+    let rows = buildLedgerRows(
+      itemId,
+      issues as Parameters<typeof buildLedgerRows>[1],
+      standaloneReturns as Parameters<typeof buildLedgerRows>[2]
+    );
+
+    if (filters.search?.trim()) {
+      const term = filters.search.trim().toLowerCase();
+      rows = rows.filter(
+        (r) =>
+          r.issueNo.toLowerCase().includes(term) ||
+          r.description.toLowerCase().includes(term) ||
+          (r.user && r.user.toLowerCase().includes(term)) ||
+          (r.remarks && r.remarks.toLowerCase().includes(term)) ||
+          (r.returnCode && r.returnCode.toLowerCase().includes(term)) ||
+          (r.condition && r.condition.toLowerCase().includes(term))
+      );
     }
-    rows.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    const { page, limit } = parsePageLimit(req.query as Record<string, unknown>);
+
+    rows = filterLedgerRowsByDate(rows, filters.dateFrom, filters.dateTo);
+    rows.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
     const total = rows.length;
+    const { page, limit } = parsePageLimit(req.query as Record<string, unknown>);
     const start = (page - 1) * limit;
     const data = rows.slice(start, start + limit);
+
+    const serializableRows = data.map((r) => ({
+      ...r,
+      date: r.date instanceof Date ? r.date.toISOString() : r.date,
+    }));
+
     res.json({
       success: true,
-      data: { item, rows: data, total, page, limit },
+      data: { item, rows: serializableRows, total, page, limit },
     });
   } catch (e) {
     next(e);
@@ -401,59 +546,72 @@ export const exportItemHistoryReport = async (
       if (!item) {
         return next(new NotFoundError("Item not found"));
       }
-      const issues = await prisma.issue.findMany({
-        where: { itemId },
-        include: {
-          issuedByUser: {
-            select: {
-              firstName: true,
-              lastName: true,
+      const filters = parseLedgerFilters(req.query as Record<string, unknown>);
+      const issueWhere = buildLedgerIssueWhere(itemId, filters);
+
+      const [issues, standaloneReturns] = await Promise.all([
+        prisma.issue.findMany({
+          where: issueWhere,
+          include: {
+            issuedByUser: {
+              select: { firstName: true, lastName: true },
             },
-          },
-          returns: {
-            orderBy: { returnedAt: "asc" },
-            include: {
-              returnedByUser: {
-                select: {
-                  firstName: true,
-                  lastName: true,
+            returns: {
+              orderBy: { returnedAt: "asc" },
+              include: {
+                returnedByUser: {
+                  select: { firstName: true, lastName: true },
                 },
               },
             },
           },
-        },
-        orderBy: { issuedAt: "desc" },
-      });
-      const flatRows: Record<string, unknown>[] = [];
-      let sr = 0;
-      for (const issue of issues) {
-        sr += 1;
-        flatRows.push({
-          "Sr.No": sr,
-          "Serial No": item.serialNumber ?? "N/A",
-          "Item Name": item.itemName,
-          "Issue No": issue.issueNo,
-          "Event": "Issued",
-          Date: new Date(issue.issuedAt).toLocaleString(),
-          "Issued To": issue.issuedTo ?? "N/A",
-          "By": `${issue.issuedByUser?.firstName ?? ""} ${issue.issuedByUser?.lastName ?? ""}`.trim() || "N/A",
-          Remarks: issue.remarks ?? "N/A",
-        });
-        for (const r of issue.returns) {
-          sr += 1;
-          flatRows.push({
-            "Sr.No": sr,
-            "Serial No": item.serialNumber ?? "N/A",
-            "Item Name": item.itemName,
-            "Issue No": issue.issueNo,
-            "Event": "Returned",
-            Date: new Date(r.returnedAt).toLocaleString(),
-            "Return Code": r.returnCode ?? "N/A",
-            "By": `${r.returnedByUser?.firstName ?? ""} ${r.returnedByUser?.lastName ?? ""}`.trim() || "N/A",
-            Remarks: r.remarks ?? "N/A",
-          });
-        }
+          orderBy: { issuedAt: "desc" },
+        }),
+        prisma.return.findMany({
+          where: { itemId, issueId: null, isActive: true },
+          include: {
+            returnedByUser: {
+              select: { firstName: true, lastName: true },
+            },
+          },
+          orderBy: { returnedAt: "asc" },
+        }),
+      ]);
+
+      let rows = buildLedgerRows(
+        itemId,
+        issues as Parameters<typeof buildLedgerRows>[1],
+        standaloneReturns as Parameters<typeof buildLedgerRows>[2]
+      );
+      if (filters.search?.trim()) {
+        const term = filters.search.trim().toLowerCase();
+        rows = rows.filter(
+          (r) =>
+            r.issueNo.toLowerCase().includes(term) ||
+            r.description.toLowerCase().includes(term) ||
+            (r.user && r.user.toLowerCase().includes(term)) ||
+            (r.remarks && r.remarks.toLowerCase().includes(term)) ||
+            (r.returnCode && r.returnCode.toLowerCase().includes(term)) ||
+            (r.condition && r.condition.toLowerCase().includes(term))
+        );
       }
+      rows = filterLedgerRowsByDate(rows, filters.dateFrom, filters.dateTo);
+      rows.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+      const flatRows: Record<string, unknown>[] = rows.map((r, idx) => ({
+        "Sr.No": idx + 1,
+        "Serial No": item.serialNumber ?? "N/A",
+        "Item Name": item.itemName,
+        Date: new Date(r.date).toLocaleString(),
+        Event: r.type === "issue" ? "Issued" : "Returned",
+        "Issue No": r.issueNo,
+        Description: r.description,
+        By: r.user ?? "N/A",
+        Condition: r.condition ?? "N/A",
+        "Return Code": r.returnCode ?? "N/A",
+        Remarks: r.remarks ?? "N/A",
+      }));
+
       const buffer = buildExcelBuffer(flatRows, "Ledger");
       const filename = `ledger-report-${item.itemName.replace(/[^a-z0-9]/gi, "-")}-${new Date().toISOString().split("T")[0]}.xlsx`;
       res.setHeader("Content-Type", getExcelMime());

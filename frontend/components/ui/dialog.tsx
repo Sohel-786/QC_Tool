@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -53,11 +54,11 @@ export function Dialog({
     "2xl": "max-w-6xl",
   };
 
-  return (
+  const dialogContent = (
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Backdrop with blur - stopPropagation so nested dialogs don't close parent */}
+          {/* Backdrop – portaled to body so z-[100] is above sidebar (z-50) */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -119,4 +120,10 @@ export function Dialog({
       )}
     </AnimatePresence>
   );
+
+  // Portal to document.body so the dialog is above the sidebar (escapes content area z-0 stacking context)
+  if (typeof document !== "undefined") {
+    return createPortal(dialogContent, document.body);
+  }
+  return dialogContent;
 }

@@ -94,7 +94,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
           sidebarWidth={sidebarWidth}
         />
         <div
-          className="transition-[margin] duration-200 ease-in-out"
+          className="transition-[margin] duration-200 ease-in-out relative z-0"
           style={{ marginLeft: sidebarWidth }}
         >
           <Header user={user} />

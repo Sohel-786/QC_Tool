@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
@@ -8,6 +8,8 @@ import api from '@/lib/api';
 import { DashboardMetrics, Item, ItemCategory } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Package,
   CheckCircle,
@@ -16,18 +18,25 @@ import {
   TrendingUp,
   TrendingDown,
   ArrowRight,
+  Search,
+  Download,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useDebouncedValue } from '@/hooks/use-debounced-value';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
-type TableView = 'available' | 'total' | null;
+type TableView = 'available' | 'total' | 'missing' | null;
 
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [tableView, setTableView] = useState<TableView>(null);
+  const [search, setSearch] = useState('');
+  const [categoryId, setCategoryId] = useState<number | ''>('');
+
+  const debouncedSearch = useDebouncedValue(search, 400);
 
   useEffect(() => {
     // First check localStorage for optimistic loading
@@ -63,31 +72,48 @@ export default function DashboardPage() {
     },
   });
 
+  const tableParams = useMemo(
+    () => ({
+      ...(debouncedSearch && { search: debouncedSearch }),
+      ...(categoryId !== '' && typeof categoryId === 'number' && { categoryIds: String(categoryId) }),
+    }),
+    [debouncedSearch, categoryId]
+  );
+
   const { data: availableItems, isLoading: loadingAvailable } = useQuery<Item[]>({
-    queryKey: ['items', 'available'],
+    queryKey: ['dashboard', 'available-items', tableParams],
     queryFn: async () => {
-      const response = await api.get('/items/available');
+      const response = await api.get('/dashboard/available-items', { params: tableParams });
       return response.data?.data || [];
     },
     enabled: tableView === 'available',
   });
 
-  const { data: allItems, isLoading: loadingTotal } = useQuery<Item[]>({
-    queryKey: ['items'],
+  const { data: totalItems, isLoading: loadingTotal } = useQuery<Item[]>({
+    queryKey: ['dashboard', 'total-items', tableParams],
     queryFn: async () => {
-      const response = await api.get('/items');
+      const response = await api.get('/dashboard/total-items', { params: tableParams });
       return response.data?.data || [];
     },
     enabled: tableView === 'total',
   });
 
-  const { data: categories } = useQuery<ItemCategory[]>({
-    queryKey: ['item-categories'],
+  const { data: missingItems, isLoading: loadingMissing } = useQuery<Item[]>({
+    queryKey: ['dashboard', 'missing-items', tableParams],
     queryFn: async () => {
-      const response = await api.get('/item-categories');
+      const response = await api.get('/dashboard/missing-items', { params: tableParams });
       return response.data?.data || [];
     },
-    enabled: tableView === 'available' || tableView === 'total',
+    enabled: tableView === 'missing',
+  });
+
+  const { data: categories = [] } = useQuery<ItemCategory[]>({
+    queryKey: ['item-categories', 'active'],
+    queryFn: async () => {
+      const response = await api.get('/item-categories/active');
+      return response.data?.data || [];
+    },
+    enabled: tableView === 'available' || tableView === 'total' || tableView === 'missing',
   });
 
   const categoryMap = (categories || []).reduce<Record<number, string>>((acc, c) => {
@@ -95,12 +121,50 @@ export default function DashboardPage() {
     return acc;
   }, {});
 
-  const totalItemsList =
-    tableView === 'total' && allItems
-      ? allItems.filter((i) => i.status === 'AVAILABLE' || i.status === 'MISSING')
-      : [];
-  const tableData = tableView === 'available' ? availableItems || [] : totalItemsList;
-  const tableLoading = tableView === 'available' ? loadingAvailable : loadingTotal;
+  const tableData =
+    tableView === 'available'
+      ? availableItems || []
+      : tableView === 'missing'
+        ? missingItems || []
+        : totalItems || [];
+  const tableLoading =
+    tableView === 'available' ? loadingAvailable : tableView === 'missing' ? loadingMissing : loadingTotal;
+
+  const handleExportExcel = async () => {
+    if (!tableView) return;
+    try {
+      const endpoint =
+        tableView === 'available'
+          ? '/dashboard/export/available-items'
+          : tableView === 'missing'
+            ? '/dashboard/export/missing-items'
+            : '/dashboard/export/total-items';
+      const response = await api.get(endpoint, {
+        responseType: 'blob',
+        params: tableParams,
+      });
+      const blob = new Blob([response.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const filename =
+        tableView === 'available'
+          ? `dashboard-available-items-${new Date().toISOString().split('T')[0]}.xlsx`
+          : tableView === 'missing'
+            ? `dashboard-missing-items-${new Date().toISOString().split('T')[0]}.xlsx`
+            : `dashboard-total-items-${new Date().toISOString().split('T')[0]}.xlsx`;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export failed:', err);
+      alert('Failed to export. Please try again.');
+    }
+  };
 
   if (loading) {
     return (
@@ -239,13 +303,56 @@ export default function DashboardPage() {
           })}
         </div>
 
-        {/* Items table (shown when Available or Total Items is clicked) */}
-        {(tableView === 'available' || tableView === 'total') && (
+        {/* Items table (shown when Available, Total, or Missing is clicked) */}
+        {(tableView === 'available' || tableView === 'total' || tableView === 'missing') && (
           <Card className="shadow-lg border-0">
             <CardHeader className="border-b border-secondary-200">
-              <CardTitle className="text-xl font-bold text-text">
-                {tableView === 'available' ? 'Available Items' : 'Total Items (Available & Missing)'}
-              </CardTitle>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <CardTitle className="text-xl font-bold text-text">
+                  {tableView === 'available'
+                    ? 'Available Items'
+                    : tableView === 'missing'
+                      ? 'Missing Items'
+                      : 'Total Items (Available & Missing)'}
+                </CardTitle>
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="relative flex-1 min-w-[180px] max-w-xs">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-secondary-400 pointer-events-none" />
+                    <Input
+                      type="search"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      placeholder="Search by name, serial, description…"
+                      className="pl-9 h-10 rounded-lg border-secondary-300 bg-white"
+                    />
+                  </div>
+                  <div className="min-w-[140px]">
+                    <Label htmlFor="dashboard-category" className="sr-only">
+                      Category
+                    </Label>
+                    <select
+                      id="dashboard-category"
+                      value={categoryId === '' ? '' : categoryId}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setCategoryId(v === '' ? '' : Number(v));
+                      }}
+                      className="flex h-10 w-full rounded-lg border border-secondary-300 bg-white px-3 py-2 text-sm text-text"
+                    >
+                      <option value="">All categories</option>
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <Button onClick={handleExportExcel} disabled={tableLoading} className="shadow-sm">
+                    <Download className="w-4 h-4 mr-2" />
+                    Export Excel
+                  </Button>
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="p-0">
               {tableLoading ? (
@@ -335,7 +442,11 @@ export default function DashboardPage() {
               ) : (
                 <div className="text-center py-12">
                   <p className="text-secondary-500">
-                    {tableView === 'available' ? 'No available items.' : 'No items with Available or Missing status.'}
+                    {tableView === 'available'
+                      ? 'No available items match your filters.'
+                      : tableView === 'missing'
+                        ? 'No missing items match your filters.'
+                        : 'No items match your filters.'}
                   </p>
                 </div>
               )}

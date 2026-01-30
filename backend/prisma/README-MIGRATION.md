@@ -1,3 +1,24 @@
+# Database migrations and schema updates
+
+## If Prisma says "Drift detected" or "We need to reset the database"
+
+**Do not run `prisma migrate reset`** unless you are OK losing all data.
+
+To add new columns (e.g. `receivedBy` on `returns`) **without resetting**:
+
+1. From the `backend` folder run:
+   ```bash
+   npx prisma db push
+   ```
+   This applies your current schema to the database. No migration history is used, so there is no drift error and no data loss.
+
+2. Or run the standalone SQL file for the change (e.g. `add-return-received-by.sql`):
+   ```bash
+   npx prisma db execute --file prisma/add-return-received-by.sql --schema prisma/schema.prisma
+   ```
+
+---
+
 # How to run the admin & settings migration SQL
 
 **Do not run the `.sql` file as a shell command** (e.g. `./prisma/add-admin-role-and-settings.sql`).  

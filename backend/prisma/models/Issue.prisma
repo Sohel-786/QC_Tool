@@ -19,7 +19,7 @@ model Issue {
   company      Company   @relation(fields: [companyId], references: [id], onDelete: Restrict)
   contractor   Contractor @relation(fields: [contractorId], references: [id], onDelete: Restrict)
   machine      Machine   @relation(fields: [machineId], references: [id], onDelete: Restrict)
-  returns      Return[]
+  returns      Return[]  // returns from this issue (when issueId set)
 
   @@map("issues")
   @@index([itemId])

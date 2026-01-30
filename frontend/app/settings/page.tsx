@@ -32,7 +32,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { User, RolePermission } from "@/types";
-import { Plus, Edit2, Search } from "lucide-react";
+import { Plus, Edit2, Search, Eye, EyeOff } from "lucide-react";
 import { applyPrimaryColor } from "@/lib/theme";
 import { useSoftwareProfileDraft } from "@/contexts/software-profile-draft-context";
 
@@ -130,7 +130,9 @@ export default function SettingsPage() {
   const updateUser = useUpdateUser();
   const [isUserFormOpen, setIsUserFormOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const firstNameInputRef = useRef<HTMLInputElement>(null);
 
   const {
     register,
@@ -168,10 +170,11 @@ export default function SettingsPage() {
     }
   }, [appSettings]);
 
-  // Live draft in Sidebar/UI – set when on Settings page
+  // Live draft in Sidebar/UI – set when on Settings page (depend on setDraft only, not whole context, to avoid loop when setDraft updates context)
+  const setDraft = profileDraftContext?.setDraft;
   useEffect(() => {
-    if (!profileDraftContext) return;
-    profileDraftContext.setDraft({
+    if (!setDraft) return;
+    setDraft({
       companyName,
       softwareName,
       primaryColor,
@@ -182,7 +185,7 @@ export default function SettingsPage() {
           : null),
     });
   }, [
-    profileDraftContext,
+    setDraft,
     companyName,
     softwareName,
     primaryColor,
@@ -193,9 +196,9 @@ export default function SettingsPage() {
   // Clear draft when leaving Settings page
   useEffect(() => {
     return () => {
-      profileDraftContext?.setDraft(null);
+      setDraft?.(null);
     };
-  }, [profileDraftContext]);
+  }, [setDraft]);
 
   // Live primary color – reflect in UI without saving
   useEffect(() => {
@@ -232,12 +235,12 @@ export default function SettingsPage() {
     });
     setLogoFile(null);
     applyPrimaryColor(savedPrimaryColor || undefined);
-    profileDraftContext?.setDraft(null);
+    setDraft?.(null);
   }, [
     savedCompanyName,
     savedSoftwareName,
     savedPrimaryColor,
-    profileDraftContext,
+    setDraft,
   ]);
 
   const revertPermissions = useCallback(() => {
@@ -266,6 +269,14 @@ export default function SettingsPage() {
       });
     }
   }, [isUserFormOpen, reset]);
+
+  // Focus First name when Add/Edit User form opens
+  useEffect(() => {
+    if (isUserFormOpen) {
+      const t = setTimeout(() => firstNameInputRef.current?.focus(), 100);
+      return () => clearTimeout(t);
+    }
+  }, [isUserFormOpen]);
 
   if (userLoading) {
     return (
@@ -296,7 +307,7 @@ export default function SettingsPage() {
               onSuccess: () => {
                 applyPrimaryColor(primaryColor || undefined);
                 clearLogoDraft();
-                profileDraftContext?.setDraft(null);
+                setDraft?.(null);
               },
             },
           );
@@ -312,7 +323,7 @@ export default function SettingsPage() {
         {
           onSuccess: () => {
             applyPrimaryColor(primaryColor || undefined);
-            profileDraftContext?.setDraft(null);
+            setDraft?.(null);
           },
         },
       );
@@ -371,6 +382,7 @@ export default function SettingsPage() {
   const handleCloseUserForm = () => {
     setIsUserFormOpen(false);
     setEditingUser(null);
+    setShowPassword(false);
   };
 
   const onSubmitUser = (data: UserForm) => {
@@ -866,18 +878,30 @@ export default function SettingsPage() {
         </main>
       </motion.div>
 
-      {/* User form dialog */}
+      {/* User form dialog – full form, empty when adding */}
       <Dialog
         isOpen={isUserFormOpen}
         onClose={handleCloseUserForm}
-        title={editingUser ? "Edit user" : "Add user"}
+        title={editingUser ? "Edit User" : "Add User"}
         size="md"
       >
-        <form onSubmit={handleSubmit(onSubmitUser)} className="space-y-4">
+        <form
+          key={editingUser ? `edit-${editingUser.id}` : "add"}
+          onSubmit={handleSubmit(onSubmitUser)}
+          className="space-y-4"
+        >
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>First name *</Label>
-              <Input {...register("firstName")} className="mt-1" />
+              <Input
+                {...register("firstName")}
+                ref={(el) => {
+                  register("firstName").ref(el);
+                  (firstNameInputRef as React.MutableRefObject<HTMLInputElement | null>).current = el;
+                }}
+                className="mt-1"
+                placeholder="Enter first name"
+              />
               {errors.firstName && (
                 <p className="text-sm text-red-600 mt-1">
                   {errors.firstName.message}
@@ -886,7 +910,7 @@ export default function SettingsPage() {
             </div>
             <div>
               <Label>Last name *</Label>
-              <Input {...register("lastName")} className="mt-1" />
+              <Input {...register("lastName")} className="mt-1" placeholder="Enter last name" />
               {errors.lastName && (
                 <p className="text-sm text-red-600 mt-1">
                   {errors.lastName.message}
@@ -900,6 +924,7 @@ export default function SettingsPage() {
               {...register("username")}
               className="mt-1"
               disabled={!!editingUser}
+              placeholder="Enter username"
             />
             {errors.username && (
               <p className="text-sm text-red-600 mt-1">
@@ -911,14 +936,29 @@ export default function SettingsPage() {
             <Label>
               Password {editingUser ? "(leave empty to keep)" : "*"}
             </Label>
-            <Input
-              type="password"
-              {...register("password")}
-              className="mt-1"
-              placeholder={
-                editingUser ? "Leave empty to keep current" : "Min 6 characters"
-              }
-            />
+            <div className="relative mt-1">
+              <Input
+                type={showPassword ? "text" : "password"}
+                {...register("password")}
+                className="pr-10"
+                placeholder={
+                  editingUser ? "Leave empty to keep current" : "Min 6 characters"
+                }
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((p) => !p)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded text-secondary-500 hover:text-secondary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1"
+                tabIndex={-1}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? (
+                  <EyeOff className="w-5 h-5" />
+                ) : (
+                  <Eye className="w-5 h-5" />
+                )}
+              </button>
+            </div>
             {errors.password && (
               <p className="text-sm text-red-600 mt-1">
                 {errors.password.message}
@@ -936,17 +976,15 @@ export default function SettingsPage() {
               <option value={Role.QC_ADMIN}>Admin</option>
             </select>
           </div>
-          {editingUser && (
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="isActive"
-                {...register("isActive")}
-                className="rounded"
-              />
-              <Label htmlFor="isActive">Active</Label>
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="isActive"
+              {...register("isActive")}
+              className="rounded"
+            />
+            <Label htmlFor="isActive">Active</Label>
+          </div>
           <div className="flex gap-3 pt-4">
             <Button
               type="submit"

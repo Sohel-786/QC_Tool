@@ -104,19 +104,31 @@ export interface Issue {
   issuedByUser?: User;
 }
 
+export const RETURN_CONDITIONS = [
+  "OK",
+  "Damaged",
+  "Calibration Required",
+  "Missing",
+] as const;
+export type ReturnCondition = (typeof RETURN_CONDITIONS)[number];
+
 export interface Return {
   id: number;
-  returnCode?: string;
-  issueId: number;
+  returnCode?: string | null;
+  issueId?: number | null;
+  itemId?: number | null;
+  condition: string;
   returnedBy: number;
-  returnImage: string;
-  remarks?: string;
+  returnImage?: string | null;
+  remarks?: string | null;
+  receivedBy?: string | null;
   statusId?: number | null;
   isActive: boolean;
   returnedAt: string;
   updatedAt: string;
-  issue?: Issue;
-  status?: Status;
+  issue?: Issue | null;
+  item?: Item | null;
+  status?: Status | null;
   user?: User;
 }
 

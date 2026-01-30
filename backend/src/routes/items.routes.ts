@@ -4,6 +4,7 @@ import {
   getAllItems,
   getActiveItems,
   getAvailableItems,
+  getMissingItems,
   getItemsByCategory,
   getItemById,
   updateItem,
@@ -24,6 +25,7 @@ router.use(authMiddleware());
 router.get("/", requirePermission("viewMaster"), getAllItems);
 router.get("/active", requirePermission("viewMaster"), getActiveItems);
 router.get("/available", requirePermission("viewMaster"), getAvailableItems);
+router.get("/missing", requirePermission("viewInward"), getMissingItems);
 router.get("/by-category/:categoryId", requirePermission("viewMaster"), getItemsByCategory);
 router.get("/export", requirePermission("importExportMaster"), exportItems);
 router.get("/:id", requirePermission("viewMaster"), getItemById);

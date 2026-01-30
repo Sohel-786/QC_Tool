@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import path from "path";
 import fs from "fs";
-import Return from "../entities/return";
+import Return, { type ReturnCondition } from "../entities/return";
 import Issue from "../entities/issue";
 import Item from "../entities/item";
 import {
@@ -19,64 +19,157 @@ import { getInwardImagePath, sanitizeSerialForPath } from "../utils/storagePath"
 
 const storageRoot = path.resolve(process.cwd(), "storage");
 
+const VALID_CONDITIONS: ReturnCondition[] = [
+  "OK",
+  "Damaged",
+  "Calibration Required",
+  "Missing",
+];
+
+function conditionToItemStatus(condition: string): ItemStatus {
+  return condition === "Missing" ? ItemStatus.MISSING : ItemStatus.AVAILABLE;
+}
+
 export const createReturn = async (
   req: Request,
   res: Response,
   next: NextFunction
 ) => {
   try {
-    const { issueId, remarks, statusId } = req.body;
+    const { issueId, itemId, condition, remarks, receivedBy, statusId } =
+      req.body;
     const returnedBy = req.user!.id;
     const file = req.file;
 
-    const parsedIssueId = Number(issueId);
-    if (issueId == null || issueId === "" || Number.isNaN(parsedIssueId) || parsedIssueId < 1) {
-      return next(new ValidationError("Issue ID is required"));
-    }
-    if (!file) {
-      return next(new ValidationError("Return image is required"));
-    }
-    if (statusId == null || statusId === "") {
-      return next(new ValidationError("Status is required"));
+    const cond = condition != null ? String(condition).trim() : "";
+    if (!VALID_CONDITIONS.includes(cond as ReturnCondition)) {
+      return next(
+        new ValidationError(
+          "Condition is required and must be one of: OK, Damaged, Calibration Required, Missing"
+        )
+      );
     }
 
-    const issue = await Issue.findById(parsedIssueId);
-    if (!issue) {
-      return next(new NotFoundError("Issue not found"));
+    const hasIssue = issueId != null && issueId !== "";
+    const hasMissingItem = itemId != null && itemId !== "";
+    if (hasIssue && hasMissingItem) {
+      return next(
+        new ValidationError(
+          "Choose either Outward (Issue) or Missing item, not both"
+        )
+      );
     }
-    if (issue.isReturned) {
-      return next(new BadRequestError("This issue has already been returned"));
+    if (!hasIssue && !hasMissingItem) {
+      return next(
+        new ValidationError("Either Issue No (Outward) or Missing item is required")
+      );
     }
 
-    const itemSerial =
-      (issue as { item?: { serialNumber?: string | null } }).item?.serialNumber ??
-      "";
-    const safeSerial = sanitizeSerialForPath(itemSerial);
-    const ext = path.extname(file.originalname) || ".jpg";
-    const filename = `inward-issue-${parsedIssueId}-${Date.now()}${ext}`;
-    const inwardDir = path.join(storageRoot, "items", safeSerial, "inward");
-    fs.mkdirSync(inwardDir, { recursive: true });
-    fs.writeFileSync(path.join(inwardDir, filename), file.buffer);
-    const imagePath = getInwardImagePath(itemSerial, filename);
     const returnCount = await Return.getCount();
     const returnCode = generateNextCode("INWARD", returnCount);
 
-    const parsedStatusId = Number(statusId);
-    if (Number.isNaN(parsedStatusId)) {
-      return next(new ValidationError("Invalid status"));
+    let parsedStatusId: number | null = null;
+    if (statusId != null && statusId !== "") {
+      const n = Number(statusId);
+      if (!Number.isNaN(n) && n >= 1) parsedStatusId = n;
+    }
+
+    if (hasIssue) {
+      const parsedIssueId = Number(issueId);
+      if (Number.isNaN(parsedIssueId) || parsedIssueId < 1) {
+        return next(new ValidationError("Valid Issue ID is required"));
+      }
+      const imageRequired = cond !== "Missing";
+      if (imageRequired && !file) {
+        return next(new ValidationError("Return image is required for this condition"));
+      }
+
+      const issue = await Issue.findById(parsedIssueId);
+      if (!issue) {
+        return next(new NotFoundError("Issue not found"));
+      }
+      if (issue.isReturned) {
+        return next(new BadRequestError("This issue has already been returned"));
+      }
+
+      let imagePath: string | null = null;
+      if (file) {
+        const itemSerial =
+          (issue as { item?: { serialNumber?: string | null } }).item?.serialNumber ??
+          "";
+        const safeSerial = sanitizeSerialForPath(itemSerial);
+        const ext = path.extname(file.originalname) || ".jpg";
+        const filename = `inward-issue-${parsedIssueId}-${Date.now()}${ext}`;
+        const inwardDir = path.join(storageRoot, "items", safeSerial, "inward");
+        fs.mkdirSync(inwardDir, { recursive: true });
+        fs.writeFileSync(path.join(inwardDir, filename), file.buffer);
+        imagePath = getInwardImagePath(itemSerial, filename);
+      }
+
+      const return_ = await Return.create({
+        returnCode,
+        condition: cond as ReturnCondition,
+        issueId: parsedIssueId,
+        itemId: null,
+        returnedBy,
+        returnImage: imagePath ?? undefined,
+        remarks: remarks || undefined,
+        receivedBy: receivedBy ? String(receivedBy).trim() || undefined : undefined,
+        statusId: parsedStatusId ?? undefined,
+      });
+
+      await Issue.markAsReturned(parsedIssueId);
+      await Item.update(issue.itemId, {
+        status: conditionToItemStatus(cond),
+      });
+
+      res.status(201).json({ success: true, data: return_ });
+      return;
+    }
+
+    // Receive missing item (itemId only)
+    const parsedItemId = Number(itemId);
+    if (Number.isNaN(parsedItemId) || parsedItemId < 1) {
+      return next(new ValidationError("Valid Missing item is required"));
+    }
+
+    const item = await Item.findById(parsedItemId);
+    if (!item) {
+      return next(new NotFoundError("Item not found"));
+    }
+    if (item.status !== ItemStatus.MISSING) {
+      return next(
+        new BadRequestError("Selected item is not in Missing status. Use Outward return for issued items.")
+      );
+    }
+
+    let imagePath: string | null = null;
+    if (file) {
+      const itemSerial = item.serialNumber ?? "";
+      const safeSerial = sanitizeSerialForPath(itemSerial);
+      const ext = path.extname(file.originalname) || ".jpg";
+      const filename = `inward-missing-${parsedItemId}-${Date.now()}${ext}`;
+      const inwardDir = path.join(storageRoot, "items", safeSerial, "inward");
+      fs.mkdirSync(inwardDir, { recursive: true });
+      fs.writeFileSync(path.join(inwardDir, filename), file.buffer);
+      imagePath = getInwardImagePath(itemSerial, filename);
     }
 
     const return_ = await Return.create({
       returnCode,
-      issueId: parsedIssueId,
+      condition: cond as ReturnCondition,
+      issueId: null,
+      itemId: parsedItemId,
       returnedBy,
-      returnImage: imagePath,
+      returnImage: imagePath ?? undefined,
       remarks: remarks || undefined,
-      statusId: parsedStatusId,
+      receivedBy: receivedBy ? String(receivedBy).trim() || undefined : undefined,
+      statusId: parsedStatusId ?? undefined,
     });
 
-    await Issue.markAsReturned(parsedIssueId);
-    await Item.update(issue.itemId, { status: ItemStatus.AVAILABLE });
+    await Item.update(parsedItemId, {
+      status: conditionToItemStatus(cond),
+    });
 
     res.status(201).json({ success: true, data: return_ });
   } catch (e) {
@@ -161,17 +254,60 @@ export const updateReturn = async (
     if (Number.isNaN(id)) {
       return next(new ValidationError("Invalid return id"));
     }
-    const { remarks, statusId } = req.body;
-    const updateData: { remarks?: string; statusId?: number } = {};
+    const { remarks, receivedBy, statusId, condition } = req.body;
+    const updateData: {
+      remarks?: string;
+      receivedBy?: string;
+      statusId?: number | null;
+      condition?: string;
+    } = {};
     if (remarks !== undefined) updateData.remarks = remarks;
+    if (receivedBy !== undefined)
+      updateData.receivedBy =
+        receivedBy ? String(receivedBy).trim() || undefined : undefined;
     if (statusId !== undefined) {
-      const parsedStatusId = Number(statusId);
-      if (Number.isNaN(parsedStatusId) || parsedStatusId < 1) {
-        return next(new ValidationError("Valid status is required"));
+      if (statusId === null || statusId === "") {
+        updateData.statusId = null;
+      } else {
+        const parsedStatusId = Number(statusId);
+        if (Number.isNaN(parsedStatusId) || parsedStatusId < 1) {
+          return next(new ValidationError("Valid status is required"));
+        }
+        updateData.statusId = parsedStatusId;
       }
-      updateData.statusId = parsedStatusId;
     }
+    const newCondition =
+      condition !== undefined && VALID_CONDITIONS.includes(String(condition).trim() as ReturnCondition)
+        ? String(condition).trim()
+        : undefined;
+    if (newCondition) updateData.condition = newCondition;
+
+    const existing = await Return.findById(id);
+    if (!existing) {
+      return next(new NotFoundError(`Return with ID ${id} not found`));
+    }
+
     const return_ = await Return.update(id, updateData);
+
+    if (newCondition) {
+      let itemIdToUpdate: number | null = null;
+      const existingWithRelations = existing as {
+        issueId?: number | null;
+        itemId?: number | null;
+        issue?: { itemId: number };
+      };
+      if (existingWithRelations.issueId != null && existingWithRelations.issue) {
+        itemIdToUpdate = existingWithRelations.issue.itemId;
+      } else if (existingWithRelations.itemId != null) {
+        itemIdToUpdate = existingWithRelations.itemId;
+      }
+      if (itemIdToUpdate != null) {
+        await Item.update(itemIdToUpdate, {
+          status: conditionToItemStatus(newCondition),
+        });
+      }
+    }
+
     res.json({ success: true, data: return_ });
   } catch (e) {
     next(e);

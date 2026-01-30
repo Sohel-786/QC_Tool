@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import api from "@/lib/api";
-import { Return, Issue, Role, Status } from "@/types";
+import { Return, Issue, Item, Role, Status, RETURN_CONDITIONS } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,11 +33,25 @@ import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
-const returnSchema = z.object({
-  issueId: z.number().min(1, "Issue is required"),
-  statusId: z.number().min(1, "Status is required"),
-  remarks: z.string().optional(),
-});
+const returnSchema = z
+  .object({
+    entryMode: z.enum(["from_outward", "missing_item"]),
+    issueId: z.number(),
+    itemId: z.number(),
+    condition: z.enum(["OK", "Damaged", "Calibration Required", "Missing"]),
+    statusId: z.number().optional(),
+    remarks: z.string().optional(),
+    receivedBy: z.string().optional(),
+  })
+  .refine(
+    (data) =>
+      (data.entryMode === "from_outward" && data.issueId >= 1) ||
+      (data.entryMode === "missing_item" && data.itemId >= 1),
+    {
+      message: "Select either Outward (Issue) or Missing item",
+      path: ["issueId"],
+    },
+  );
 
 type ReturnForm = z.infer<typeof returnSchema>;
 
@@ -48,8 +62,11 @@ export default function ReturnsPage() {
   const [nextInwardCode, setNextInwardCode] = useState<string>("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [fullScreenImageSrc, setFullScreenImageSrc] = useState<string | null>(null);
-  const [filters, setFilters] = useState<TransactionFiltersState>(defaultFilters);
+  const [fullScreenImageSrc, setFullScreenImageSrc] = useState<string | null>(
+    null,
+  );
+  const [filters, setFilters] =
+    useState<TransactionFiltersState>(defaultFilters);
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const prefillIssueId = searchParams.get("issueId");
@@ -64,15 +81,22 @@ export default function ReturnsPage() {
     () => ({ ...filters, search: debouncedSearch }),
     [filters, debouncedSearch],
   );
-  const filterKey = useMemo(() => JSON.stringify(filtersForApi), [filtersForApi]);
+  const filterKey = useMemo(
+    () => JSON.stringify(filtersForApi),
+    [filtersForApi],
+  );
 
-  const { data: returns = [], isFetching: returnsLoading } = useQuery<Return[]>({
-    queryKey: ["returns", filterKey],
-    queryFn: async () => {
-      const res = await api.get("/returns", { params: buildFilterParams(filtersForApi) });
-      return res.data?.data ?? [];
+  const { data: returns = [], isFetching: returnsLoading } = useQuery<Return[]>(
+    {
+      queryKey: ["returns", filterKey],
+      queryFn: async () => {
+        const res = await api.get("/returns", {
+          params: buildFilterParams(filtersForApi),
+        });
+        return res.data?.data ?? [];
+      },
     },
-  });
+  );
 
   const { data: activeIssues = [] } = useQuery<Issue[]>({
     queryKey: ["active-issues"],
@@ -80,6 +104,15 @@ export default function ReturnsPage() {
       const res = await api.get("/issues/active");
       return res.data?.data ?? [];
     },
+  });
+
+  const { data: missingItems = [] } = useQuery<Item[]>({
+    queryKey: ["items", "missing"],
+    queryFn: async () => {
+      const res = await api.get("/items/missing");
+      return res.data?.data ?? [];
+    },
+    enabled: isFormOpen && !editingReturn,
   });
 
   const { data: prefetchedIssue } = useQuery<Issue | null>({
@@ -138,13 +171,38 @@ export default function ReturnsPage() {
     formState: { errors },
   } = useForm<ReturnForm>({
     resolver: zodResolver(returnSchema),
+    defaultValues: {
+      entryMode: "from_outward",
+      issueId: 0,
+      itemId: 0,
+      condition: "OK",
+      statusId: undefined,
+      remarks: "",
+      receivedBy: "",
+    },
   });
 
+  const entryMode = watch("entryMode");
   const selectedIssueId = watch("issueId");
-  const numIssueId = typeof selectedIssueId === "number" ? selectedIssueId : Number(selectedIssueId);
+  const selectedItemId = watch("itemId");
+  const condition = watch("condition");
+  const numIssueId =
+    typeof selectedIssueId === "number"
+      ? selectedIssueId
+      : Number(selectedIssueId);
+  const numItemId =
+    typeof selectedItemId === "number"
+      ? selectedItemId
+      : Number(selectedItemId);
   const hasValidIssue = !Number.isNaN(numIssueId) && numIssueId > 0;
+  const hasValidMissingItem = !Number.isNaN(numItemId) && numItemId > 0;
   const displayIssue = hasValidIssue
-    ? (prefetchedIssue?.id === numIssueId ? prefetchedIssue : activeIssues.find((i) => i.id === numIssueId)) ?? null
+    ? ((prefetchedIssue?.id === numIssueId
+        ? prefetchedIssue
+        : activeIssues.find((i) => i.id === numIssueId)) ?? null)
+    : null;
+  const displayMissingItem = hasValidMissingItem
+    ? (missingItems.find((i) => i.id === numItemId) ?? null)
     : null;
 
   const outwardOptions = useMemo(
@@ -156,15 +214,47 @@ export default function ReturnsPage() {
     [activeIssues],
   );
 
+  const missingItemOptions = useMemo(
+    () =>
+      missingItems.map((item) => ({
+        value: item.id,
+        label: item.serialNumber
+          ? `${item.itemName} (${item.serialNumber})`
+          : item.itemName,
+      })),
+    [missingItems],
+  );
+
+  const isMissingItemMode = entryMode === "missing_item";
+  const isFromOutwardMode = entryMode === "from_outward";
+  const imageRequired = isFromOutwardMode && condition !== "Missing";
+
   const filterOptions = useMemo(
     () => ({
-      company: filterCompanies.map((c: { id: number; name: string }) => ({ value: c.id, label: c.name })),
-      contractor: filterContractors.map((c: { id: number; name: string }) => ({ value: c.id, label: c.name })),
-      machine: filterMachines.map((m: { id: number; name: string }) => ({ value: m.id, label: m.name })),
-      item: filterItems.map((i: { id: number; itemName: string; serialNumber?: string | null }) => ({
-        value: i.id,
-        label: i.serialNumber ? `${i.itemName} (${i.serialNumber})` : i.itemName,
+      company: filterCompanies.map((c: { id: number; name: string }) => ({
+        value: c.id,
+        label: c.name,
       })),
+      contractor: filterContractors.map((c: { id: number; name: string }) => ({
+        value: c.id,
+        label: c.name,
+      })),
+      machine: filterMachines.map((m: { id: number; name: string }) => ({
+        value: m.id,
+        label: m.name,
+      })),
+      item: filterItems.map(
+        (i: {
+          id: number;
+          itemName: string;
+          serialNumber?: string | null;
+        }) => ({
+          value: i.id,
+          label: i.serialNumber
+            ? `${i.itemName} (${i.serialNumber})`
+            : i.itemName,
+        }),
+      ),
     }),
     [filterCompanies, filterContractors, filterMachines, filterItems],
   );
@@ -180,6 +270,7 @@ export default function ReturnsPage() {
       queryClient.invalidateQueries({ queryKey: ["returns"] });
       queryClient.invalidateQueries({ queryKey: ["issues"] });
       queryClient.invalidateQueries({ queryKey: ["active-issues"] });
+      queryClient.invalidateQueries({ queryKey: ["items", "missing"] });
       handleCloseForm();
       toast.success("Inward entry created");
     },
@@ -197,7 +288,12 @@ export default function ReturnsPage() {
       data,
     }: {
       id: number;
-      data: { remarks?: string; statusId?: number };
+      data: {
+        remarks?: string;
+        receivedBy?: string;
+        statusId?: number | null;
+        condition?: string;
+      };
     }) => {
       const res = await api.patch(`/returns/${id}`, data);
       return res.data;
@@ -252,7 +348,15 @@ export default function ReturnsPage() {
 
   const handleOpenForm = async (presetIssueId?: number) => {
     setEditingReturn(null);
-    reset();
+    reset({
+      entryMode: "from_outward",
+      issueId: presetIssueId ?? 0,
+      itemId: 0,
+      condition: "OK",
+      statusId: undefined,
+      remarks: "",
+      receivedBy: "",
+    });
     setImageFile(null);
     setImagePreview(null);
     try {
@@ -285,9 +389,10 @@ export default function ReturnsPage() {
 
   const handleOpenEdit = (r: Return) => {
     setEditingReturn(r);
-    setValue("issueId", r.issueId);
+    setValue("issueId", r.issueId as number);
     setValue("statusId", r.statusId ?? 0);
     setValue("remarks", r.remarks ?? "");
+    setValue("receivedBy", r.receivedBy ?? "");
     setIsFormOpen(true);
   };
 
@@ -309,7 +414,9 @@ export default function ReturnsPage() {
       id: editingReturn.id,
       data: {
         remarks: data.remarks,
-        statusId: data.statusId,
+        receivedBy: data.receivedBy,
+        statusId: data.statusId ?? null,
+        condition: data.condition,
       },
     });
   };
@@ -342,15 +449,23 @@ export default function ReturnsPage() {
   }, [prefillIssueId, isManager]);
 
   const onSubmit = (data: ReturnForm) => {
-    if (!imageFile) {
-      toast.error("Return image is required.");
+    if (imageRequired && !imageFile) {
+      toast.error("Return image is required for this condition.");
       return;
     }
     const formData = new FormData();
-    formData.append("issueId", String(data.issueId));
-    formData.append("statusId", String(data.statusId));
-    formData.append("image", imageFile);
+    formData.append("condition", data.condition);
+    if (data.entryMode === "from_outward") {
+      formData.append("issueId", String(data.issueId));
+    } else {
+      formData.append("itemId", String(data.itemId));
+    }
+    if (data.statusId != null && data.statusId >= 1)
+      formData.append("statusId", String(data.statusId));
+    if (imageFile) formData.append("image", imageFile);
     if (data.remarks) formData.append("remarks", data.remarks);
+    if (data.receivedBy?.trim())
+      formData.append("receivedBy", data.receivedBy.trim());
     createMutation.mutate({ formData });
   };
 
@@ -409,10 +524,13 @@ export default function ReturnsPage() {
                           Inward Date
                         </th>
                         <th className="px-4 py-3 font-semibold text-text text-center">
-                          Issue No
+                          Issue No / Source
                         </th>
                         <th className="px-4 py-3 font-semibold text-text text-center">
                           Item
+                        </th>
+                        <th className="px-4 py-3 font-semibold text-text text-center">
+                          Condition
                         </th>
                         <th className="px-4 py-3 font-semibold text-text text-center">
                           Company
@@ -425,6 +543,9 @@ export default function ReturnsPage() {
                         </th>
                         <th className="px-4 py-3 font-semibold text-text text-center">
                           Status
+                        </th>
+                        <th className="px-4 py-3 font-semibold text-text text-center">
+                          Received by
                         </th>
                         <th className="px-4 py-3 font-semibold text-text text-center">
                           Active
@@ -455,10 +576,15 @@ export default function ReturnsPage() {
                             {formatDateTime(r.returnedAt)}
                           </td>
                           <td className="px-4 py-3 font-mono text-secondary-700 text-center">
-                            {r.issue?.issueNo ?? "—"}
+                            {r.issueId != null
+                              ? (r.issue?.issueNo ?? "—")
+                              : "Missing item"}
                           </td>
                           <td className="px-4 py-3 font-medium text-text text-center">
-                            {r.issue?.item?.itemName ?? "—"}
+                            {r.issue?.item?.itemName ?? r.item?.itemName ?? "—"}
+                          </td>
+                          <td className="px-4 py-3 text-secondary-600 text-center">
+                            {r.condition ?? "—"}
                           </td>
                           <td className="px-4 py-3 text-secondary-600 text-center">
                             {r.issue?.company?.name ?? "—"}
@@ -471,6 +597,9 @@ export default function ReturnsPage() {
                           </td>
                           <td className="px-4 py-3 text-secondary-600 text-center">
                             {r.status?.name ?? "—"}
+                          </td>
+                          <td className="px-4 py-3 text-secondary-600 text-center">
+                            {r.receivedBy?.trim() ? r.receivedBy : "—"}
                           </td>
                           <td className="px-4 py-3 text-center">
                             <span
@@ -487,7 +616,11 @@ export default function ReturnsPage() {
                             {r.returnImage ? (
                               <button
                                 type="button"
-                                onClick={() => setFullScreenImageSrc(`${API_BASE}/storage/${r.returnImage}`)}
+                                onClick={() =>
+                                  setFullScreenImageSrc(
+                                    `${API_BASE}/storage/${r.returnImage}`,
+                                  )
+                                }
                                 className="w-[30px] h-[30px] rounded border border-secondary-200 inline-block overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary-500 transition-shadow focus:outline-none focus:ring-2 focus:ring-primary-500"
                                 title="View full screen"
                               >
@@ -587,7 +720,9 @@ export default function ReturnsPage() {
                   onClick={handleMarkInactiveConfirm}
                   disabled={setInactiveMutation.isPending}
                 >
-                  {setInactiveMutation.isPending ? "Updating…" : "Mark inactive"}
+                  {setInactiveMutation.isPending
+                    ? "Updating…"
+                    : "Mark inactive"}
                 </Button>
               </div>
             </div>
@@ -625,10 +760,16 @@ export default function ReturnsPage() {
                       </div>
                       <div>
                         <Label className="text-sm font-medium text-secondary-700">
-                          Issue No
+                          {editingReturn.issueId != null
+                            ? "Issue No"
+                            : "Source"}
                         </Label>
                         <Input
-                          value={editingReturn.issue?.issueNo ?? "—"}
+                          value={
+                            editingReturn.issueId != null
+                              ? (editingReturn.issue?.issueNo ?? "—")
+                              : "Missing item"
+                          }
                           disabled
                           readOnly
                           className="mt-1.5 h-10 bg-secondary-50 border-secondary-200"
@@ -642,22 +783,65 @@ export default function ReturnsPage() {
                         </h4>
                         <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-secondary-700">
                           <span>Item</span>
-                          <span>{editingReturn.issue.item?.itemName ?? "—"}</span>
+                          <span>
+                            {editingReturn.issue.item?.itemName ?? "—"}
+                          </span>
                           <span>Company</span>
-                          <span>{editingReturn.issue.company?.name ?? "—"}</span>
+                          <span>
+                            {editingReturn.issue.company?.name ?? "—"}
+                          </span>
                           <span>Contractor</span>
-                          <span>{editingReturn.issue.contractor?.name ?? "—"}</span>
+                          <span>
+                            {editingReturn.issue.contractor?.name ?? "—"}
+                          </span>
                           <span>Machine</span>
-                          <span>{editingReturn.issue.machine?.name ?? "—"}</span>
+                          <span>
+                            {editingReturn.issue.machine?.name ?? "—"}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    {editingReturn.itemId != null && editingReturn.item && (
+                      <div className="rounded-lg border border-secondary-200 bg-secondary-50/50 p-4 space-y-2">
+                        <h4 className="text-sm font-semibold text-text">
+                          Missing item
+                        </h4>
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-secondary-700">
+                          <span>Item</span>
+                          <span>{editingReturn.item.itemName}</span>
+                          <span>Serial</span>
+                          <span>{editingReturn.item.serialNumber ?? "—"}</span>
                         </div>
                       </div>
                     )}
                     <div>
                       <Label
+                        htmlFor="edit-inward-condition"
+                        className="text-sm font-medium text-secondary-700"
+                      >
+                        Condition <span className="text-red-500">*</span>
+                      </Label>
+                      <select
+                        id="edit-inward-condition"
+                        {...register("condition")}
+                        className="mt-1.5 flex h-10 w-full rounded-md border border-secondary-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
+                      >
+                        {RETURN_CONDITIONS.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <Label
                         htmlFor="edit-inward-status-id"
                         className="text-sm font-medium text-secondary-700"
                       >
-                        Status <span className="text-red-500">*</span>
+                        Status{" "}
+                        <span className="text-secondary-400 font-normal">
+                          (optional)
+                        </span>
                       </Label>
                       <select
                         id="edit-inward-status-id"
@@ -677,6 +861,23 @@ export default function ReturnsPage() {
                           {errors.statusId.message}
                         </p>
                       )}
+                    </div>
+                    <div>
+                      <Label
+                        htmlFor="edit-inward-received-by"
+                        className="text-sm font-medium text-secondary-700"
+                      >
+                        Received by{" "}
+                        <span className="text-secondary-400 font-normal">
+                          (optional)
+                        </span>
+                      </Label>
+                      <Input
+                        id="edit-inward-received-by"
+                        {...register("receivedBy")}
+                        placeholder="Who received the inward"
+                        className="mt-1.5 border-secondary-300 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
+                      />
                     </div>
                     <div>
                       <Label
@@ -708,7 +909,11 @@ export default function ReturnsPage() {
                         {editingReturn.returnImage ? (
                           <button
                             type="button"
-                            onClick={() => setFullScreenImageSrc(`${API_BASE}/storage/${editingReturn.returnImage}`)}
+                            onClick={() =>
+                              setFullScreenImageSrc(
+                                `${API_BASE}/storage/${editingReturn.returnImage}`,
+                              )
+                            }
                             className="flex-1 min-h-[220px] rounded-lg overflow-hidden border border-secondary-200 bg-white flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-primary-500 hover:ring-offset-1 transition-shadow focus:outline-none focus:ring-2 focus:ring-primary-500"
                             title="View full screen"
                           >
@@ -732,7 +937,7 @@ export default function ReturnsPage() {
                 {canEditInward && (
                   <Button
                     type="submit"
-                    disabled={updateMutation.isPending || !watch("statusId")}
+                    disabled={updateMutation.isPending || !watch("condition")}
                     className="flex-1 bg-primary-600 hover:bg-primary-700 text-white"
                   >
                     {updateMutation.isPending ? "Updating…" : "Update"}
@@ -777,24 +982,112 @@ export default function ReturnsPage() {
                     )}
 
                     <div>
+                      <Label className="text-sm font-medium text-secondary-700 block mb-2">
+                        Entry type
+                      </Label>
+                      <div className="flex gap-4">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            checked={isFromOutwardMode}
+                            onChange={() => {
+                              setValue("entryMode", "from_outward");
+                              setValue("itemId", 0);
+                            }}
+                            className="rounded-full border-secondary-300 text-primary-600 focus:ring-primary-500"
+                          />
+                          <span className="text-sm">
+                            Return from Outward (Issue)
+                          </span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            checked={isMissingItemMode}
+                            onChange={() => {
+                              setValue("entryMode", "missing_item");
+                              setValue("issueId", 0);
+                            }}
+                            className="rounded-full border-secondary-300 text-primary-600 focus:ring-primary-500"
+                          />
+                          <span className="text-sm">Receive Missing Item</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {isFromOutwardMode && (
+                      <div>
+                        <Label
+                          htmlFor="inward-issue-id"
+                          className="text-sm font-medium text-secondary-700"
+                        >
+                          Outward (Issue No){" "}
+                          <span className="text-red-500">*</span>
+                        </Label>
+                        <div className="mt-1.5">
+                          <SearchableSelect
+                            id="inward-issue-id"
+                            options={outwardOptions}
+                            value={hasValidIssue ? numIssueId : ""}
+                            onChange={(v) => setValue("issueId", Number(v))}
+                            placeholder="Select outward entry"
+                            searchPlaceholder="Search outward number..."
+                            error={errors.issueId?.message}
+                            aria-label="Outward issue number"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {isMissingItemMode && (
+                      <div>
+                        <Label
+                          htmlFor="inward-item-id"
+                          className="text-sm font-medium text-secondary-700"
+                        >
+                          Missing item <span className="text-red-500">*</span>
+                        </Label>
+                        <div className="mt-1.5">
+                          <SearchableSelect
+                            id="inward-item-id"
+                            options={missingItemOptions}
+                            value={hasValidMissingItem ? numItemId : ""}
+                            onChange={(v) => setValue("itemId", Number(v))}
+                            placeholder="Select missing item"
+                            searchPlaceholder="Search item..."
+                            error={errors.itemId?.message}
+                            aria-label="Missing item"
+                          />
+                        </div>
+                        <p className="mt-1 text-xs text-secondary-500">
+                          Items previously inwarded as Missing appear here.
+                        </p>
+                      </div>
+                    )}
+
+                    <div>
                       <Label
-                        htmlFor="inward-issue-id"
+                        htmlFor="inward-condition"
                         className="text-sm font-medium text-secondary-700"
                       >
-                        Outward (Issue) <span className="text-red-500">*</span>
+                        Condition <span className="text-red-500">*</span>
                       </Label>
-                      <div className="mt-1.5">
-                        <SearchableSelect
-                          id="inward-issue-id"
-                          options={outwardOptions}
-                          value={hasValidIssue ? numIssueId : ""}
-                          onChange={(v) => setValue("issueId", Number(v))}
-                          placeholder="Select outward entry"
-                          searchPlaceholder="Search outward number..."
-                          error={errors.issueId?.message}
-                          aria-label="Outward issue number"
-                        />
-                      </div>
+                      <select
+                        id="inward-condition"
+                        {...register("condition")}
+                        className="mt-1.5 flex h-10 w-full rounded-md border border-secondary-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
+                        aria-required="true"
+                      >
+                        {RETURN_CONDITIONS.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="mt-1 text-xs text-secondary-500">
+                        OK / Damaged / Calibration Required → Available, Missing
+                        → Missing
+                      </p>
                     </div>
 
                     <div>
@@ -802,13 +1095,15 @@ export default function ReturnsPage() {
                         htmlFor="inward-status-id"
                         className="text-sm font-medium text-secondary-700"
                       >
-                        Status <span className="text-red-500">*</span>
+                        Status{" "}
+                        <span className="text-secondary-400 font-normal">
+                          (optional)
+                        </span>
                       </Label>
                       <select
                         id="inward-status-id"
                         {...register("statusId", { valueAsNumber: true })}
                         className="mt-1.5 flex h-10 w-full rounded-md border border-secondary-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
-                        aria-required="true"
                       >
                         <option value="">Select status</option>
                         {statuses.map((s) => (
@@ -817,14 +1112,27 @@ export default function ReturnsPage() {
                           </option>
                         ))}
                       </select>
-                      {errors.statusId && (
-                        <p className="mt-1 text-sm text-red-600" role="alert">
-                          {errors.statusId.message}
-                        </p>
-                      )}
                     </div>
 
-                    {displayIssue && (
+                    <div>
+                      <Label
+                        htmlFor="inward-received-by"
+                        className="text-sm font-medium text-secondary-700"
+                      >
+                        Received by{" "}
+                        <span className="text-secondary-400 font-normal">
+                          (optional)
+                        </span>
+                      </Label>
+                      <Input
+                        id="inward-received-by"
+                        {...register("receivedBy")}
+                        placeholder="Who received the inward"
+                        className="mt-1.5 border-secondary-300 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
+                      />
+                    </div>
+
+                    {displayIssue && isFromOutwardMode && (
                       <div className="rounded-lg border border-secondary-200 bg-secondary-50/50 p-4 space-y-2">
                         <h4 className="text-sm font-semibold text-text">
                           Outward details
@@ -840,6 +1148,20 @@ export default function ReturnsPage() {
                           <span>{displayIssue.machine?.name ?? "—"}</span>
                           <span>Operator</span>
                           <span>{displayIssue.issuedTo ?? "—"}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {displayMissingItem && isMissingItemMode && (
+                      <div className="rounded-lg border border-secondary-200 bg-secondary-50/50 p-4 space-y-2">
+                        <h4 className="text-sm font-semibold text-text">
+                          Missing item
+                        </h4>
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-secondary-700">
+                          <span>Item</span>
+                          <span>{displayMissingItem.itemName}</span>
+                          <span>Serial</span>
+                          <span>{displayMissingItem.serialNumber ?? "—"}</span>
                         </div>
                       </div>
                     )}
@@ -870,8 +1192,12 @@ export default function ReturnsPage() {
                       <div className="flex-1 p-4 flex flex-col">
                         <CameraPhotoInput
                           label="Return Image"
-                          required
-                          hint="Use your camera to capture the return photo"
+                          required={imageRequired}
+                          hint={
+                            imageRequired
+                              ? "Use your camera to capture the return photo"
+                              : "Optional for Missing condition or Receive Missing Item"
+                          }
                           previewUrl={imagePreview}
                           onCapture={handleImageCapture}
                           aspectRatio="video"
@@ -889,8 +1215,10 @@ export default function ReturnsPage() {
                     type="submit"
                     disabled={
                       createMutation.isPending ||
-                      !imageFile ||
-                      !watch("statusId")
+                      (imageRequired && !imageFile) ||
+                      !watch("condition") ||
+                      (isFromOutwardMode && !hasValidIssue) ||
+                      (isMissingItemMode && !hasValidMissingItem)
                     }
                     className="flex-1 bg-primary-600 hover:bg-primary-700 text-white"
                   >

@@ -124,6 +124,19 @@ export const getAvailableItems = async (
   }
 };
 
+export const getMissingItems = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const items = await Item.findActive(ItemStatus.MISSING);
+    res.json({ success: true, data: items });
+  } catch (e) {
+    next(e);
+  }
+};
+
 export const getItemsByCategory = async (
   req: Request,
   res: Response,

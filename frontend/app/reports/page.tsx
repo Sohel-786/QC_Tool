@@ -58,6 +58,7 @@ interface LedgerRow {
   user?: string;
   remarks?: string | null;
   returnCode?: string | null;
+  condition?: string | null;
 }
 
 interface LedgerItemPayload {
@@ -75,11 +76,14 @@ function ReportsContent() {
   const [filters, setFilters] = useState<TransactionFiltersState>(defaultFilters);
   const [missingFilters, setMissingFilters] =
     useState<TransactionFiltersState>(defaultFilters);
-  const [ledgerCategoryId, setLedgerCategoryId] = useState<number | "">("");
-  const [ledgerItemId, setLedgerItemId] = useState<number | "">("");
+  const [ledgerFilters, setLedgerFilters] =
+    useState<TransactionFiltersState>(defaultFilters);
+  const [ledgerDateFrom, setLedgerDateFrom] = useState("");
+  const [ledgerDateTo, setLedgerDateTo] = useState("");
 
   const debouncedSearch = useDebouncedValue(filters.search, 400);
   const debouncedMissingSearch = useDebouncedValue(missingFilters.search, 400);
+  const debouncedLedgerSearch = useDebouncedValue(ledgerFilters.search, 400);
   const filtersForApi = useMemo(
     () => ({ ...filters, search: debouncedSearch }),
     [filters, debouncedSearch]
@@ -88,10 +92,23 @@ function ReportsContent() {
     () => ({ ...missingFilters, search: debouncedMissingSearch }),
     [missingFilters, debouncedMissingSearch]
   );
+  const ledgerFiltersForApi = useMemo(
+    () => ({ ...ledgerFilters, search: debouncedLedgerSearch }),
+    [ledgerFilters, debouncedLedgerSearch]
+  );
   const filterKey = useMemo(() => JSON.stringify(filtersForApi), [filtersForApi]);
   const missingFilterKey = useMemo(
     () => JSON.stringify(missingFiltersForApi),
     [missingFiltersForApi]
+  );
+  const ledgerFilterKey = useMemo(
+    () =>
+      JSON.stringify({
+        ...ledgerFiltersForApi,
+        dateFrom: ledgerDateFrom,
+        dateTo: ledgerDateTo,
+      }),
+    [ledgerFiltersForApi, ledgerDateFrom, ledgerDateTo]
   );
 
   useEffect(() => {
@@ -142,15 +159,8 @@ function ReportsContent() {
       return res.data?.data ?? [];
     },
   });
-  const { data: itemsByCategory = [] } = useQuery({
-    queryKey: ["items", "by-category", ledgerCategoryId],
-    queryFn: async () => {
-      if (ledgerCategoryId === "" || typeof ledgerCategoryId !== "number") return [];
-      const res = await api.get(`/items/by-category/${ledgerCategoryId}`);
-      return res.data?.data ?? [];
-    },
-    enabled: ledgerCategoryId !== "" && typeof ledgerCategoryId === "number",
-  });
+  const ledgerItemId =
+    ledgerFiltersForApi.itemIds.length > 0 ? ledgerFiltersForApi.itemIds[0] : null;
 
   const issuedParams = useMemo(
     () => ({
@@ -187,15 +197,25 @@ function ReportsContent() {
       },
     });
 
+  const ledgerParams = useMemo(
+    () => ({
+      ...buildFilterParams(ledgerFiltersForApi),
+      page: String(page),
+      limit: String(rowCount),
+      ...(ledgerDateFrom && { dateFrom: ledgerDateFrom }),
+      ...(ledgerDateTo && { dateTo: ledgerDateTo }),
+    }),
+    [ledgerFiltersForApi, page, rowCount, ledgerDateFrom, ledgerDateTo]
+  );
   const { data: ledgerReport, isLoading: loadingLedger } = useQuery({
-    queryKey: ["reports", "ledger", ledgerItemId, page, rowCount],
+    queryKey: ["reports", "ledger", ledgerItemId, ledgerFilterKey, page, rowCount],
     queryFn: async () => {
       const res = await api.get(`/reports/item-history/${ledgerItemId}`, {
-        params: { page, limit: rowCount },
+        params: ledgerParams,
       });
       return res.data;
     },
-    enabled: ledgerItemId !== "" && typeof ledgerItemId === "number",
+    enabled: ledgerItemId != null && ledgerItemId > 0,
   });
 
   const handleExportExcel = useCallback(
@@ -214,8 +234,11 @@ function ReportsContent() {
             break;
           case "history":
             endpoint = "/reports/export/item-history";
-            if (typeof ledgerItemId === "number") {
+            if (ledgerItemId != null && ledgerItemId > 0) {
               params.itemId = String(ledgerItemId);
+              Object.assign(params, buildFilterParams(ledgerFiltersForApi));
+              if (ledgerDateFrom) params.dateFrom = ledgerDateFrom;
+              if (ledgerDateTo) params.dateTo = ledgerDateTo;
             }
             break;
         }
@@ -275,14 +298,7 @@ function ReportsContent() {
       categories.map((c: { id: number; name: string }) => ({ value: c.id, label: c.name })),
     [categories]
   );
-  const ledgerItemOptions: MultiSelectSearchOption[] = useMemo(
-    () =>
-      itemsByCategory.map((i: { id: number; itemName: string; serialNumber?: string | null }) => ({
-        value: i.id,
-        label: i.serialNumber ? `${i.itemName} (${i.serialNumber})` : i.itemName,
-      })),
-    [itemsByCategory]
-  );
+  const ledgerItemOptions: MultiSelectSearchOption[] = itemOptions;
 
   const issuedData = Array.isArray(issuedReport?.data) ? issuedReport.data : [];
   const issuedTotal = issuedReport?.total ?? 0;
@@ -316,7 +332,7 @@ function ReportsContent() {
       id: "history" as ReportType,
       label: "Item History (Ledger)",
       icon: History,
-      count: ledgerTotal,
+      count: ledgerItemId != null ? ledgerTotal : 0,
     },
   ];
 
@@ -647,73 +663,81 @@ function ReportsContent() {
               transition={{ duration: 0.3 }}
               className="space-y-4"
             >
+              <TransactionFilters
+                filters={ledgerFilters}
+                onFiltersChange={(f) => {
+                  setLedgerFilters(f);
+                  resetPagination();
+                }}
+                companyOptions={companyOptions}
+                contractorOptions={contractorOptions}
+                machineOptions={machineOptions}
+                itemOptions={ledgerItemOptions}
+                onClear={() => {
+                  setLedgerFilters(defaultFilters);
+                  setLedgerDateFrom("");
+                  setLedgerDateTo("");
+                  resetPagination();
+                }}
+                searchPlaceholder="Search by issue no., description, by, remarks, condition…"
+                className="shadow-sm"
+              />
               <Card className="shadow-sm">
                 <CardContent className="p-5">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-end">
+                  <div className="flex flex-wrap items-end gap-4">
                     <div className="min-w-0 flex flex-col">
                       <Label className="text-sm font-medium text-secondary-700 mb-1.5">
-                        Category
+                        Date from
                       </Label>
-                      <select
-                        value={ledgerCategoryId === "" ? "" : ledgerCategoryId}
+                      <Input
+                        type="date"
+                        value={ledgerDateFrom}
                         onChange={(e) => {
-                          const v = e.target.value;
-                          setLedgerCategoryId(v === "" ? "" : Number(v));
-                          setLedgerItemId("");
-                          setPage(1);
+                          setLedgerDateFrom(e.target.value);
+                          resetPagination();
                         }}
-                        className="flex h-10 w-full rounded-lg border border-secondary-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-                      >
-                        <option value="">Select category</option>
-                        {categories.map((c: ItemCategory) => (
-                          <option key={c.id} value={c.id}>
-                            {c.name}
-                          </option>
-                        ))}
-                      </select>
+                        className="h-10 rounded-lg border-secondary-300"
+                      />
                     </div>
                     <div className="min-w-0 flex flex-col">
                       <Label className="text-sm font-medium text-secondary-700 mb-1.5">
-                        Item
+                        Date to
                       </Label>
-                      <select
-                        value={ledgerItemId === "" ? "" : ledgerItemId}
+                      <Input
+                        type="date"
+                        value={ledgerDateTo}
                         onChange={(e) => {
-                          const v = e.target.value;
-                          setLedgerItemId(v === "" ? "" : Number(v));
-                          setPage(1);
+                          setLedgerDateTo(e.target.value);
+                          resetPagination();
                         }}
-                        disabled={!ledgerCategoryId}
-                        className="flex h-10 w-full rounded-lg border border-secondary-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:opacity-50"
-                      >
-                        <option value="">Select item</option>
-                        {itemsByCategory.map((i: Item) => (
-                          <option key={i.id} value={i.id}>
-                            {i.serialNumber ? `${i.itemName} (${i.serialNumber})` : i.itemName}
-                          </option>
-                        ))}
-                      </select>
+                        className="h-10 rounded-lg border-secondary-300"
+                      />
                     </div>
                   </div>
-                  {ledgerItem && (
-                    <div className="mt-4 p-4 rounded-lg bg-secondary-50 border border-secondary-200">
-                      <p className="text-sm font-semibold text-text">
-                        {ledgerItem.itemName}
-                        {ledgerItem.serialNumber && (
-                          <span className="font-mono text-secondary-600 ml-2">
-                            ({ledgerItem.serialNumber})
-                          </span>
-                        )}
-                      </p>
-                      {ledgerItem.category && (
-                        <p className="text-xs text-secondary-500 mt-1">
-                          Category: {ledgerItem.category.name}
-                        </p>
-                      )}
-                    </div>
-                  )}
+                  <p className="text-xs text-secondary-500 mt-2">
+                    Select an item in the filter above to view full traceability (who received it, where it was, current status). Recent transactions appear first.
+                  </p>
                 </CardContent>
               </Card>
+              {ledgerItem && (
+                <Card className="shadow-sm border-primary-200 bg-primary-50/30">
+                  <CardContent className="p-4">
+                    <p className="text-sm font-semibold text-text">
+                      {ledgerItem.itemName}
+                      {ledgerItem.serialNumber && (
+                        <span className="font-mono text-secondary-600 ml-2">
+                          ({ledgerItem.serialNumber})
+                        </span>
+                      )}
+                    </p>
+                    {ledgerItem.category && (
+                      <p className="text-xs text-secondary-500 mt-1">
+                        Category: {ledgerItem.category.name}
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
               <ReportToolbar
                 rowCount={rowCount}
                 onRowCountChange={(v) => {
@@ -721,7 +745,7 @@ function ReportsContent() {
                   setPage(1);
                 }}
                 onExportExcel={() => handleExportExcel("history")}
-                exportDisabled={loadingLedger || !ledgerItemId}
+                exportDisabled={loadingLedger || ledgerItemId == null}
                 exportLabel="Export Excel"
               />
               <Card className="shadow-sm overflow-hidden">
@@ -730,14 +754,14 @@ function ReportsContent() {
                     Item History (Ledger)
                     {ledgerItem
                       ? ` — ${ledgerItem.itemName} (${ledgerTotal} records)`
-                      : " — Select category and item above"}
+                      : " — Select an item in the filter above"}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
-                  {!ledgerItemId ? (
+                  {ledgerItemId == null ? (
                     <div className="text-center py-12">
                       <p className="text-secondary-500 text-lg">
-                        Select a category and item to view traceability.
+                        Select an item in the filter bar to view full traceability from beginning to end.
                       </p>
                     </div>
                   ) : loadingLedger ? (
@@ -759,6 +783,9 @@ function ReportsContent() {
                               </th>
                               <th className="px-4 py-3 font-semibold text-text text-center whitespace-nowrap">
                                 Description
+                              </th>
+                              <th className="px-4 py-3 font-semibold text-text text-center whitespace-nowrap">
+                                Condition
                               </th>
                               <th className="px-4 py-3 font-semibold text-text text-center whitespace-nowrap">
                                 By
@@ -796,6 +823,9 @@ function ReportsContent() {
                                   {row.description}
                                 </td>
                                 <td className="px-4 py-3 text-secondary-600 text-center">
+                                  {row.condition ?? "—"}
+                                </td>
+                                <td className="px-4 py-3 text-secondary-600 text-center">
                                   {row.user ?? "—"}
                                 </td>
                                 <td className="px-4 py-3 text-secondary-600 text-center">
@@ -819,7 +849,9 @@ function ReportsContent() {
                   ) : (
                     <div className="text-center py-12">
                       <p className="text-secondary-500 text-lg">
-                        No traceability records for this item.
+                        {hasActiveFilters(ledgerFilters) || ledgerDateFrom || ledgerDateTo
+                          ? "No ledger records match your filters."
+                          : "No traceability records for this item."}
                       </p>
                     </div>
                   )}

@@ -18,6 +18,7 @@ model Item {
 
   // Relations
   issues   Issue[]         @relation("ItemIssues")
+  inwardFromMissingReturns Return[] @relation("InwardFromMissing") // inward entries when item was missing
   category ItemCategory?   @relation(fields: [categoryId], references: [id])
 
   @@map("tools")

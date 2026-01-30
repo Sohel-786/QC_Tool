@@ -74,12 +74,6 @@ export function Sidebar({
   const [masterOpen, setMasterOpen] = useState(true);
   const [transactionOpen, setTransactionOpen] = useState(true);
 
-  const isOnSettings = pathname === "/settings";
-
-  const navigateTo = (href: string) => {
-    router.push(href);
-  };
-
   const companyName = (profileDraft?.companyName ?? appSettings?.companyName ?? "").trim() || "";
   const softwareName =
     (profileDraft?.softwareName ?? appSettings?.softwareName ?? appSettings?.companyName ?? "").trim() ||
@@ -122,7 +116,7 @@ export function Sidebar({
   const linkClass = (href: string, iconOnly = false) => {
     const isActive = pathname === href;
     const base =
-      "flex items-center gap-2 rounded-md transition-all text-sm " +
+      "flex items-center gap-2 rounded-md transition-all text-sm cursor-pointer " +
       (isActive
         ? "bg-primary-50 text-primary-600 font-medium"
         : "text-secondary-700 hover:bg-secondary-50 hover:text-primary-600");
@@ -136,7 +130,7 @@ export function Sidebar({
 
   return (
     <aside
-      className="h-screen fixed left-0 top-0 flex flex-col bg-white border-r border-secondary-200 shadow-lg z-50 overflow-hidden transition-[width] duration-200 ease-in-out"
+      className="h-screen fixed left-0 top-0 flex flex-col bg-white border-r border-secondary-200 shadow-lg z-50 overflow-hidden transition-[width] duration-200 ease-in-out pointer-events-auto"
       style={{ width: sidebarWidth }}
     >
       {/* Header: when wrapped = only expand button; when expanded = text + collapse button (no logo) */}
@@ -184,17 +178,7 @@ export function Sidebar({
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2 px-2">
         <div className="space-y-0.5">
-          {canViewDashboard &&
-            (isOnSettings ? (
-              <button
-                type="button"
-                onClick={() => navigateTo("/dashboard")}
-                className={`w-full text-left ${linkClass("/dashboard", !showFullSidebar)}`}
-              >
-                <LayoutDashboard className="w-5 h-5 shrink-0" />
-                {showFullSidebar && <span>Dashboard</span>}
-              </button>
-            ) : (
+          {canViewDashboard && (
               <Link href="/dashboard">
                 <motion.div
                   whileHover={showFullSidebar ? { x: 2 } : {}}
@@ -204,7 +188,7 @@ export function Sidebar({
                   {showFullSidebar && <span>Dashboard</span>}
                 </motion.div>
               </Link>
-            ))}
+            )}
 
           {/* Master Entry */}
           {canViewMaster && (
@@ -232,17 +216,7 @@ export function Sidebar({
                   >
                     {masterEntries.map((item) => {
                       const Icon = item.icon;
-                      return isOnSettings ? (
-                        <button
-                          key={item.href}
-                          type="button"
-                          onClick={() => navigateTo(item.href)}
-                          className={`w-full text-left ${linkClass(item.href, false)}`}
-                        >
-                          <Icon className="w-5 h-5 shrink-0" />
-                          <span>{item.label}</span>
-                        </button>
-                      ) : (
+                      return (
                         <Link key={item.href} href={item.href}>
                           <motion.div
                             whileHover={{ x: 2 }}
@@ -266,17 +240,7 @@ export function Sidebar({
                       ? "bg-primary-50 text-primary-600"
                       : "text-secondary-700 hover:bg-secondary-50"
                   }`;
-                  return isOnSettings ? (
-                    <button
-                      key={item.href}
-                      type="button"
-                      onClick={() => navigateTo(item.href)}
-                      title={item.label}
-                      className={`w-full ${cellClass}`}
-                    >
-                      <Icon className="w-5 h-5 shrink-0" />
-                    </button>
-                  ) : (
+                  return (
                     <Link key={item.href} href={item.href} title={item.label}>
                       <div className={cellClass}>
                         <Icon className="w-5 h-5 shrink-0" />
@@ -315,17 +279,7 @@ export function Sidebar({
                   >
                     {transactionEntries.map((item) => {
                       const Icon = item.icon;
-                      return isOnSettings ? (
-                        <button
-                          key={item.href}
-                          type="button"
-                          onClick={() => navigateTo(item.href)}
-                          className={`w-full text-left ${linkClass(item.href, false)}`}
-                        >
-                          <Icon className="w-5 h-5 shrink-0" />
-                          <span>{item.label}</span>
-                        </button>
-                      ) : (
+                      return (
                         <Link key={item.href} href={item.href}>
                           <motion.div
                             whileHover={{ x: 2 }}
@@ -349,17 +303,7 @@ export function Sidebar({
                       ? "bg-primary-50 text-primary-600"
                       : "text-secondary-700 hover:bg-secondary-50"
                   }`;
-                  return isOnSettings ? (
-                    <button
-                      key={item.href}
-                      type="button"
-                      onClick={() => navigateTo(item.href)}
-                      title={item.label}
-                      className={`w-full ${cellClass}`}
-                    >
-                      <Icon className="w-5 h-5 shrink-0" />
-                    </button>
-                  ) : (
+                  return (
                     <Link key={item.href} href={item.href} title={item.label}>
                       <div className={cellClass}>
                         <Icon className="w-5 h-5 shrink-0" />
@@ -374,17 +318,7 @@ export function Sidebar({
 
           {/* Reports & Settings */}
           <div className="pt-1 border-t border-secondary-100 mt-1 space-y-0.5">
-            {canViewReports &&
-              (isOnSettings ? (
-                <button
-                  type="button"
-                  onClick={() => navigateTo("/reports")}
-                  className={`w-full text-left ${linkClass("/reports", !showFullSidebar)}`}
-                >
-                  <BarChart3 className="w-5 h-5 shrink-0" />
-                  {showFullSidebar && <span>Reports</span>}
-                </button>
-              ) : (
+            {canViewReports && (
                 <Link href="/reports">
                   <motion.div
                     whileHover={showFullSidebar ? { x: 2 } : {}}
@@ -394,7 +328,7 @@ export function Sidebar({
                     {showFullSidebar && <span>Reports</span>}
                   </motion.div>
                 </Link>
-              ))}
+              )}
             {canAccessSettings && (
               <Link href="/settings">
                 <motion.div

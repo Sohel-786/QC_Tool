@@ -1,22 +1,27 @@
 model Return {
   id          Int       @id @default(autoincrement())
   returnCode  String?   @unique
-  issueId     Int
+  issueId     Int?      // null when inward is "receive missing item"
+  itemId      Int?      // set when inward is "receive missing item"
+  condition   String    @db.VarChar(50) // OK | Damaged | Calibration Required | Missing → drives item status
   returnedBy  Int
-  returnImage String
+  returnImage String?   // required when from issue; optional when from missing item
   remarks     String?
-  statusId    Int
+  receivedBy  String?   @db.VarChar(255) // optional: who received the inward
+  statusId    Int?      // optional when from missing item
   isActive    Boolean   @default(true)
   returnedAt  DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
   // Relations
-  issue         Issue   @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  issue         Issue?   @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  item          Item?    @relation("InwardFromMissing", fields: [itemId], references: [id], onDelete: Restrict)
   returnedByUser User   @relation("ReturnedBy", fields: [returnedBy], references: [id], onDelete: Cascade)
-  status        Status  @relation(fields: [statusId], references: [id], onDelete: Restrict)
+  status        Status?  @relation(fields: [statusId], references: [id], onDelete: Restrict)
 
   @@map("returns")
   @@index([issueId])
+  @@index([itemId])
   @@index([returnedBy])
   @@index([statusId])
 }
