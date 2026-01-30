@@ -26,7 +26,9 @@ import {
   Download,
 } from "lucide-react";
 import { CameraPhotoInput } from "@/components/ui/camera-photo-input";
+import { FullScreenImageViewer } from "@/components/ui/full-screen-image-viewer";
 import { useMasterExportImport } from "@/hooks/use-master-export-import";
+import { useCurrentUserPermissions } from "@/hooks/use-settings";
 import { toast } from "react-hot-toast";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
@@ -53,9 +55,14 @@ export default function ItemsPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
   const [imageRemovedByUser, setImageRemovedByUser] = useState(false);
+  const [fullScreenImageSrc, setFullScreenImageSrc] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const importFileRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+  const { data: permissions } = useCurrentUserPermissions();
+  const canAddMaster = permissions?.addMaster ?? true;
+  const canEditMaster = permissions?.editMaster ?? true;
+  const canImportExportMaster = permissions?.importExportMaster ?? false;
   const { handleExport, handleImport, exportLoading, importLoading } =
     useMasterExportImport("items", ["items"]);
 
@@ -316,28 +323,34 @@ export default function ItemsPage() {
                   }
                 }}
               />
-              <Button
-                variant="outline"
-                onClick={handleExport}
-                disabled={exportLoading}
-                className="shadow-sm"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Export
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => importFileRef.current?.click()}
-                disabled={importLoading}
-                className="shadow-sm"
-              >
-                <Upload className="w-4 h-4 mr-2" />
-                Import
-              </Button>
-              <Button onClick={() => handleOpenForm()} className="shadow-md">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Item
-              </Button>
+              {canImportExportMaster && (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={handleExport}
+                    disabled={exportLoading}
+                    className="shadow-sm"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Export
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => importFileRef.current?.click()}
+                    disabled={importLoading}
+                    className="shadow-sm"
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    Import
+                  </Button>
+                </>
+              )}
+              {canAddMaster && (
+                <Button onClick={() => handleOpenForm()} className="shadow-md">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Item
+                </Button>
+              )}
             </div>
           </div>
 
@@ -461,7 +474,14 @@ export default function ItemsPage() {
                             </span>
                           </td>
                           <td className="px-2 py-3">
-                            <div className="w-[30px] h-[30px] rounded overflow-hidden border border-secondary-200 bg-secondary-50 shrink-0">
+                            <div
+                              className="w-[30px] h-[30px] rounded overflow-hidden border border-secondary-200 bg-secondary-50 shrink-0 cursor-pointer hover:ring-2 hover:ring-primary-500 transition-shadow"
+                              role="button"
+                              tabIndex={0}
+                              onClick={() => i.image && setFullScreenImageSrc(`${API_BASE}/storage/${i.image}`)}
+                              onKeyDown={(e) => i.image && e.key === "Enter" && setFullScreenImageSrc(`${API_BASE}/storage/${i.image}`)}
+                              title={i.image ? "View full screen" : undefined}
+                            >
                               {i.image ? (
                                 <img
                                   src={`${API_BASE}/storage/${i.image}`}
@@ -483,30 +503,32 @@ export default function ItemsPage() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleOpenForm(i)}
+                                title={canEditMaster ? "Edit item" : "View item (edit disabled)"}
                               >
                                 <Edit2 className="w-4 h-4" />
                               </Button>
-                              {i.isActive ? (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setInactiveTarget(i)}
-                                  className="text-amber-600 hover:bg-amber-50"
-                                  disabled={toggleActiveMutation.isPending}
-                                >
-                                  <Ban className="w-4 h-4" />
-                                </Button>
-                              ) : (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleMarkActive(i)}
-                                  className="text-green-600 hover:bg-green-50"
-                                  disabled={toggleActiveMutation.isPending}
-                                >
-                                  <CheckCircle className="w-4 h-4" />
-                                </Button>
-                              )}
+                              {canEditMaster &&
+                                (i.isActive ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setInactiveTarget(i)}
+                                    className="text-amber-600 hover:bg-amber-50"
+                                    disabled={toggleActiveMutation.isPending}
+                                  >
+                                    <Ban className="w-4 h-4" />
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleMarkActive(i)}
+                                    className="text-green-600 hover:bg-green-50"
+                                    disabled={toggleActiveMutation.isPending}
+                                  >
+                                    <CheckCircle className="w-4 h-4" />
+                                  </Button>
+                                ))}
                             </div>
                           </td>
                         </motion.tr>
@@ -733,6 +755,7 @@ export default function ItemsPage() {
                           !imageRemovedByUser
                         }
                         aspectRatio="square"
+                        onPreviewClick={(url) => setFullScreenImageSrc(url)}
                       />
                       {imageError && (
                         <p
@@ -754,23 +777,25 @@ export default function ItemsPage() {
 
             {/* Sticky footer */}
             <div className="flex-none flex gap-3 px-6 py-4 border-t border-secondary-200 bg-secondary-50/50">
-              <Button
-                type="submit"
-                disabled={
-                  createMutation.isPending ||
-                  updateMutation.isPending ||
-                  !hasRequiredFields ||
-                  !hasRequiredImage
-                }
-                className="flex-1 bg-primary-600 hover:bg-primary-700 text-white"
-                aria-describedby="item-form-hint"
-              >
-                {createMutation.isPending || updateMutation.isPending
-                  ? "Saving…"
-                  : editingItem
-                    ? "Update Item Master"
-                    : "Create Item Master"}
-              </Button>
+              {(editingItem ? canEditMaster : canAddMaster) && (
+                <Button
+                  type="submit"
+                  disabled={
+                    createMutation.isPending ||
+                    updateMutation.isPending ||
+                    !hasRequiredFields ||
+                    !hasRequiredImage
+                  }
+                  className="flex-1 bg-primary-600 hover:bg-primary-700 text-white"
+                  aria-describedby="item-form-hint"
+                >
+                  {createMutation.isPending || updateMutation.isPending
+                    ? "Saving…"
+                    : editingItem
+                      ? "Update Item Master"
+                      : "Create Item Master"}
+                </Button>
+              )}
               <Button
                 type="button"
                 variant="outline"
@@ -782,6 +807,13 @@ export default function ItemsPage() {
             </div>
           </form>
         </Dialog>
+
+        <FullScreenImageViewer
+          isOpen={!!fullScreenImageSrc}
+          onClose={() => setFullScreenImageSrc(null)}
+          imageSrc={fullScreenImageSrc}
+          alt="Item"
+        />
       </motion.div>
     </div>
   );

@@ -109,10 +109,10 @@ export default function UsersPage() {
     }
   }, [isFormOpen, editingUser, reset]);
 
-  // Route protection - only managers can access
+  // Route protection - only admins can access (user management is admin-only)
   useEffect(() => {
     if (!userLoading && currentUser) {
-      if (currentUser.role !== Role.QC_MANAGER) {
+      if (currentUser.role !== Role.QC_ADMIN) {
         router.push("/dashboard");
       }
     }
@@ -130,8 +130,8 @@ export default function UsersPage() {
     );
   }
 
-  // Show unauthorized message if not manager
-  if (currentUser && currentUser.role !== Role.QC_MANAGER) {
+  // Show unauthorized message if not admin
+  if (currentUser && currentUser.role !== Role.QC_ADMIN) {
     return null; // Will redirect in useEffect
   }
 
@@ -268,7 +268,7 @@ export default function UsersPage() {
                 <p className="text-secondary-600 flex items-center space-x-2">
                   <Shield className="w-4 h-4" />
                   <span>
-                    Manager-only access • Manage system users and permissions
+                    Admin-only access • Manage system users and permissions
                   </span>
                 </p>
               </div>
@@ -354,14 +354,18 @@ export default function UsersPage() {
                             <div className="flex items-center space-x-2 mb-3">
                               <span
                                 className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                                  user.role === Role.QC_MANAGER
-                                    ? "bg-purple-100 text-purple-700 border border-purple-200"
-                                    : "bg-blue-100 text-blue-700 border border-blue-200"
+                                  user.role === Role.QC_ADMIN
+                                    ? "bg-amber-100 text-amber-800 border border-amber-200"
+                                    : user.role === Role.QC_MANAGER
+                                      ? "bg-purple-100 text-purple-700 border border-purple-200"
+                                      : "bg-blue-100 text-blue-700 border border-blue-200"
                                 }`}
                               >
-                                {user.role === Role.QC_MANAGER
-                                  ? "QC Manager"
-                                  : "QC User"}
+                                {user.role === Role.QC_ADMIN
+                                  ? "Admin"
+                                  : user.role === Role.QC_MANAGER
+                                    ? "Manager"
+                                    : "User"}
                               </span>
                               <span
                                 className={`px-3 py-1 rounded-full text-xs font-semibold ${
@@ -568,8 +572,9 @@ export default function UsersPage() {
             <div>
               <Label htmlFor="role">Role *</Label>
               <Select id="role" {...register("role")} className="mt-1">
-                <option value={Role.QC_USER}>QC User</option>
-                <option value={Role.QC_MANAGER}>QC Manager</option>
+                <option value={Role.QC_USER}>User</option>
+                <option value={Role.QC_MANAGER}>Manager</option>
+                <option value={Role.QC_ADMIN}>Admin</option>
               </Select>
             </div>
             {editingUser && (

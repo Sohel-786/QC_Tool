@@ -7,10 +7,13 @@ import * as z from 'zod';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import { useLogin } from '@/hooks/use-auth-mutations';
+import { useAppSettings } from '@/hooks/use-settings';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { User, Lock, Eye, EyeOff } from 'lucide-react';
+import { User, Lock, Eye, EyeOff, Building2 } from 'lucide-react';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 const loginSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters'),
@@ -21,9 +24,13 @@ type LoginForm = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
   const loginMutation = useLogin();
+  const { data: appSettings } = useAppSettings();
   const [showPassword, setShowPassword] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [imagesLoaded, setImagesLoaded] = useState<boolean[]>([false, false]);
+
+  const softwareName = appSettings?.softwareName?.trim() || appSettings?.companyName?.trim() || 'QC Item System';
+  const logoUrl = appSettings?.companyLogo ? `${API_BASE}/storage/${appSettings.companyLogo}` : null;
 
   const {
     register,
@@ -91,18 +98,31 @@ export default function LoginPage() {
       {/* Left Panel - Login Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white relative z-10">
         <div className="w-full max-w-md">
-          {/* Logo/Branding */}
+          {/* Logo & Software name */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
             className="mb-8"
           >
-            <div className="flex items-center space-x-3 mb-2">
-              <div className="w-10 h-10 bg-gradient-to-br from-primary-600 to-primary-700 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-xl">QC</span>
+            <div className="flex items-center gap-4 mb-2">
+              {logoUrl ? (
+                <img
+                  src={logoUrl}
+                  alt=""
+                  className="h-14 w-14 shrink-0 rounded-xl object-contain border border-secondary-200 bg-white shadow-sm"
+                />
+              ) : (
+                <div className="h-14 w-14 shrink-0 bg-gradient-to-br from-primary-600 to-primary-700 rounded-xl flex items-center justify-center">
+                  <Building2 className="h-7 w-7 text-white" />
+                </div>
+              )}
+              <div className="min-w-0">
+                <h1 className="text-2xl font-bold text-black truncate">
+                  {softwareName}
+                </h1>
+                <p className="text-sm text-secondary-500 mt-0.5">Sign in to your account</p>
               </div>
-              <h1 className="text-2xl font-bold text-text">QC Item System</h1>
             </div>
           </motion.div>
 

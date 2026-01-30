@@ -1,4 +1,6 @@
 import { Request, Response, NextFunction } from "express";
+import path from "path";
+import fs from "fs";
 import Return from "../entities/return";
 import Issue from "../entities/issue";
 import Item from "../entities/item";
@@ -13,7 +15,9 @@ import {
   parseTransactionFiltersFromQuery,
   hasActiveFilters,
 } from "../types/filter";
-import { getInwardImagePath } from "../utils/storagePath";
+import { getInwardImagePath, sanitizeSerialForPath } from "../utils/storagePath";
+
+const storageRoot = path.resolve(process.cwd(), "storage");
 
 export const createReturn = async (
   req: Request,
@@ -47,7 +51,13 @@ export const createReturn = async (
     const itemSerial =
       (issue as { item?: { serialNumber?: string | null } }).item?.serialNumber ??
       "";
-    const imagePath = getInwardImagePath(itemSerial, file.filename);
+    const safeSerial = sanitizeSerialForPath(itemSerial);
+    const ext = path.extname(file.originalname) || ".jpg";
+    const filename = `inward-issue-${parsedIssueId}-${Date.now()}${ext}`;
+    const inwardDir = path.join(storageRoot, "items", safeSerial, "inward");
+    fs.mkdirSync(inwardDir, { recursive: true });
+    fs.writeFileSync(path.join(inwardDir, filename), file.buffer);
+    const imagePath = getInwardImagePath(itemSerial, filename);
     const returnCount = await Return.getCount();
     const returnCode = generateNextCode("INWARD", returnCount);
 
@@ -136,6 +146,67 @@ export const getNextInwardCode = async (
     const count = await Return.getCount();
     const nextCode = generateNextCode("INWARD", count);
     res.json({ success: true, data: { nextCode } });
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const updateReturn = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (Number.isNaN(id)) {
+      return next(new ValidationError("Invalid return id"));
+    }
+    const { remarks, statusId } = req.body;
+    const updateData: { remarks?: string; statusId?: number } = {};
+    if (remarks !== undefined) updateData.remarks = remarks;
+    if (statusId !== undefined) {
+      const parsedStatusId = Number(statusId);
+      if (Number.isNaN(parsedStatusId) || parsedStatusId < 1) {
+        return next(new ValidationError("Valid status is required"));
+      }
+      updateData.statusId = parsedStatusId;
+    }
+    const return_ = await Return.update(id, updateData);
+    res.json({ success: true, data: return_ });
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const setReturnActive = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (Number.isNaN(id)) {
+      return next(new ValidationError("Invalid return id"));
+    }
+    const return_ = await Return.setActive(id);
+    res.json({ success: true, data: return_ });
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const setReturnInactive = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (Number.isNaN(id)) {
+      return next(new ValidationError("Invalid return id"));
+    }
+    const return_ = await Return.setInactive(id);
+    res.json({ success: true, data: return_ });
   } catch (e) {
     next(e);
   }

@@ -11,6 +11,7 @@ import {
   importItems,
 } from "../controllers/items.controller";
 import { authMiddleware } from "../middleware/auth.middleware";
+import { requirePermission } from "../middleware/permission.middleware";
 import { body } from "express-validator";
 import { validate as validateMiddleware } from "../middleware/validation.middleware";
 import { uploadItemImage, uploadImportExcel } from "../middleware/multer.middleware";
@@ -20,23 +21,23 @@ const router = Router();
 
 router.use(authMiddleware());
 
-router.get("/", getAllItems);
-router.get("/active", getActiveItems);
-router.get("/available", getAvailableItems);
-router.get("/by-category/:categoryId", getItemsByCategory);
-router.get("/export", exportItems);
-router.get("/:id", getItemById);
+router.get("/", requirePermission("viewMaster"), getAllItems);
+router.get("/active", requirePermission("viewMaster"), getActiveItems);
+router.get("/available", requirePermission("viewMaster"), getAvailableItems);
+router.get("/by-category/:categoryId", requirePermission("viewMaster"), getItemsByCategory);
+router.get("/export", requirePermission("importExportMaster"), exportItems);
+router.get("/:id", requirePermission("viewMaster"), getItemById);
 
 router.post(
   "/import",
-  authMiddleware(["QC_USER", "QC_MANAGER"]),
+  requirePermission("importExportMaster"),
   uploadImportExcel.single("file"),
   importItems
 );
 
 router.post(
   "/",
-  authMiddleware(["QC_USER", "QC_MANAGER"]),
+  requirePermission("addMaster"),
   uploadItemImage.single("image"),
   validateMiddleware([
     body("itemName").notEmpty().withMessage("Item name is required"),
@@ -47,7 +48,7 @@ router.post(
 
 router.patch(
   "/:id",
-  authMiddleware(["QC_USER", "QC_MANAGER"]),
+  requirePermission("editMaster"),
   attachItemSerialForUpload,
   uploadItemImage.single("image"),
   updateItem

@@ -1,6 +1,7 @@
 enum Role {
   QC_USER
   QC_MANAGER
+  QC_ADMIN
 }
 
 model User {

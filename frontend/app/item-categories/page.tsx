@@ -16,6 +16,7 @@ import * as z from "zod";
 import { Plus, Edit2, Search, Ban, CheckCircle, Download, Upload } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { useMasterExportImport } from "@/hooks/use-master-export-import";
+import { useCurrentUserPermissions } from "@/hooks/use-settings";
 
 const categorySchema = z.object({
   name: z
@@ -41,6 +42,10 @@ export default function ItemCategoriesPage() {
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>("all");
   const queryClient = useQueryClient();
   const importFileRef = useRef<HTMLInputElement>(null);
+  const { data: permissions } = useCurrentUserPermissions();
+  const canAddMaster = permissions?.addMaster ?? true;
+  const canEditMaster = permissions?.editMaster ?? true;
+  const canImportExportMaster = permissions?.importExportMaster ?? false;
   const { handleExport, handleImport, exportLoading, importLoading } =
     useMasterExportImport("item-categories", ["item-categories"]);
 
@@ -215,28 +220,34 @@ export default function ItemCategoriesPage() {
                   }
                 }}
               />
-              <Button
-                variant="outline"
-                onClick={handleExport}
-                disabled={exportLoading}
-                className="shadow-sm"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Export
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => importFileRef.current?.click()}
-                disabled={importLoading}
-                className="shadow-sm"
-              >
-                <Upload className="w-4 h-4 mr-2" />
-                Import
-              </Button>
-              <Button onClick={() => handleOpenForm()} className="shadow-md">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Item Category
-              </Button>
+              {canImportExportMaster && (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={handleExport}
+                    disabled={exportLoading}
+                    className="shadow-sm"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Export
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => importFileRef.current?.click()}
+                    disabled={importLoading}
+                    className="shadow-sm"
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    Import
+                  </Button>
+                </>
+              )}
+              {canAddMaster && (
+                <Button onClick={() => handleOpenForm()} className="shadow-md">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Item Category
+                </Button>
+              )}
             </div>
           </div>
 
@@ -338,30 +349,32 @@ export default function ItemCategoriesPage() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleOpenForm(c)}
+                                title={canEditMaster ? "Edit category" : "View category (edit disabled)"}
                               >
                                 <Edit2 className="w-4 h-4" />
                               </Button>
-                              {c.isActive ? (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setInactiveTarget(c)}
-                                  className="text-amber-600 hover:bg-amber-50"
-                                  disabled={toggleActiveMutation.isPending}
-                                >
-                                  <Ban className="w-4 h-4" />
-                                </Button>
-                              ) : (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleMarkActive(c)}
-                                  className="text-green-600 hover:bg-green-50"
-                                  disabled={toggleActiveMutation.isPending}
-                                >
-                                  <CheckCircle className="w-4 h-4" />
-                                </Button>
-                              )}
+                              {canEditMaster &&
+                                (c.isActive ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setInactiveTarget(c)}
+                                    className="text-amber-600 hover:bg-amber-50"
+                                    disabled={toggleActiveMutation.isPending}
+                                  >
+                                    <Ban className="w-4 h-4" />
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleMarkActive(c)}
+                                    className="text-green-600 hover:bg-green-50"
+                                    disabled={toggleActiveMutation.isPending}
+                                  >
+                                    <CheckCircle className="w-4 h-4" />
+                                  </Button>
+                                ))}
                             </div>
                           </td>
                         </motion.tr>
@@ -477,18 +490,20 @@ export default function ItemCategoriesPage() {
             )}
 
             <div className="flex gap-3 pt-4">
-              <Button
-                type="submit"
-                disabled={createMutation.isPending || updateMutation.isPending}
-                className="flex-1"
-                aria-describedby="category-form-hint"
-              >
-                {createMutation.isPending || updateMutation.isPending
-                  ? "Saving…"
-                  : editingCategory
-                    ? "Update Item Category Master"
-                    : "Create Item Category Master"}
-              </Button>
+              {(editingCategory ? canEditMaster : canAddMaster) && (
+                <Button
+                  type="submit"
+                  disabled={createMutation.isPending || updateMutation.isPending}
+                  className="flex-1"
+                  aria-describedby="category-form-hint"
+                >
+                  {createMutation.isPending || updateMutation.isPending
+                    ? "Saving…"
+                    : editingCategory
+                      ? "Update Item Category Master"
+                      : "Create Item Category Master"}
+                </Button>
+              )}
               <Button
                 type="button"
                 variant="outline"

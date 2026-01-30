@@ -9,6 +9,7 @@ import {
   importMachines,
 } from "../controllers/machines.controller";
 import { authMiddleware } from "../middleware/auth.middleware";
+import { requirePermission } from "../middleware/permission.middleware";
 import { body } from "express-validator";
 import { validate as validateMiddleware } from "../middleware/validation.middleware";
 import { uploadImportExcel } from "../middleware/multer.middleware";
@@ -17,21 +18,21 @@ const router = Router();
 
 router.use(authMiddleware());
 
-router.get("/", getAllMachines);
-router.get("/active", getActiveMachines);
-router.get("/export", exportMachines);
-router.get("/:id", getMachineById);
+router.get("/", requirePermission("viewMaster"), getAllMachines);
+router.get("/active", requirePermission("viewMaster"), getActiveMachines);
+router.get("/export", requirePermission("importExportMaster"), exportMachines);
+router.get("/:id", requirePermission("viewMaster"), getMachineById);
 
 router.post(
   "/import",
-  authMiddleware(["QC_USER", "QC_MANAGER"]),
+  requirePermission("importExportMaster"),
   uploadImportExcel.single("file"),
   importMachines
 );
 
 router.post(
   "/",
-  authMiddleware(["QC_USER", "QC_MANAGER"]),
+  requirePermission("addMaster"),
   validateMiddleware([
     body("name").notEmpty().withMessage("Machine name is required"),
   ]),
@@ -40,7 +41,7 @@ router.post(
 
 router.patch(
   "/:id",
-  authMiddleware(["QC_USER", "QC_MANAGER"]),
+  requirePermission("editMaster"),
   updateMachine
 );
 

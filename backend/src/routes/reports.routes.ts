@@ -9,18 +9,19 @@ import {
   exportItemHistoryReport,
 } from "../controllers/reports.controller";
 import { authMiddleware } from "../middleware/auth.middleware";
+import { requirePermission } from "../middleware/permission.middleware";
 
 const router = Router();
 
 router.use(authMiddleware());
 
-router.get("/issued-items", getIssuedItemsReport);
-router.get("/missing-items", getMissingItemsReport);
-router.get("/item-history/:itemId", getItemHistoryLedger);
-router.get("/item-history", getAllItemsHistory);
+router.get("/issued-items", requirePermission("viewReports"), getIssuedItemsReport);
+router.get("/missing-items", requirePermission("viewReports"), getMissingItemsReport);
+router.get("/item-history/:itemId", requirePermission("viewReports"), getItemHistoryLedger);
+router.get("/item-history", requirePermission("viewReports"), getAllItemsHistory);
 
-router.get("/export/issued-items", exportIssuedItemsReport);
-router.get("/export/missing-items", exportMissingItemsReport);
-router.get("/export/item-history", exportItemHistoryReport);
+router.get("/export/issued-items", requirePermission("viewReports"), exportIssuedItemsReport);
+router.get("/export/missing-items", requirePermission("viewReports"), exportMissingItemsReport);
+router.get("/export/item-history", requirePermission("viewReports"), exportItemHistoryReport);
 
 export default router;

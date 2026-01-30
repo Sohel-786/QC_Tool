@@ -9,6 +9,7 @@ import {
   importLocations,
 } from "../controllers/locations.controller";
 import { authMiddleware } from "../middleware/auth.middleware";
+import { requirePermission } from "../middleware/permission.middleware";
 import { body } from "express-validator";
 import { validate as validateMiddleware } from "../middleware/validation.middleware";
 import { uploadImportExcel } from "../middleware/multer.middleware";
@@ -17,21 +18,21 @@ const router = Router();
 
 router.use(authMiddleware());
 
-router.get("/", getAllLocations);
-router.get("/active", getActiveLocations);
-router.get("/export", exportLocations);
-router.get("/:id", getLocationById);
+router.get("/", requirePermission("viewMaster"), getAllLocations);
+router.get("/active", requirePermission("viewMaster"), getActiveLocations);
+router.get("/export", requirePermission("importExportMaster"), exportLocations);
+router.get("/:id", requirePermission("viewMaster"), getLocationById);
 
 router.post(
   "/import",
-  authMiddleware(["QC_USER", "QC_MANAGER"]),
+  requirePermission("importExportMaster"),
   uploadImportExcel.single("file"),
   importLocations
 );
 
 router.post(
   "/",
-  authMiddleware(["QC_USER", "QC_MANAGER"]),
+  requirePermission("addMaster"),
   validateMiddleware([
     body("name").notEmpty().withMessage("Location name is required"),
   ]),
@@ -40,7 +41,7 @@ router.post(
 
 router.patch(
   "/:id",
-  authMiddleware(["QC_USER", "QC_MANAGER"]),
+  requirePermission("editMaster"),
   updateLocation
 );
 

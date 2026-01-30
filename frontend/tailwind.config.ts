@@ -10,17 +10,17 @@ const config: Config = {
     extend: {
       colors: {
         primary: {
-          DEFAULT: '#0d6efd',
-          50: '#e7f1ff',
-          100: '#cfe3ff',
-          200: '#9fc7ff',
-          300: '#6fabff',
-          400: '#3f8fff',
-          500: '#0d6efd',
-          600: '#0a58ca',
-          700: '#084298',
-          800: '#052c65',
-          900: '#031633',
+          DEFAULT: 'var(--primary)',
+          50: 'var(--primary-50)',
+          100: 'var(--primary-100)',
+          200: 'var(--primary-200)',
+          300: 'var(--primary-300)',
+          400: 'var(--primary-400)',
+          500: 'var(--primary-500)',
+          600: 'var(--primary-600)',
+          700: 'var(--primary-700)',
+          800: 'var(--primary-800)',
+          900: 'var(--primary-900)',
         },
         secondary: {
           DEFAULT: '#6c757d',

@@ -11,6 +11,7 @@ import {
   setIssueActive,
 } from '../controllers/issues.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
+import { requirePermission } from '../middleware/permission.middleware';
 import { body } from 'express-validator';
 import { validate as validateMiddleware } from '../middleware/validation.middleware';
 
@@ -18,15 +19,15 @@ const router = Router();
 
 router.use(authMiddleware());
 
-router.get('/', getAllIssues);
-router.get('/active', getActiveIssues);
-router.get('/next-code', getNextIssueCode);
-router.get('/issue-no/:issueNo', getIssueByIssueNo);
-router.get('/:id', getIssueById);
+router.get('/', requirePermission('viewOutward'), getAllIssues);
+router.get('/active', requirePermission('viewOutward'), getActiveIssues);
+router.get('/next-code', requirePermission('addOutward'), getNextIssueCode);
+router.get('/issue-no/:issueNo', requirePermission('viewOutward'), getIssueByIssueNo);
+router.get('/:id', requirePermission('viewOutward'), getIssueById);
 
 router.post(
   '/',
-  authMiddleware(['QC_USER']),
+  requirePermission('addOutward'),
   validateMiddleware([
     body("itemId").isInt().withMessage("Valid item ID is required"),
     body("companyId").isInt().withMessage("Company is required"),
@@ -38,19 +39,19 @@ router.post(
 
 router.patch(
   '/:id',
-  authMiddleware(['QC_USER']),
+  requirePermission('editOutward'),
   updateIssue
 );
 
 router.patch(
   '/:id/inactive',
-  authMiddleware(['QC_USER']),
+  requirePermission('editOutward'),
   setIssueInactive
 );
 
 router.patch(
   '/:id/active',
-  authMiddleware(['QC_USER']),
+  requirePermission('editOutward'),
   setIssueActive
 );
 

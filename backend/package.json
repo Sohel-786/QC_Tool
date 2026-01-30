@@ -11,7 +11,9 @@
     "generate-schema": "ts-node prisma/merge-schema.ts",
     "migrate": "npm run generate-schema && npx prisma migrate dev --name ${npm_config_name:-init} && npx prisma generate",
     "prisma:generate": "npx prisma generate",
-    "prisma:studio": "npx prisma studio"
+    "prisma:studio": "npx prisma studio",
+    "db:run-settings-migration": "npx prisma db execute --file prisma/add-admin-role-and-settings.sql --schema prisma/schema.prisma",
+    "db:fix-datetimes": "npx prisma db execute --file prisma/fix-invalid-datetimes.sql --schema prisma/schema.prisma"
   },
   "dependencies": {
     "@prisma/client": "^6.19.2",

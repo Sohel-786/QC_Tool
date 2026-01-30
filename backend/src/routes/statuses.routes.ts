@@ -9,6 +9,7 @@ import {
   importStatuses,
 } from "../controllers/statuses.controller";
 import { authMiddleware } from "../middleware/auth.middleware";
+import { requirePermission } from "../middleware/permission.middleware";
 import { body } from "express-validator";
 import { validate as validateMiddleware } from "../middleware/validation.middleware";
 import { uploadImportExcel } from "../middleware/multer.middleware";
@@ -17,21 +18,21 @@ const router = Router();
 
 router.use(authMiddleware());
 
-router.get("/", getAllStatuses);
-router.get("/active", getActiveStatuses);
-router.get("/export", exportStatuses);
-router.get("/:id", getStatusById);
+router.get("/", requirePermission("viewMaster"), getAllStatuses);
+router.get("/active", requirePermission("viewMaster"), getActiveStatuses);
+router.get("/export", requirePermission("importExportMaster"), exportStatuses);
+router.get("/:id", requirePermission("viewMaster"), getStatusById);
 
 router.post(
   "/import",
-  authMiddleware(["QC_USER", "QC_MANAGER"]),
+  requirePermission("importExportMaster"),
   uploadImportExcel.single("file"),
   importStatuses
 );
 
 router.post(
   "/",
-  authMiddleware(["QC_USER", "QC_MANAGER"]),
+  requirePermission("addMaster"),
   validateMiddleware([
     body("name").notEmpty().withMessage("Status name is required"),
   ]),
@@ -40,7 +41,7 @@ router.post(
 
 router.patch(
   "/:id",
-  authMiddleware(["QC_USER", "QC_MANAGER"]),
+  requirePermission("editMaster"),
   updateStatus
 );
 

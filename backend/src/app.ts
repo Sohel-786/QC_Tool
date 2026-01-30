@@ -30,6 +30,7 @@ import locationRoutes from './routes/locations.routes';
 import contractorRoutes from './routes/contractors.routes';
 import statusRoutes from './routes/statuses.routes';
 import machineRoutes from './routes/machines.routes';
+import settingsRoutes from './routes/settings.routes';
 
 console.log('✅ All route modules loaded');
 
@@ -46,19 +47,29 @@ console.log('✅ Express app created');
 
 // CORS configuration - MUST come before other middleware
 const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+const allowedOrigins = [
+  frontendUrl,
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'http://localhost:3001',
+  'http://127.0.0.1:3001',
+].filter((url, i, arr) => arr.indexOf(url) === i);
 
 const corsOptions = {
   origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-    // Allow requests with no origin (like mobile apps or curl requests)
+    // Allow requests with no origin (e.g. Postman, curl, same-origin)
     if (!origin) return callback(null, true);
-    
-    // Check if origin is allowed
-    if (origin === frontendUrl) {
-      callback(null, true);
-    } else {
-      console.warn(`⚠️  CORS blocked origin: ${origin}`);
-      callback(new Error('Not allowed by CORS'));
+    // Allow if origin is in the list
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    // Development: allow any localhost / 127.0.0.1
+    try {
+      const u = new URL(origin);
+      if (u.hostname === 'localhost' || u.hostname === '127.0.0.1') return callback(null, true);
+    } catch {
+      // invalid URL
     }
+    console.warn(`⚠️  CORS blocked origin: ${origin}`);
+    callback(null, false);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
@@ -230,6 +241,15 @@ app.use(
     next();
   },
   reportRoutes,
+);
+
+app.use(
+  '/settings',
+  (req, res, next) => {
+    console.log('📍 Entering /settings route');
+    next();
+  },
+  settingsRoutes,
 );
 
 console.log('✅ All routes registered');

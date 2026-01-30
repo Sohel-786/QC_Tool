@@ -85,8 +85,6 @@ const Return = {
 
   findAllFiltered: async (filters: TransactionListFilters) => {
     const conditions: Prisma.IssueWhereInput[] = [];
-    if (filters.status === "active") conditions.push({ isActive: true });
-    if (filters.status === "inactive") conditions.push({ isActive: false });
     if (filters.companyIds.length) conditions.push({ companyId: { in: filters.companyIds } });
     if (filters.contractorIds.length) conditions.push({ contractorId: { in: filters.contractorIds } });
     if (filters.machineIds.length) conditions.push({ machineId: { in: filters.machineIds } });
@@ -113,6 +111,8 @@ const Return = {
       );
     }
     const andParts: Prisma.ReturnWhereInput[] = [];
+    if (filters.status === "active") andParts.push({ isActive: true } as Prisma.ReturnWhereInput);
+    if (filters.status === "inactive") andParts.push({ isActive: false } as Prisma.ReturnWhereInput);
     if (Object.keys(issueWhere).length > 0) {
       andParts.push({ issue: issueWhere });
     }
@@ -159,6 +159,59 @@ const Return = {
         },
       },
       orderBy: { returnedAt: "desc" },
+    });
+  },
+
+  update: async (
+    id: number,
+    data: { remarks?: string; statusId?: number }
+  ) => {
+    return prisma.return.update({
+      where: { id },
+      data,
+      include: {
+        issue: {
+          include: {
+            item: true,
+            company: true,
+            contractor: true,
+            machine: true,
+          },
+        },
+        status: true,
+        returnedByUser: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
+  },
+
+  setActive: async (id: number) => {
+    return prisma.return.update({
+      where: { id },
+      data: { isActive: true } as Prisma.ReturnUpdateInput,
+      include: {
+        issue: { include: { item: true, company: true, contractor: true, machine: true } },
+        status: true,
+        returnedByUser: { select: { id: true, username: true, firstName: true, lastName: true } },
+      },
+    });
+  },
+
+  setInactive: async (id: number) => {
+    return prisma.return.update({
+      where: { id },
+      data: { isActive: false } as Prisma.ReturnUpdateInput,
+      include: {
+        issue: { include: { item: true, company: true, contractor: true, machine: true } },
+        status: true,
+        returnedByUser: { select: { id: true, username: true, firstName: true, lastName: true } },
+      },
     });
   },
 

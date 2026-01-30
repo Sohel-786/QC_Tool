@@ -9,6 +9,7 @@ import {
   importItemCategories,
 } from "../controllers/itemCategories.controller";
 import { authMiddleware } from "../middleware/auth.middleware";
+import { requirePermission } from "../middleware/permission.middleware";
 import { body } from "express-validator";
 import { validate as validateMiddleware } from "../middleware/validation.middleware";
 import { uploadImportExcel } from "../middleware/multer.middleware";
@@ -17,21 +18,21 @@ const router = Router();
 
 router.use(authMiddleware());
 
-router.get("/", getAllItemCategories);
-router.get("/active", getActiveItemCategories);
-router.get("/export", exportItemCategories);
-router.get("/:id", getItemCategoryById);
+router.get("/", requirePermission("viewMaster"), getAllItemCategories);
+router.get("/active", requirePermission("viewMaster"), getActiveItemCategories);
+router.get("/export", requirePermission("importExportMaster"), exportItemCategories);
+router.get("/:id", requirePermission("viewMaster"), getItemCategoryById);
 
 router.post(
   "/import",
-  authMiddleware(["QC_USER", "QC_MANAGER"]),
+  requirePermission("importExportMaster"),
   uploadImportExcel.single("file"),
   importItemCategories
 );
 
 router.post(
   "/",
-  authMiddleware(["QC_USER", "QC_MANAGER"]),
+  requirePermission("addMaster"),
   validateMiddleware([
     body("name")
       .notEmpty()
@@ -44,7 +45,7 @@ router.post(
 
 router.patch(
   "/:id",
-  authMiddleware(["QC_USER", "QC_MANAGER"]),
+  requirePermission("editMaster"),
   updateItemCategory
 );
 

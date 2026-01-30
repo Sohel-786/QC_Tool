@@ -1,0 +1,16 @@
+// Single-row organization/branding settings (CRM-like company profile)
+model AppSettings {
+  id            Int      @id @default(autoincrement())
+  companyName   String   @default("QC Item System")
+  companyLogo   String?   // path or URL relative to /storage
+  softwareName  String?  @db.VarChar(255)  // display name for app (sidebar, login)
+  primaryColor  String?  @db.VarChar(20)  // e.g. #2563eb - drives all primary shades
+  supportEmail  String?  @db.VarChar(255)
+  supportPhone  String?  @db.VarChar(50)
+  address       String?  @db.Text
+  website       String?  @db.VarChar(255)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("app_settings")
+}

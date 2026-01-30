@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "@/lib/api";
-import { Issue, Item } from "@/types";
+import { Issue, Item, ItemCategory } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { formatDateTime } from "@/lib/utils";
 import {
   Search,
@@ -16,149 +17,306 @@ import {
   FileText,
   AlertTriangle,
   History,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
+import {
+  TransactionFilters,
+  defaultFilters,
+  type TransactionFiltersState,
+} from "@/components/filters/transaction-filters";
+import { MultiSelectSearch } from "@/components/ui/multi-select-search";
+import type { MultiSelectSearchOption } from "@/components/ui/multi-select-search";
+import { buildFilterParams, hasActiveFilters } from "@/lib/filters";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { cn } from "@/lib/utils";
 
 type ReportType = "issued" | "missing" | "history";
 
-export default function ReportsPage() {
+const ROW_COUNT_OPTIONS = [25, 50, 75, 100] as const;
+type RowCount = (typeof ROW_COUNT_OPTIONS)[number];
+
+interface IssuedReportResponse {
+  data: Issue[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+interface MissingReportResponse {
+  data: Item[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+interface LedgerRow {
+  type: "issue" | "return";
+  date: string;
+  issueNo: string;
+  description: string;
+  user?: string;
+  remarks?: string | null;
+  returnCode?: string | null;
+}
+
+interface LedgerItemPayload {
+  item?: Item & { category?: ItemCategory | null };
+  rows?: LedgerRow[];
+  total?: number;
+}
+
+
+function ReportsContent() {
   const searchParams = useSearchParams();
   const [activeReport, setActiveReport] = useState<ReportType>("issued");
-  const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState(1);
+  const [rowCount, setRowCount] = useState<RowCount>(25);
+  const [filters, setFilters] = useState<TransactionFiltersState>(defaultFilters);
+  const [missingFilters, setMissingFilters] =
+    useState<TransactionFiltersState>(defaultFilters);
+  const [ledgerCategoryId, setLedgerCategoryId] = useState<number | "">("");
+  const [ledgerItemId, setLedgerItemId] = useState<number | "">("");
+
+  const debouncedSearch = useDebouncedValue(filters.search, 400);
+  const debouncedMissingSearch = useDebouncedValue(missingFilters.search, 400);
+  const filtersForApi = useMemo(
+    () => ({ ...filters, search: debouncedSearch }),
+    [filters, debouncedSearch]
+  );
+  const missingFiltersForApi = useMemo(
+    () => ({ ...missingFilters, search: debouncedMissingSearch }),
+    [missingFilters, debouncedMissingSearch]
+  );
+  const filterKey = useMemo(() => JSON.stringify(filtersForApi), [filtersForApi]);
+  const missingFilterKey = useMemo(
+    () => JSON.stringify(missingFiltersForApi),
+    [missingFiltersForApi]
+  );
 
   useEffect(() => {
     const section = searchParams.get("section");
     if (section === "missing") setActiveReport("missing");
-    else if (section === "active-issues" || section === "issued") setActiveReport("issued");
+    else if (section === "active-issues" || section === "issued")
+      setActiveReport("issued");
+    else if (section === "history" || section === "ledger")
+      setActiveReport("history");
   }, [searchParams]);
 
-  const { data: issuedItems, isLoading: loadingIssued } = useQuery<Issue[]>({
-    queryKey: ["issued-items-report"],
+  const resetPagination = useCallback(() => {
+    setPage(1);
+  }, []);
+
+  const { data: companies = [] } = useQuery({
+    queryKey: ["companies", "active"],
     queryFn: async () => {
-      const response = await api.get("/reports/issued-items");
-      return response.data?.data || [];
+      const res = await api.get("/companies/active");
+      return res.data?.data ?? [];
+    },
+  });
+  const { data: contractors = [] } = useQuery({
+    queryKey: ["contractors", "active"],
+    queryFn: async () => {
+      const res = await api.get("/contractors/active");
+      return res.data?.data ?? [];
+    },
+  });
+  const { data: machines = [] } = useQuery({
+    queryKey: ["machines", "active"],
+    queryFn: async () => {
+      const res = await api.get("/machines/active");
+      return res.data?.data ?? [];
+    },
+  });
+  const { data: filterItems = [] } = useQuery({
+    queryKey: ["items", "active"],
+    queryFn: async () => {
+      const res = await api.get("/items/active");
+      return res.data?.data ?? [];
+    },
+  });
+  const { data: categories = [] } = useQuery<ItemCategory[]>({
+    queryKey: ["item-categories", "active"],
+    queryFn: async () => {
+      const res = await api.get("/item-categories/active");
+      return res.data?.data ?? [];
+    },
+  });
+  const { data: itemsByCategory = [] } = useQuery({
+    queryKey: ["items", "by-category", ledgerCategoryId],
+    queryFn: async () => {
+      if (ledgerCategoryId === "" || typeof ledgerCategoryId !== "number") return [];
+      const res = await api.get(`/items/by-category/${ledgerCategoryId}`);
+      return res.data?.data ?? [];
+    },
+    enabled: ledgerCategoryId !== "" && typeof ledgerCategoryId === "number",
+  });
+
+  const issuedParams = useMemo(
+    () => ({
+      ...buildFilterParams(filtersForApi),
+      page: String(page),
+      limit: String(rowCount),
+    }),
+    [filtersForApi, page, rowCount]
+  );
+  const { data: issuedReport, isLoading: loadingIssued } = useQuery<IssuedReportResponse>({
+    queryKey: ["reports", "issued", filterKey, page, rowCount],
+    queryFn: async () => {
+      const res = await api.get("/reports/issued-items", { params: issuedParams });
+      return res.data;
     },
   });
 
-  const { data: missingItems, isLoading: loadingMissing } = useQuery<Item[]>({
-    queryKey: ["missing-items-report"],
+  const missingParams = useMemo(
+    () => ({
+      ...buildFilterParams(missingFiltersForApi),
+      page: String(page),
+      limit: String(rowCount),
+    }),
+    [missingFiltersForApi, page, rowCount]
+  );
+  const { data: missingReport, isLoading: loadingMissing } =
+    useQuery<MissingReportResponse>({
+      queryKey: ["reports", "missing", missingFilterKey, page, rowCount],
+      queryFn: async () => {
+        const res = await api.get("/reports/missing-items", {
+          params: missingParams,
+        });
+        return res.data;
+      },
+    });
+
+  const { data: ledgerReport, isLoading: loadingLedger } = useQuery({
+    queryKey: ["reports", "ledger", ledgerItemId, page, rowCount],
     queryFn: async () => {
-      const response = await api.get("/reports/missing-items");
-      return response.data?.data || [];
-    },
-  });
-
-  const { data: itemHistory, isLoading: loadingHistory } = useQuery<any[]>({
-    queryKey: ["item-history-report"],
-    queryFn: async () => {
-      const response = await api.get("/reports/item-history");
-      return response.data?.data || [];
-    },
-    enabled: activeReport === "history",
-  });
-
-  const handleExport = async (type: ReportType) => {
-    try {
-      let endpoint = "";
-      let filename = "";
-
-      switch (type) {
-        case "issued":
-          endpoint = "/reports/export/issued-items";
-          filename = "active-issues-report";
-          break;
-        case "missing":
-          endpoint = "/reports/export/missing-items";
-          filename = "missing-items-report";
-          break;
-        case "history":
-          endpoint = "/reports/export/item-history";
-          filename = "item-history-report";
-          break;
-      }
-
-      const response = await api.get(endpoint, {
-        responseType: "blob",
+      const res = await api.get(`/reports/item-history/${ledgerItemId}`, {
+        params: { page, limit: rowCount },
       });
+      return res.data;
+    },
+    enabled: ledgerItemId !== "" && typeof ledgerItemId === "number",
+  });
 
-      const blob = new Blob([response.data], { type: "text/csv" });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute(
-        "download",
-        `${filename}-${new Date().toISOString().split("T")[0]}.csv`,
-      );
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error("Export failed:", error);
-      alert("Failed to export report. Please try again.");
-    }
-  };
+  const handleExportExcel = useCallback(
+    async (type: ReportType) => {
+      try {
+        let endpoint = "";
+        let params: Record<string, string> = {};
+        switch (type) {
+          case "issued":
+            params = { ...buildFilterParams(filtersForApi) };
+            endpoint = "/reports/export/issued-items";
+            break;
+          case "missing":
+            params = { ...buildFilterParams(missingFiltersForApi) };
+            endpoint = "/reports/export/missing-items";
+            break;
+          case "history":
+            endpoint = "/reports/export/item-history";
+            if (typeof ledgerItemId === "number") {
+              params.itemId = String(ledgerItemId);
+            }
+            break;
+        }
+        const response = await api.get(endpoint, {
+          responseType: "blob",
+          params,
+        });
+        const blob = new Blob([response.data], {
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        });
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = downloadUrl;
+        const filename =
+          type === "issued"
+            ? `active-issues-report-${new Date().toISOString().split("T")[0]}.xlsx`
+            : type === "missing"
+              ? `missing-items-report-${new Date().toISOString().split("T")[0]}.xlsx`
+              : `ledger-report-${new Date().toISOString().split("T")[0]}.xlsx`;
+        link.setAttribute("download", filename);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(downloadUrl);
+      } catch (error) {
+        console.error("Export failed:", error);
+        alert("Failed to export report. Please try again.");
+      }
+    },
+    [filtersForApi, missingFiltersForApi, ledgerItemId]
+  );
 
-  // Filter data based on search term
-  const filteredIssuedItems = useMemo(() => {
-    if (!issuedItems) return [];
-    return issuedItems.filter(
-      (issue) =>
-        issue.item?.itemName
-          ?.toLowerCase()
-          .includes(searchTerm.toLowerCase()) ||
-        issue.item?.serialNumber
-          ?.toLowerCase()
-          .includes(searchTerm.toLowerCase()) ||
-        issue.issueNo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        issue.issuedTo?.toLowerCase().includes(searchTerm.toLowerCase()),
-    );
-  }, [issuedItems, searchTerm]);
+  const companyOptions: MultiSelectSearchOption[] = useMemo(
+    () => companies.map((c: { id: number; name: string }) => ({ value: c.id, label: c.name })),
+    [companies]
+  );
+  const contractorOptions: MultiSelectSearchOption[] = useMemo(
+    () =>
+      contractors.map((c: { id: number; name: string }) => ({ value: c.id, label: c.name })),
+    [contractors]
+  );
+  const machineOptions: MultiSelectSearchOption[] = useMemo(
+    () =>
+      machines.map((m: { id: number; name: string }) => ({ value: m.id, label: m.name })),
+    [machines]
+  );
+  const itemOptions: MultiSelectSearchOption[] = useMemo(
+    () =>
+      filterItems.map((i: { id: number; itemName: string; serialNumber?: string | null }) => ({
+        value: i.id,
+        label: i.serialNumber ? `${i.itemName} (${i.serialNumber})` : i.itemName,
+      })),
+    [filterItems]
+  );
+  const categoryOptions: MultiSelectSearchOption[] = useMemo(
+    () =>
+      categories.map((c: { id: number; name: string }) => ({ value: c.id, label: c.name })),
+    [categories]
+  );
+  const ledgerItemOptions: MultiSelectSearchOption[] = useMemo(
+    () =>
+      itemsByCategory.map((i: { id: number; itemName: string; serialNumber?: string | null }) => ({
+        value: i.id,
+        label: i.serialNumber ? `${i.itemName} (${i.serialNumber})` : i.itemName,
+      })),
+    [itemsByCategory]
+  );
 
-  const filteredMissingItems = useMemo(() => {
-    if (!missingItems) return [];
-    const q = searchTerm.toLowerCase();
-    return missingItems.filter(
-      (item) =>
-        item.itemName?.toLowerCase().includes(q) ||
-        item.serialNumber?.toLowerCase().includes(q) ||
-        (item.description != null && item.description.toLowerCase().includes(q)),
-    );
-  }, [missingItems, searchTerm]);
-
-  const filteredItemHistory = useMemo(() => {
-    if (!itemHistory) return [];
-    return itemHistory.filter(
-      (item) =>
-        item.itemName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.serialNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.issues?.some(
-          (issue: any) =>
-            issue.issueNo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            issue.division?.name
-              ?.toLowerCase()
-              .includes(searchTerm.toLowerCase()),
-        ),
-    );
-  }, [itemHistory, searchTerm]);
+  const issuedData = Array.isArray(issuedReport?.data) ? issuedReport.data : [];
+  const issuedTotal = issuedReport?.total ?? 0;
+  const missingData = Array.isArray(missingReport?.data) ? missingReport.data : [];
+  const missingTotal = missingReport?.total ?? 0;
+  const ledgerPayload =
+    ledgerReport != null && typeof ledgerReport === "object" && "data" in ledgerReport
+      ? (ledgerReport as { data: LedgerItemPayload }).data
+      : undefined;
+  const ledgerRows = Array.isArray(ledgerPayload?.rows) ? ledgerPayload.rows : [];
+  const ledgerTotal = ledgerPayload?.total ?? 0;
+  const ledgerItem: (Item & { category?: ItemCategory | null }) | undefined = ledgerPayload?.item;
+  const totalPagesIssued = Math.ceil(issuedTotal / rowCount) || 1;
+  const totalPagesMissing = Math.ceil(missingTotal / rowCount) || 1;
+  const totalPagesLedger = Math.ceil(ledgerTotal / rowCount) || 1;
 
   const reportTabs = [
     {
       id: "issued" as ReportType,
       label: "Active Issues",
       icon: FileText,
-      count: issuedItems?.length || 0,
+      count: issuedTotal,
     },
     {
       id: "missing" as ReportType,
       label: "Missing Items",
       icon: AlertTriangle,
-      count: missingItems?.length || 0,
+      count: missingTotal,
     },
     {
       id: "history" as ReportType,
       label: "Item History (Ledger)",
       icon: History,
-      count: itemHistory?.length || 0,
+      count: ledgerTotal,
     },
   ];
 
@@ -169,7 +327,6 @@ export default function ReportsPage() {
         animate={{ opacity: 1, y: 0 }}
         className="space-y-6"
       >
-        {/* Header */}
         <div>
           <h1 className="text-3xl font-bold text-text mb-2">Reports</h1>
           <p className="text-secondary-600">
@@ -177,10 +334,9 @@ export default function ReportsPage() {
           </p>
         </div>
 
-        {/* Report Type Switcher */}
         <Card className="shadow-sm">
           <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 flex-wrap gap-2">
               {reportTabs.map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeReport === tab.id;
@@ -189,39 +345,27 @@ export default function ReportsPage() {
                     key={tab.id}
                     onClick={() => {
                       setActiveReport(tab.id);
-                      setSearchTerm("");
+                      setPage(1);
                     }}
-                    className={`relative flex items-center space-x-2 px-6 py-3 rounded-lg font-medium transition-all ${
+                    className={cn(
+                      "relative flex items-center space-x-2 px-6 py-3 rounded-lg font-medium transition-all",
                       isActive
                         ? "bg-primary-600 text-white shadow-md"
                         : "bg-secondary-50 text-secondary-700 hover:bg-secondary-100"
-                    }`}
+                    )}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                   >
                     <Icon className="w-5 h-5" />
                     <span>{tab.label}</span>
                     <span
-                      className={`px-2 py-0.5 rounded-full text-xs ${
-                        isActive
-                          ? "bg-white/20 text-white"
-                          : "bg-secondary-200 text-secondary-600"
-                      }`}
+                      className={cn(
+                        "px-2 py-0.5 rounded-full text-xs",
+                        isActive ? "bg-white/20 text-white" : "bg-secondary-200 text-secondary-600"
+                      )}
                     >
                       {tab.count}
                     </span>
-                    {isActive && (
-                      <motion.div
-                        layoutId="activeTab"
-                        className="absolute inset-0 rounded-lg bg-primary-600 -z-10"
-                        initial={false}
-                        transition={{
-                          type: "spring",
-                          bounce: 0.2,
-                          duration: 0.6,
-                        }}
-                      />
-                    )}
                   </motion.button>
                 );
               })}
@@ -229,38 +373,6 @@ export default function ReportsPage() {
           </CardContent>
         </Card>
 
-        {/* Sub-header with Search and Export */}
-        <Card className="shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex-1 max-w-md">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary-400 w-5 h-5" />
-                  <Input
-                    placeholder={`Search ${activeReport === "issued" ? "active issues" : activeReport === "missing" ? "missing items" : "item history"}...`}
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-              </div>
-              <Button
-                onClick={() => handleExport(activeReport)}
-                className="shadow-md"
-                disabled={
-                  (activeReport === "issued" && loadingIssued) ||
-                  (activeReport === "missing" && loadingMissing) ||
-                  (activeReport === "history" && loadingHistory)
-                }
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Export CSV
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Report Content */}
         <AnimatePresence mode="wait">
           {activeReport === "issued" && (
             <motion.div
@@ -269,102 +381,130 @@ export default function ReportsPage() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
               transition={{ duration: 0.3 }}
+              className="space-y-4"
             >
-              <Card className="shadow-sm">
+              <TransactionFilters
+                filters={filters}
+                onFiltersChange={(f) => {
+                  setFilters(f);
+                  resetPagination();
+                }}
+                companyOptions={companyOptions}
+                contractorOptions={contractorOptions}
+                machineOptions={machineOptions}
+                itemOptions={itemOptions}
+                onClear={() => {
+                  setFilters(defaultFilters);
+                  resetPagination();
+                }}
+                searchPlaceholder="Search by issue no., item, operator…"
+                className="shadow-sm"
+              />
+              <ReportToolbar
+                rowCount={rowCount}
+                onRowCountChange={(v) => {
+                  setRowCount(v);
+                  setPage(1);
+                }}
+                onExportExcel={() => handleExportExcel("issued")}
+                exportDisabled={loadingIssued}
+                exportLabel="Export Excel"
+              />
+              <Card className="shadow-sm overflow-hidden">
                 <CardHeader>
-                  <CardTitle>
-                    Active Issues ({filteredIssuedItems.length})
-                  </CardTitle>
+                  <CardTitle>Active Issues ({issuedTotal})</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-0">
                   {loadingIssued ? (
-                    <div className="text-center py-12">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
-                      <p className="mt-4 text-secondary-600">Loading...</p>
-                    </div>
-                  ) : filteredIssuedItems.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b border-secondary-200">
-                            <th className="text-left py-3 px-4 font-semibold text-sm text-secondary-700">
-                              Issue No
-                            </th>
-                            <th className="text-left py-3 px-4 font-semibold text-sm text-secondary-700">
-                              Item
-                            </th>
-                            <th className="text-left py-3 px-4 font-semibold text-sm text-secondary-700">
-                              Issued To
-                            </th>
-                            <th className="text-left py-3 px-4 font-semibold text-sm text-secondary-700">
-                              Issued By
-                            </th>
-                            <th className="text-left py-3 px-4 font-semibold text-sm text-secondary-700">
-                              Issued Date
-                            </th>
-                            <th className="text-left py-3 px-4 font-semibold text-sm text-secondary-700">
-                              Status
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {filteredIssuedItems.map((issue: any, index) => (
-                            <motion.tr
-                              key={issue.id}
-                              initial={{ opacity: 0, y: 10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              transition={{ delay: index * 0.05 }}
-                              className="border-b border-secondary-100 hover:bg-secondary-50 transition-colors"
-                            >
-                              <td className="py-4 px-4">
-                                <span className="font-mono text-sm font-medium">
+                    <TableSkeleton />
+                  ) : issuedData.length > 0 ? (
+                    <>
+                      <div className="overflow-x-auto rounded-b-lg border border-secondary-200 border-t-0">
+                        <table className="w-full text-left text-sm">
+                          <thead>
+                            <tr className="border-b border-secondary-200 bg-secondary-50">
+                              <th className="px-4 py-3 font-semibold text-text text-center whitespace-nowrap">
+                                Issue No
+                              </th>
+                              <th className="px-4 py-3 font-semibold text-text text-center whitespace-nowrap">
+                                Entry Date
+                              </th>
+                              <th className="px-4 py-3 font-semibold text-text text-center whitespace-nowrap">
+                                Item
+                              </th>
+                              <th className="px-4 py-3 font-semibold text-text text-center whitespace-nowrap">
+                                Issued To
+                              </th>
+                              <th className="px-4 py-3 font-semibold text-text text-center whitespace-nowrap">
+                                Issued By
+                              </th>
+                              <th className="px-4 py-3 font-semibold text-text text-center whitespace-nowrap">
+                                Status
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {issuedData.map((issue: any) => (
+                              <tr
+                                key={issue.id}
+                                className="border-b border-secondary-100 hover:bg-secondary-50/50 transition-colors"
+                              >
+                                <td className="px-4 py-3 font-mono text-secondary-700 text-center">
                                   {issue.issueNo}
-                                </span>
-                              </td>
-                              <td className="py-4 px-4">
-                                <div>
-                                  <p className="font-medium text-text">
-                                    {issue.item?.itemName}
-                                  </p>
-                                  {issue.item?.serialNumber && (
-                                    <p className="text-xs text-secondary-500 font-mono">
-                                      {issue.item.serialNumber}
-                                    </p>
-                                  )}
-                                </div>
-                              </td>
-                              <td className="py-4 px-4 text-sm text-secondary-600">
-                                {issue.issuedTo || "N/A"}
-                              </td>
-                              <td className="py-4 px-4 text-sm text-secondary-600">
-                                {issue.issuedByUser
-                                  ? `${issue.issuedByUser.firstName} ${issue.issuedByUser.lastName}`
-                                  : "N/A"}
-                              </td>
-                              <td className="py-4 px-4 text-sm text-secondary-600">
-                                {formatDateTime(issue.issuedAt)}
-                              </td>
-                              <td className="py-4 px-4">
-                                <span
-                                  className={`px-3 py-1 rounded-full text-xs font-medium ${
-                                    issue.isReturned
-                                      ? "bg-green-100 text-green-700 border border-green-200"
-                                      : "bg-blue-100 text-blue-700 border border-blue-200"
-                                  }`}
-                                >
-                                  {issue.isReturned ? "Returned" : "Active"}
-                                </span>
-                              </td>
-                            </motion.tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                                </td>
+                                <td className="px-4 py-3 text-secondary-600 text-center whitespace-nowrap">
+                                  {formatDateTime(issue.issuedAt)}
+                                </td>
+                                <td className="px-4 py-3 font-medium text-text text-center">
+                                  <div>
+                                    <p className="font-medium">{issue.item?.itemName ?? "—"}</p>
+                                    {issue.item?.serialNumber && (
+                                      <p className="text-xs text-secondary-500 font-mono">
+                                        {issue.item.serialNumber}
+                                      </p>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3 text-secondary-600 text-center">
+                                  {issue.issuedTo ?? "—"}
+                                </td>
+                                <td className="px-4 py-3 text-secondary-600 text-center">
+                                  {issue.issuedByUser
+                                    ? `${issue.issuedByUser.firstName} ${issue.issuedByUser.lastName}`
+                                    : "—"}
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  <span
+                                    className={cn(
+                                      "inline-flex px-2.5 py-1 rounded-full text-xs font-medium border",
+                                      issue.isReturned
+                                        ? "bg-green-100 text-green-700 border-green-200"
+                                        : "bg-blue-100 text-blue-700 border-blue-200"
+                                    )}
+                                  >
+                                    {issue.isReturned ? "Returned" : "Active"}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      {issuedTotal > rowCount && (
+                        <Pagination
+                          page={page}
+                          totalPages={totalPagesIssued}
+                          onPageChange={setPage}
+                          total={issuedTotal}
+                          limit={rowCount}
+                        />
+                      )}
+                    </>
                   ) : (
                     <div className="text-center py-12">
                       <p className="text-secondary-500 text-lg">
-                        {searchTerm
-                          ? "No active issues found matching your search."
+                        {hasActiveFilters(filters)
+                          ? "No active issues match your filters."
                           : "No active issues found."}
                       </p>
                     </div>
@@ -381,88 +521,115 @@ export default function ReportsPage() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
               transition={{ duration: 0.3 }}
+              className="space-y-4"
             >
-              <Card className="shadow-sm">
+              <TransactionFilters
+                filters={missingFilters}
+                onFiltersChange={(f) => {
+                  setMissingFilters(f);
+                  resetPagination();
+                }}
+                companyOptions={companyOptions}
+                contractorOptions={contractorOptions}
+                machineOptions={machineOptions}
+                itemOptions={itemOptions}
+                onClear={() => {
+                  setMissingFilters(defaultFilters);
+                  resetPagination();
+                }}
+                searchPlaceholder="Search by item name, serial, issue no., company, contractor, machine…"
+                className="shadow-sm"
+              />
+              <ReportToolbar
+                rowCount={rowCount}
+                onRowCountChange={(v) => {
+                  setRowCount(v);
+                  setPage(1);
+                }}
+                onExportExcel={() => handleExportExcel("missing")}
+                exportDisabled={loadingMissing}
+                exportLabel="Export Excel"
+              />
+              <Card className="shadow-sm overflow-hidden">
                 <CardHeader>
-                  <CardTitle>
-                    Missing Items ({filteredMissingItems.length})
-                  </CardTitle>
+                  <CardTitle>Missing Items ({missingTotal})</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-0">
                   {loadingMissing ? (
-                    <div className="text-center py-12">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
-                      <p className="mt-4 text-secondary-600">Loading...</p>
-                    </div>
-                  ) : filteredMissingItems.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b border-secondary-200">
-                            <th className="text-left py-3 px-4 font-semibold text-sm text-secondary-700">
-                              Serial No
-                            </th>
-                            <th className="text-left py-3 px-4 font-semibold text-sm text-secondary-700">
-                              Item Name
-                            </th>
-                            <th className="text-left py-3 px-4 font-semibold text-sm text-secondary-700">
-                              Description
-                            </th>
-                            <th className="text-left py-3 px-4 font-semibold text-sm text-secondary-700">
-                              Total Issues
-                            </th>
-                            <th className="text-left py-3 px-4 font-semibold text-sm text-secondary-700">
-                              Status
-                            </th>
-                            <th className="text-left py-3 px-4 font-semibold text-sm text-secondary-700">
-                              Created At
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {filteredMissingItems.map((item: any, index) => (
-                            <motion.tr
-                              key={item.id}
-                              initial={{ opacity: 0, y: 10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              transition={{ delay: index * 0.05 }}
-                              className="border-b border-red-100 hover:bg-red-50 transition-colors"
-                            >
-                              <td className="py-4 px-4">
-                                <span className="font-mono text-sm font-medium text-red-900">
+                    <TableSkeleton />
+                  ) : missingData.length > 0 ? (
+                    <>
+                      <div className="overflow-x-auto rounded-b-lg border border-secondary-200 border-t-0">
+                        <table className="w-full text-left text-sm">
+                          <thead>
+                            <tr className="border-b border-secondary-200 bg-secondary-50">
+                              <th className="px-4 py-3 font-semibold text-text text-center whitespace-nowrap">
+                                Serial No
+                              </th>
+                              <th className="px-4 py-3 font-semibold text-text text-center whitespace-nowrap">
+                                Item Name
+                              </th>
+                              <th className="px-4 py-3 font-semibold text-text text-center whitespace-nowrap">
+                                Description
+                              </th>
+                              <th className="px-4 py-3 font-semibold text-text text-center whitespace-nowrap">
+                                Total Issues
+                              </th>
+                              <th className="px-4 py-3 font-semibold text-text text-center whitespace-nowrap">
+                                Status
+                              </th>
+                              <th className="px-4 py-3 font-semibold text-text text-center whitespace-nowrap">
+                                Created At
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {missingData.map((item: any) => (
+                              <tr
+                                key={item.id}
+                                className="border-b border-secondary-100 hover:bg-secondary-50/50 transition-colors"
+                              >
+                                <td className="px-4 py-3 font-mono text-secondary-700 text-center">
                                   {item.serialNumber ?? "—"}
-                                </span>
-                              </td>
-                              <td className="py-4 px-4">
-                                <p className="font-medium text-red-900">
+                                </td>
+                                <td className="px-4 py-3 font-medium text-text text-center">
                                   {item.itemName}
-                                </p>
-                              </td>
-                              <td className="py-4 px-4 text-sm text-red-700">
-                                {item.description || "N/A"}
-                              </td>
-                              <td className="py-4 px-4 text-sm text-red-700">
-                                {item.issues?.length || 0}
-                              </td>
-                              <td className="py-4 px-4">
-                                <span className="px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700 border border-red-200">
-                                  {item.status}
-                                </span>
-                              </td>
-                              <td className="py-4 px-4 text-sm text-red-700">
-                                {formatDateTime(item.createdAt)}
-                              </td>
-                            </motion.tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                                </td>
+                                <td className="px-4 py-3 text-secondary-600 text-center">
+                                  {item.description ?? "—"}
+                                </td>
+                                <td className="px-4 py-3 text-secondary-600 text-center">
+                                  {item.issues?.length ?? 0}
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700 border border-red-200">
+                                    {item.status}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 text-secondary-600 text-center whitespace-nowrap">
+                                  {formatDateTime(item.createdAt)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      {missingTotal > rowCount && (
+                        <Pagination
+                          page={page}
+                          totalPages={totalPagesMissing}
+                          onPageChange={setPage}
+                          total={missingTotal}
+                          limit={rowCount}
+                        />
+                      )}
+                    </>
                   ) : (
                     <div className="text-center py-12">
                       <p className="text-secondary-500 text-lg">
-                        {searchTerm
-                          ? "No missing items found matching your search."
-                          : "No missing items. Great job!"}
+                        {hasActiveFilters(missingFilters)
+                          ? "No missing items match your filters."
+                          : "No missing items found."}
                       </p>
                     </div>
                   )}
@@ -478,141 +645,181 @@ export default function ReportsPage() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
               transition={{ duration: 0.3 }}
+              className="space-y-4"
             >
               <Card className="shadow-sm">
+                <CardContent className="p-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-end">
+                    <div className="min-w-0 flex flex-col">
+                      <Label className="text-sm font-medium text-secondary-700 mb-1.5">
+                        Category
+                      </Label>
+                      <select
+                        value={ledgerCategoryId === "" ? "" : ledgerCategoryId}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setLedgerCategoryId(v === "" ? "" : Number(v));
+                          setLedgerItemId("");
+                          setPage(1);
+                        }}
+                        className="flex h-10 w-full rounded-lg border border-secondary-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                      >
+                        <option value="">Select category</option>
+                        {categories.map((c: ItemCategory) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="min-w-0 flex flex-col">
+                      <Label className="text-sm font-medium text-secondary-700 mb-1.5">
+                        Item
+                      </Label>
+                      <select
+                        value={ledgerItemId === "" ? "" : ledgerItemId}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setLedgerItemId(v === "" ? "" : Number(v));
+                          setPage(1);
+                        }}
+                        disabled={!ledgerCategoryId}
+                        className="flex h-10 w-full rounded-lg border border-secondary-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:opacity-50"
+                      >
+                        <option value="">Select item</option>
+                        {itemsByCategory.map((i: Item) => (
+                          <option key={i.id} value={i.id}>
+                            {i.serialNumber ? `${i.itemName} (${i.serialNumber})` : i.itemName}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  {ledgerItem && (
+                    <div className="mt-4 p-4 rounded-lg bg-secondary-50 border border-secondary-200">
+                      <p className="text-sm font-semibold text-text">
+                        {ledgerItem.itemName}
+                        {ledgerItem.serialNumber && (
+                          <span className="font-mono text-secondary-600 ml-2">
+                            ({ledgerItem.serialNumber})
+                          </span>
+                        )}
+                      </p>
+                      {ledgerItem.category && (
+                        <p className="text-xs text-secondary-500 mt-1">
+                          Category: {ledgerItem.category.name}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+              <ReportToolbar
+                rowCount={rowCount}
+                onRowCountChange={(v) => {
+                  setRowCount(v);
+                  setPage(1);
+                }}
+                onExportExcel={() => handleExportExcel("history")}
+                exportDisabled={loadingLedger || !ledgerItemId}
+                exportLabel="Export Excel"
+              />
+              <Card className="shadow-sm overflow-hidden">
                 <CardHeader>
                   <CardTitle>
-                    Item History (Ledger) ({filteredItemHistory.length})
+                    Item History (Ledger)
+                    {ledgerItem
+                      ? ` — ${ledgerItem.itemName} (${ledgerTotal} records)`
+                      : " — Select category and item above"}
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  {loadingHistory ? (
+                <CardContent className="p-0">
+                  {!ledgerItemId ? (
                     <div className="text-center py-12">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
-                      <p className="mt-4 text-secondary-600">Loading...</p>
+                      <p className="text-secondary-500 text-lg">
+                        Select a category and item to view traceability.
+                      </p>
                     </div>
-                  ) : filteredItemHistory.length > 0 ? (
-                    <div className="space-y-6">
-                      {filteredItemHistory.map((item, itemIndex) => (
-                        <motion.div
-                          key={item.id}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: itemIndex * 0.1 }}
-                          className="border border-secondary-200 rounded-lg p-5 bg-white"
-                        >
-                          <div className="mb-4 pb-4 border-b border-secondary-200">
-                            <h3 className="font-semibold text-lg text-text mb-1">
-                              {item.itemName}
-                            </h3>
-                            {item.serialNumber && (
-                              <p className="text-sm text-secondary-600 font-mono">
-                                Serial: {item.serialNumber}
-                              </p>
-                            )}
-                            <p className="text-xs text-secondary-500 mt-1">
-                              Status: {item.status}
-                            </p>
-                          </div>
-                          {item.issues && item.issues.length > 0 ? (
-                            <div className="space-y-4">
-                              {item.issues.map(
-                                (issue: any, issueIndex: number) => (
-                                  <div
-                                    key={issue.id}
-                                    className="pl-4 border-l-2 border-primary-200 space-y-2"
+                  ) : loadingLedger ? (
+                    <TableSkeleton />
+                  ) : ledgerRows.length > 0 ? (
+                    <>
+                      <div className="overflow-x-auto rounded-b-lg border border-secondary-200 border-t-0">
+                        <table className="w-full text-left text-sm">
+                          <thead>
+                            <tr className="border-b border-secondary-200 bg-secondary-50">
+                              <th className="px-4 py-3 font-semibold text-text text-center whitespace-nowrap">
+                                Date
+                              </th>
+                              <th className="px-4 py-3 font-semibold text-text text-center whitespace-nowrap">
+                                Event
+                              </th>
+                              <th className="px-4 py-3 font-semibold text-text text-center whitespace-nowrap">
+                                Issue No
+                              </th>
+                              <th className="px-4 py-3 font-semibold text-text text-center whitespace-nowrap">
+                                Description
+                              </th>
+                              <th className="px-4 py-3 font-semibold text-text text-center whitespace-nowrap">
+                                By
+                              </th>
+                              <th className="px-4 py-3 font-semibold text-text text-center whitespace-nowrap">
+                                Remarks
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {ledgerRows.map((row: LedgerRow, idx: number) => (
+                              <tr
+                                key={`${row.issueNo}-${row.date}-${idx}`}
+                                className="border-b border-secondary-100 hover:bg-secondary-50/50 transition-colors"
+                              >
+                                <td className="px-4 py-3 text-secondary-600 text-center whitespace-nowrap">
+                                  {formatDateTime(row.date)}
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  <span
+                                    className={cn(
+                                      "inline-flex px-2.5 py-1 rounded-full text-xs font-medium border",
+                                      row.type === "issue"
+                                        ? "bg-blue-100 text-blue-700 border-blue-200"
+                                        : "bg-green-100 text-green-700 border-green-200"
+                                    )}
                                   >
-                                    <div className="flex items-start justify-between">
-                                      <div className="flex-1">
-                                        <p className="font-medium text-text">
-                                          Issue #{issue.issueNo}
-                                          {issue.issuedTo
-                                            ? ` — ${issue.issuedTo}`
-                                            : ""}
-                                        </p>
-                                        <div className="mt-2 space-y-1 text-sm text-secondary-600">
-                                          <p>
-                                            <span className="font-medium">
-                                              Issued:
-                                            </span>{" "}
-                                            {formatDateTime(issue.issuedAt)}
-                                            {issue.issuedTo &&
-                                              ` to ${issue.issuedTo}`}
-                                          </p>
-                                          <p>
-                                            <span className="font-medium">
-                                              Issued By:
-                                            </span>{" "}
-                                            {issue.issuedByUser
-                                              ? `${issue.issuedByUser.firstName} ${issue.issuedByUser.lastName}`
-                                              : "N/A"}
-                                          </p>
-                                          {issue.remarks && (
-                                            <p className="text-secondary-500 italic">
-                                              "{issue.remarks}"
-                                            </p>
-                                          )}
-                                        </div>
-                                      </div>
-                                      <span
-                                        className={`px-3 py-1 rounded-full text-xs font-medium ${
-                                          issue.isReturned
-                                            ? "bg-green-100 text-green-700 border border-green-200"
-                                            : "bg-blue-100 text-blue-700 border border-blue-200"
-                                        }`}
-                                      >
-                                        {issue.isReturned
-                                          ? "Returned"
-                                          : "Active"}
-                                      </span>
-                                    </div>
-                                    {issue.returns &&
-                                      issue.returns.length > 0 && (
-                                        <div className="mt-3 ml-4 space-y-2">
-                                          {issue.returns.map((return_: any) => (
-                                            <div
-                                              key={return_.id}
-                                              className="pl-4 border-l-2 border-green-200 bg-green-50 p-3 rounded"
-                                            >
-                                              <p className="text-sm font-medium text-green-900">
-                                                Returned:{" "}
-                                                {formatDateTime(
-                                                  return_.returnedAt,
-                                                )}
-                                              </p>
-                                              <p className="text-xs text-green-700 mt-1">
-                                                Returned By:{" "}
-                                                {return_.returnedByUser
-                                                  ? `${return_.returnedByUser.firstName} ${return_.returnedByUser.lastName}`
-                                                  : "N/A"}
-                                              </p>
-                                              {return_.remarks && (
-                                                <p className="text-xs text-green-600 mt-1 italic">
-                                                  "{return_.remarks}"
-                                                </p>
-                                              )}
-                                            </div>
-                                          ))}
-                                        </div>
-                                      )}
-                                  </div>
-                                ),
-                              )}
-                            </div>
-                          ) : (
-                            <p className="text-sm text-secondary-500 italic">
-                              No issue history for this item.
-                            </p>
-                          )}
-                        </motion.div>
-                      ))}
-                    </div>
+                                    {row.type === "issue" ? "Issued" : "Returned"}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 font-mono text-secondary-700 text-center">
+                                  {row.issueNo}
+                                </td>
+                                <td className="px-4 py-3 text-secondary-600 text-center">
+                                  {row.description}
+                                </td>
+                                <td className="px-4 py-3 text-secondary-600 text-center">
+                                  {row.user ?? "—"}
+                                </td>
+                                <td className="px-4 py-3 text-secondary-600 text-center">
+                                  {row.remarks ?? "—"}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      {ledgerTotal > rowCount && (
+                        <Pagination
+                          page={page}
+                          totalPages={totalPagesLedger}
+                          onPageChange={setPage}
+                          total={ledgerTotal}
+                          limit={rowCount}
+                        />
+                      )}
+                    </>
                   ) : (
                     <div className="text-center py-12">
                       <p className="text-secondary-500 text-lg">
-                        {searchTerm
-                          ? "No item history found matching your search."
-                          : "No item history found."}
+                        No traceability records for this item.
                       </p>
                     </div>
                   )}
@@ -622,6 +829,127 @@ export default function ReportsPage() {
           )}
         </AnimatePresence>
       </motion.div>
+    </div>
+  );
+}
+
+export default function ReportsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-6 flex items-center justify-center min-h-[200px]">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-600 border-t-transparent" />
+        </div>
+      }
+    >
+      <ReportsContent />
+    </Suspense>
+  );
+}
+
+function ReportToolbar({
+  rowCount,
+  onRowCountChange,
+  onExportExcel,
+  exportDisabled,
+  exportLabel,
+}: {
+  rowCount: RowCount;
+  onRowCountChange: (v: RowCount) => void;
+  onExportExcel: () => void;
+  exportDisabled: boolean;
+  exportLabel: string;
+}) {
+  return (
+    <Card className="shadow-sm">
+      <CardContent className="p-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Label htmlFor="report-row-count" className="text-sm font-medium text-secondary-700">
+              Rows per page
+            </Label>
+            <select
+              id="report-row-count"
+              value={rowCount}
+              onChange={(e) => {
+                const v = Number(e.target.value) as RowCount;
+                if (ROW_COUNT_OPTIONS.includes(v)) onRowCountChange(v);
+              }}
+              className="flex h-10 rounded-lg border border-secondary-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 min-w-[80px]"
+            >
+              {ROW_COUNT_OPTIONS.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </div>
+          <Button
+            onClick={onExportExcel}
+            disabled={exportDisabled}
+            className="shadow-md"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            {exportLabel}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function TableSkeleton() {
+  return (
+    <div className="flex justify-center items-center py-12">
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-600 border-t-transparent" />
+      <p className="ml-3 text-secondary-600">Loading...</p>
+    </div>
+  );
+}
+
+function Pagination({
+  page,
+  totalPages,
+  onPageChange,
+  total,
+  limit,
+}: {
+  page: number;
+  totalPages: number;
+  onPageChange: (p: number) => void;
+  total: number;
+  limit: number;
+}) {
+  const start = (page - 1) * limit + 1;
+  const end = Math.min(page * limit, total);
+  return (
+    <div className="flex items-center justify-between gap-4 px-4 py-3 border-t border-secondary-200 bg-secondary-50/50 text-sm text-secondary-600">
+      <span>
+        Showing {start}–{end} of {total}
+      </span>
+      <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(page - 1)}
+          disabled={page <= 1}
+          className="h-9 px-3"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </Button>
+        <span className="min-w-[100px] text-center font-medium">
+          Page {page} of {totalPages}
+        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(page + 1)}
+          disabled={page >= totalPages}
+          className="h-9 px-3"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </Button>
+      </div>
     </div>
   );
 }

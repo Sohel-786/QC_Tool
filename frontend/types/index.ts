@@ -1,6 +1,7 @@
 export enum Role {
   QC_USER = 'QC_USER',
   QC_MANAGER = 'QC_MANAGER',
+  QC_ADMIN = 'QC_ADMIN',
 }
 
 export enum ItemStatus {
@@ -111,6 +112,7 @@ export interface Return {
   returnImage: string;
   remarks?: string;
   statusId?: number | null;
+  isActive: boolean;
   returnedAt: string;
   updatedAt: string;
   issue?: Issue;
@@ -132,4 +134,35 @@ export interface DashboardMetrics {
   returns: {
     total: number;
   };
+}
+
+export interface AppSettings {
+  id: number;
+  companyName: string;
+  companyLogo?: string | null;
+  softwareName?: string | null;
+  primaryColor?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface RolePermission {
+  id: number;
+  role: string;
+  viewDashboard: boolean;
+  viewMaster: boolean;
+  viewOutward: boolean;
+  viewInward: boolean;
+  viewReports: boolean;
+  importExportMaster: boolean;
+  addOutward: boolean;
+  editOutward: boolean;
+  addInward: boolean;
+  editInward: boolean;
+  addMaster: boolean;
+  editMaster: boolean;
+  manageUsers: boolean;
+  accessSettings: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }

@@ -6,12 +6,18 @@ import api from '@/lib/api';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
 import { User } from '@/types';
+import { SoftwareProfileDraftProvider } from '@/contexts/software-profile-draft-context';
+
+const SIDEBAR_WIDTH_EXPANDED = 256;
+const SIDEBAR_WIDTH_COLLAPSED = 64;
 
 export function AuthLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sidebarExpanded, setSidebarExpanded] = useState(true);
+  const sidebarWidth = sidebarExpanded ? SIDEBAR_WIDTH_EXPANDED : SIDEBAR_WIDTH_COLLAPSED;
 
   useEffect(() => {
     const validateAndGetUser = async () => {
@@ -78,12 +84,23 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-secondary-50">
-      <Sidebar userRole={user.role} currentUser={user} />
-      <div className="ml-64">
-        <Header user={user} />
-        <main className="min-h-[calc(100vh-4rem)]">{children}</main>
+    <SoftwareProfileDraftProvider>
+      <div className="min-h-screen bg-secondary-50">
+        <Sidebar
+          userRole={user.role}
+          currentUser={user}
+          expanded={sidebarExpanded}
+          onExpandChange={setSidebarExpanded}
+          sidebarWidth={sidebarWidth}
+        />
+        <div
+          className="transition-[margin] duration-200 ease-in-out"
+          style={{ marginLeft: sidebarWidth }}
+        >
+          <Header user={user} />
+          <main className="min-h-[calc(100vh-4rem)]">{children}</main>
+        </div>
       </div>
-    </div>
+    </SoftwareProfileDraftProvider>
   );
 }

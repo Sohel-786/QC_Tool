@@ -15,6 +15,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Plus, Edit2, Search, Ban, CheckCircle, Download, Upload } from "lucide-react";
 import { useMasterExportImport } from "@/hooks/use-master-export-import";
+import { useCurrentUserPermissions } from "@/hooks/use-settings";
 import { toast } from "react-hot-toast";
 
 const companySchema = z.object({
@@ -34,6 +35,10 @@ export default function CompaniesPage() {
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>("all");
   const queryClient = useQueryClient();
   const importFileRef = useRef<HTMLInputElement>(null);
+  const { data: permissions } = useCurrentUserPermissions();
+  const canAddMaster = permissions?.addMaster ?? true;
+  const canEditMaster = permissions?.editMaster ?? true;
+  const canImportExportMaster = permissions?.importExportMaster ?? false;
   const { handleExport, handleImport, exportLoading, importLoading } =
     useMasterExportImport("companies", ["companies"]);
 
@@ -208,28 +213,34 @@ export default function CompaniesPage() {
                   }
                 }}
               />
-              <Button
-                variant="outline"
-                onClick={handleExport}
-                disabled={exportLoading}
-                className="shadow-sm"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Export
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => importFileRef.current?.click()}
-                disabled={importLoading}
-                className="shadow-sm"
-              >
-                <Upload className="w-4 h-4 mr-2" />
-                Import
-              </Button>
-              <Button onClick={() => handleOpenForm()} className="shadow-md">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Company
-              </Button>
+              {canImportExportMaster && (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={handleExport}
+                    disabled={exportLoading}
+                    className="shadow-sm"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Export
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => importFileRef.current?.click()}
+                    disabled={importLoading}
+                    className="shadow-sm"
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    Import
+                  </Button>
+                </>
+              )}
+              {canAddMaster && (
+                <Button onClick={() => handleOpenForm()} className="shadow-md">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Company
+                </Button>
+              )}
             </div>
           </div>
 
@@ -329,30 +340,32 @@ export default function CompaniesPage() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleOpenForm(company)}
+                                title={canEditMaster ? "Edit company" : "View company (edit disabled)"}
                               >
                                 <Edit2 className="w-4 h-4" />
                               </Button>
-                              {company.isActive ? (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setInactiveTarget(company)}
-                                  className="text-amber-600 hover:bg-amber-50"
-                                  disabled={toggleActiveMutation.isPending}
-                                >
-                                  <Ban className="w-4 h-4" />
-                                </Button>
-                              ) : (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleMarkActive(company)}
-                                  className="text-green-600 hover:bg-green-50"
-                                  disabled={toggleActiveMutation.isPending}
-                                >
-                                  <CheckCircle className="w-4 h-4" />
-                                </Button>
-                              )}
+                              {canEditMaster &&
+                                (company.isActive ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setInactiveTarget(company)}
+                                    className="text-amber-600 hover:bg-amber-50"
+                                    disabled={toggleActiveMutation.isPending}
+                                  >
+                                    <Ban className="w-4 h-4" />
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleMarkActive(company)}
+                                    className="text-green-600 hover:bg-green-50"
+                                    disabled={toggleActiveMutation.isPending}
+                                  >
+                                    <CheckCircle className="w-4 h-4" />
+                                  </Button>
+                                ))}
                             </div>
                           </td>
                         </motion.tr>
@@ -464,18 +477,20 @@ export default function CompaniesPage() {
             )}
 
             <div className="flex gap-3 pt-4">
-              <Button
-                type="submit"
-                disabled={createMutation.isPending || updateMutation.isPending}
-                className="flex-1"
-                aria-describedby="company-form-hint"
-              >
-                {createMutation.isPending || updateMutation.isPending
-                  ? "Saving…"
-                  : editingCompany
-                    ? "Update Company Master"
-                    : "Create Company Master"}
-              </Button>
+              {(editingCompany ? canEditMaster : canAddMaster) && (
+                <Button
+                  type="submit"
+                  disabled={createMutation.isPending || updateMutation.isPending}
+                  className="flex-1"
+                  aria-describedby="company-form-hint"
+                >
+                  {createMutation.isPending || updateMutation.isPending
+                    ? "Saving…"
+                    : editingCompany
+                      ? "Update Company Master"
+                      : "Create Company Master"}
+                </Button>
+              )}
               <Button
                 type="button"
                 variant="outline"

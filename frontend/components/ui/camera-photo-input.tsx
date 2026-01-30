@@ -25,6 +25,8 @@ export type CameraPhotoInputProps = {
   className?: string;
   /** Aspect ratio for preview area: "square" | "video" */
   aspectRatio?: "square" | "video";
+  /** When provided, clicking the preview image calls this with the preview URL (e.g. open full screen viewer) */
+  onPreviewClick?: (url: string) => void;
 };
 
 export function CameraPhotoInput({
@@ -36,6 +38,7 @@ export function CameraPhotoInput({
   hasExistingImage = false,
   className = "",
   aspectRatio = "square",
+  onPreviewClick,
 }: CameraPhotoInputProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -177,12 +180,17 @@ export function CameraPhotoInput({
       {previewUrl ? (
         <div className="flex flex-col gap-2">
           <div
-            className={`relative rounded-lg overflow-hidden border border-secondary-200 bg-white flex-shrink-0 ${aspectClass}`}
+            className={`relative rounded-lg overflow-hidden border border-secondary-200 bg-white flex-shrink-0 ${aspectClass} ${onPreviewClick ? "cursor-pointer hover:ring-2 hover:ring-primary-500 hover:ring-offset-1 transition-shadow" : ""}`}
+            role={onPreviewClick ? "button" : undefined}
+            onClick={() => onPreviewClick?.(previewUrl)}
+            title={onPreviewClick ? "View full screen" : undefined}
+            tabIndex={onPreviewClick ? 0 : undefined}
+            onKeyDown={onPreviewClick ? (e) => e.key === "Enter" && onPreviewClick(previewUrl) : undefined}
           >
             <img
               src={previewUrl}
               alt="Captured preview"
-              className="w-full h-full object-contain"
+              className="w-full h-full object-contain pointer-events-none"
             />
           </div>
           <div className="flex gap-2">

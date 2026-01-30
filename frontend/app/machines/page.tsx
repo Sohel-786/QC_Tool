@@ -16,6 +16,7 @@ import * as z from "zod";
 import { Plus, Edit2, Search, Ban, CheckCircle, Download, Upload } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { useMasterExportImport } from "@/hooks/use-master-export-import";
+import { useCurrentUserPermissions } from "@/hooks/use-settings";
 
 const machineSchema = z.object({
   name: z.string().min(1, "Machine name is required"),
@@ -35,6 +36,10 @@ export default function MachinesPage() {
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>("all");
   const queryClient = useQueryClient();
   const importFileRef = useRef<HTMLInputElement>(null);
+  const { data: permissions } = useCurrentUserPermissions();
+  const canAddMaster = permissions?.addMaster ?? true;
+  const canEditMaster = permissions?.editMaster ?? true;
+  const canImportExportMaster = permissions?.importExportMaster ?? false;
   const { handleExport, handleImport, exportLoading, importLoading } =
     useMasterExportImport("machines", ["machines"]);
 
@@ -209,28 +214,34 @@ export default function MachinesPage() {
                   }
                 }}
               />
-              <Button
-                variant="outline"
-                onClick={handleExport}
-                disabled={exportLoading}
-                className="shadow-sm"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Export
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => importFileRef.current?.click()}
-                disabled={importLoading}
-                className="shadow-sm"
-              >
-                <Upload className="w-4 h-4 mr-2" />
-                Import
-              </Button>
-              <Button onClick={() => handleOpenForm()} className="shadow-md">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Machine
-              </Button>
+              {canImportExportMaster && (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={handleExport}
+                    disabled={exportLoading}
+                    className="shadow-sm"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Export
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => importFileRef.current?.click()}
+                    disabled={importLoading}
+                    className="shadow-sm"
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    Import
+                  </Button>
+                </>
+              )}
+              {canAddMaster && (
+                <Button onClick={() => handleOpenForm()} className="shadow-md">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Machine
+                </Button>
+              )}
             </div>
           </div>
 
@@ -330,30 +341,32 @@ export default function MachinesPage() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleOpenForm(m)}
+                                title={canEditMaster ? "Edit machine" : "View machine (edit disabled)"}
                               >
                                 <Edit2 className="w-4 h-4" />
                               </Button>
-                              {m.isActive ? (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setInactiveTarget(m)}
-                                  className="text-amber-600 hover:bg-amber-50"
-                                  disabled={toggleActiveMutation.isPending}
-                                >
-                                  <Ban className="w-4 h-4" />
-                                </Button>
-                              ) : (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleMarkActive(m)}
-                                  className="text-green-600 hover:bg-green-50"
-                                  disabled={toggleActiveMutation.isPending}
-                                >
-                                  <CheckCircle className="w-4 h-4" />
-                                </Button>
-                              )}
+                              {canEditMaster &&
+                                (m.isActive ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setInactiveTarget(m)}
+                                    className="text-amber-600 hover:bg-amber-50"
+                                    disabled={toggleActiveMutation.isPending}
+                                  >
+                                    <Ban className="w-4 h-4" />
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleMarkActive(m)}
+                                    className="text-green-600 hover:bg-green-50"
+                                    disabled={toggleActiveMutation.isPending}
+                                  >
+                                    <CheckCircle className="w-4 h-4" />
+                                  </Button>
+                                ))}
                             </div>
                           </td>
                         </motion.tr>
@@ -463,18 +476,20 @@ export default function MachinesPage() {
             )}
 
             <div className="flex gap-3 pt-4">
-              <Button
-                type="submit"
-                disabled={createMutation.isPending || updateMutation.isPending}
-                className="flex-1"
-                aria-describedby="machine-form-hint"
-              >
-                {createMutation.isPending || updateMutation.isPending
-                  ? "Saving…"
-                  : editingMachine
-                    ? "Update Machine Master"
-                    : "Create Machine Master"}
-              </Button>
+              {(editingMachine ? canEditMaster : canAddMaster) && (
+                <Button
+                  type="submit"
+                  disabled={createMutation.isPending || updateMutation.isPending}
+                  className="flex-1"
+                  aria-describedby="machine-form-hint"
+                >
+                  {createMutation.isPending || updateMutation.isPending
+                    ? "Saving…"
+                    : editingMachine
+                      ? "Update Machine Master"
+                      : "Create Machine Master"}
+                </Button>
+              )}
               <Button
                 type="button"
                 variant="outline"

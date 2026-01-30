@@ -5,10 +5,13 @@ import {
   getNextInwardCode,
   getReturnById,
   getReturnsByIssueId,
+  updateReturn,
+  setReturnActive,
+  setReturnInactive,
 } from '../controllers/returns.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
-import { upload } from '../middleware/multer.middleware';
-import { attachIssueAndItemForReturn } from '../middleware/uploadContext.middleware';
+import { requirePermission } from '../middleware/permission.middleware';
+import { uploadReturnForm } from '../middleware/multer.middleware';
 import { body } from 'express-validator';
 import { validate as validateMiddleware } from '../middleware/validation.middleware';
 
@@ -16,22 +19,33 @@ const router = Router();
 
 router.use(authMiddleware());
 
-router.get('/', getAllReturns);
-router.get('/next-code', getNextInwardCode);
-router.get('/issue/:issueId', getReturnsByIssueId);
-router.get('/:id', getReturnById);
+router.get('/', requirePermission('viewInward'), getAllReturns);
+router.get('/next-code', requirePermission('addInward'), getNextInwardCode);
+router.get('/issue/:issueId', requirePermission('viewInward'), getReturnsByIssueId);
+router.get('/:id', requirePermission('viewInward'), getReturnById);
 
-// Create requires QC_USER role – attachIssueAndItemForReturn runs before upload so multer can save to items/{serial}/inward/
 router.post(
   '/',
-  authMiddleware(['QC_USER']),
+  requirePermission('addInward'),
+  uploadReturnForm.single('image'),
   validateMiddleware([
-    body('issueId').isInt().withMessage('Valid issue ID is required'),
-    body('statusId').isInt().withMessage('Status is required'),
+    body('issueId').toInt().isInt({ min: 1 }).withMessage('Valid issue ID is required'),
+    body('statusId').toInt().isInt({ min: 1 }).withMessage('Status is required'),
   ]),
-  attachIssueAndItemForReturn,
-  upload.single('image'),
   createReturn
+);
+
+router.patch('/:id/active', requirePermission('editInward'), setReturnActive);
+router.patch('/:id/inactive', requirePermission('editInward'), setReturnInactive);
+
+router.patch(
+  '/:id',
+  requirePermission('editInward'),
+  validateMiddleware([
+    body('remarks').optional().isString(),
+    body('statusId').optional().toInt().isInt({ min: 1 }).withMessage('Valid status is required'),
+  ]),
+  updateReturn
 );
 
 export default router;

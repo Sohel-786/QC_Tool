@@ -28,6 +28,7 @@ import * as z from "zod";
 import { Plus, Edit2, Ban, CheckCircle, LogIn } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { useCurrentUserPermissions } from "@/hooks/use-settings";
 import { toast } from "react-hot-toast";
 import {
   TransactionFilters,
@@ -58,6 +59,9 @@ export default function IssuesPage() {
   const queryClient = useQueryClient();
   const router = useRouter();
   const { user: currentUser } = useCurrentUser();
+  const { data: permissions } = useCurrentUserPermissions();
+  const canAddOutward = permissions?.addOutward ?? true;
+  const canEditOutward = permissions?.editOutward ?? true;
   const isManager = currentUser?.role === Role.QC_MANAGER;
   const isViewOnly = !!editingIssue?.isReturned;
 
@@ -281,9 +285,9 @@ export default function IssuesPage() {
     reset();
     setValue("categoryId", issue.item?.categoryId ?? 0);
     setValue("itemId", issue.itemId);
-    setValue("companyId", issue.companyId ?? undefined);
-    setValue("contractorId", issue.contractorId ?? undefined);
-    setValue("machineId", issue.machineId ?? undefined);
+    setValue("companyId", issue.companyId ?? 0);
+    setValue("contractorId", issue.contractorId ?? 0);
+    setValue("machineId", issue.machineId ?? 0);
     setValue("issuedTo", issue.issuedTo ?? "");
     setValue("remarks", issue.remarks ?? "");
     setIsFormOpen(true);
@@ -363,7 +367,7 @@ export default function IssuesPage() {
                   : "Create and manage outward entries"}
               </p>
             </div>
-            {!isManager && (
+            {canAddOutward && (
               <Button onClick={handleOpenForm} className="shadow-md">
                 <Plus className="w-4 h-4 mr-2" />
                 Outward Entry
@@ -424,7 +428,7 @@ export default function IssuesPage() {
                         <th className="px-4 py-3 font-semibold text-text text-center">
                           Inward Done
                         </th>
-                        {!isManager && (
+                        {(canAddOutward || canEditOutward) && (
                           <th className="px-4 py-3 font-semibold text-text text-center min-w-[200px]">
                             Actions
                           </th>
@@ -483,7 +487,7 @@ export default function IssuesPage() {
                               {issue.isReturned ? "Yes" : "No"}
                             </span>
                           </td>
-                          {!isManager && (
+                          {(canAddOutward || canEditOutward) && (
                             <td className="px-4 py-3 min-w-[200px]">
                               <div className="flex flex-nowrap items-center justify-center gap-1 whitespace-nowrap">
                                 {!issue.isReturned && (
@@ -501,11 +505,12 @@ export default function IssuesPage() {
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => handleOpenEdit(issue)}
-                                  title={issue.isReturned ? "View only (inward done)" : "Edit outward"}
+                                  title={issue.isReturned ? "View only (inward done)" : canEditOutward ? "Edit outward" : "View outward (edit disabled)"}
                                   className="shrink-0"
                                 >
                                   <Edit2 className="w-4 h-4" />
                                 </Button>
+                                {/* Active/Inactive actions - commented out
                                 {issue.isActive && !issue.isReturned && (
                                   <Button
                                     variant="ghost"
@@ -530,6 +535,7 @@ export default function IssuesPage() {
                                     <CheckCircle className="w-4 h-4" />
                                   </Button>
                                 )}
+                                */}
                               </div>
                             </td>
                           )}
@@ -663,7 +669,7 @@ export default function IssuesPage() {
                             const v = e.target.value;
                             const n = v ? Number(v) : 0;
                             setValue("categoryId", n);
-                            setValue("itemId", 0 as any);
+                            setValue("itemId", 0);
                           }}
                           className="mt-1.5 flex h-10 w-full rounded-md border border-secondary-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
                           aria-required="true"
@@ -850,7 +856,7 @@ export default function IssuesPage() {
             </p>
 
             <div className="flex-none flex gap-3 px-6 py-4 border-t border-secondary-200 bg-secondary-50/50">
-              {!isViewOnly && (
+              {!isViewOnly && (editingIssue ? canEditOutward : canAddOutward) && (
                 <Button
                   type="submit"
                   disabled={

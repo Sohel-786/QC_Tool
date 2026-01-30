@@ -6,6 +6,7 @@ model Return {
   returnImage String
   remarks     String?
   statusId    Int
+  isActive    Boolean   @default(true)
   returnedAt  DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
