@@ -59,7 +59,7 @@ export function FullScreenImageViewer({
 
   return (
     <div
-      className="fixed inset-0 z-[200] flex flex-col bg-black/95"
+      className="fixed inset-0 z-[9999] flex flex-col bg-black/95"
       role="dialog"
       aria-modal="true"
       aria-label="Full screen image view"

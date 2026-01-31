@@ -32,6 +32,8 @@ export interface Item {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  /** Inward number that recorded this item as Missing (from GET /items/missing) */
+  sourceInwardCode?: string | null;
 }
 
 export interface ItemCategory {
@@ -96,10 +98,12 @@ export interface Issue {
   companyId?: number | null;
   contractorId?: number | null;
   machineId?: number | null;
+  locationId?: number | null;
   item?: Item;
   company?: Company;
   contractor?: Contractor;
   machine?: Machine;
+  location?: Location;
   user?: User;
   issuedByUser?: User;
 }
@@ -126,10 +130,20 @@ export interface Return {
   isActive: boolean;
   returnedAt: string;
   updatedAt: string;
+  companyId?: number | null;
+  contractorId?: number | null;
+  machineId?: number | null;
+  locationId?: number | null;
   issue?: Issue | null;
   item?: Item | null;
+  company?: Company | null;
+  contractor?: Contractor | null;
+  machine?: Machine | null;
+  location?: Location | null;
   status?: Status | null;
   user?: User;
+  /** Inward number that recorded this item as Missing (for receive-missing-item returns) */
+  sourceInwardCode?: string | null;
 }
 
 export interface DashboardMetrics {

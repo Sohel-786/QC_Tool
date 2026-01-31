@@ -27,6 +27,7 @@ export const createIssue = async (
       companyId,
       contractorId,
       machineId,
+      locationId,
     } = req.body;
     const issuedBy = req.user!.id;
 
@@ -42,6 +43,9 @@ export const createIssue = async (
     }
     if (machineId == null || machineId === "") {
       return next(new ValidationError("Machine is required"));
+    }
+    if (locationId == null || locationId === "") {
+      return next(new ValidationError("Location is required"));
     }
 
     const item = await Item.findById(itemId);
@@ -78,6 +82,7 @@ export const createIssue = async (
     const parsedCompanyId = Number(companyId);
     const parsedContractorId = Number(contractorId);
     const parsedMachineId = Number(machineId);
+    const parsedLocationId = Number(locationId);
     if (Number.isNaN(parsedCompanyId)) {
       return next(new ValidationError("Invalid company"));
     }
@@ -86,6 +91,9 @@ export const createIssue = async (
     }
     if (Number.isNaN(parsedMachineId)) {
       return next(new ValidationError("Invalid machine"));
+    }
+    if (Number.isNaN(parsedLocationId) || parsedLocationId < 1) {
+      return next(new ValidationError("Invalid location"));
     }
 
     const issue = await Issue.create({
@@ -97,6 +105,7 @@ export const createIssue = async (
       companyId: parsedCompanyId,
       contractorId: parsedContractorId,
       machineId: parsedMachineId,
+      locationId: parsedLocationId,
     });
 
     await Item.update(itemId, { status: ItemStatus.ISSUED });
@@ -209,7 +218,7 @@ export const updateIssue = async (
       );
     }
 
-    const { issuedTo, remarks, companyId, contractorId, machineId } = req.body;
+    const { issuedTo, remarks, companyId, contractorId, machineId, locationId } = req.body;
 
     const updateData: Record<string, unknown> = {};
     if (issuedTo !== undefined) updateData.issuedTo = issuedTo || null;
@@ -243,6 +252,16 @@ export const updateIssue = async (
         return next(new ValidationError("Invalid machine"));
       }
       updateData.machineId = n;
+    }
+    if (locationId !== undefined) {
+      if (locationId === "" || locationId == null) {
+        return next(new ValidationError("Location is required"));
+      }
+      const n = Number(locationId);
+      if (Number.isNaN(n) || n < 1) {
+        return next(new ValidationError("Invalid location"));
+      }
+      updateData.locationId = n;
     }
 
     const updated = await Issue.update(id, updateData);

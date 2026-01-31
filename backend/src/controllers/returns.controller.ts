@@ -16,6 +16,7 @@ import {
   hasActiveFilters,
 } from "../types/filter";
 import { getInwardImagePath, sanitizeSerialForPath } from "../utils/storagePath";
+import { prisma } from "../external-libraries/dbClient";
 
 const storageRoot = path.resolve(process.cwd(), "storage");
 
@@ -36,8 +37,18 @@ export const createReturn = async (
   next: NextFunction
 ) => {
   try {
-    const { issueId, itemId, condition, remarks, receivedBy, statusId } =
-      req.body;
+    const {
+      issueId,
+      itemId,
+      condition,
+      remarks,
+      receivedBy,
+      statusId,
+      companyId,
+      contractorId,
+      machineId,
+      locationId,
+    } = req.body;
     const returnedBy = req.user!.id;
     const file = req.file;
 
@@ -155,6 +166,27 @@ export const createReturn = async (
       imagePath = getInwardImagePath(itemSerial, filename);
     }
 
+    let parsedCompanyId: number | null = null;
+    let parsedContractorId: number | null = null;
+    let parsedMachineId: number | null = null;
+    let parsedLocationId: number | null = null;
+    if (companyId != null && companyId !== "") {
+      const n = Number(companyId);
+      if (!Number.isNaN(n) && n >= 1) parsedCompanyId = n;
+    }
+    if (contractorId != null && contractorId !== "") {
+      const n = Number(contractorId);
+      if (!Number.isNaN(n) && n >= 1) parsedContractorId = n;
+    }
+    if (machineId != null && machineId !== "") {
+      const n = Number(machineId);
+      if (!Number.isNaN(n) && n >= 1) parsedMachineId = n;
+    }
+    if (locationId != null && locationId !== "") {
+      const n = Number(locationId);
+      if (!Number.isNaN(n) && n >= 1) parsedLocationId = n;
+    }
+
     const return_ = await Return.create({
       returnCode,
       condition: cond as ReturnCondition,
@@ -165,6 +197,10 @@ export const createReturn = async (
       remarks: remarks || undefined,
       receivedBy: receivedBy ? String(receivedBy).trim() || undefined : undefined,
       statusId: parsedStatusId ?? undefined,
+      companyId: parsedCompanyId ?? undefined,
+      contractorId: parsedContractorId ?? undefined,
+      machineId: parsedMachineId ?? undefined,
+      locationId: parsedLocationId ?? undefined,
     });
 
     await Item.update(parsedItemId, {
@@ -184,10 +220,39 @@ export const getAllReturns = async (
 ) => {
   try {
     const filters = parseTransactionFiltersFromQuery(req.query as Record<string, string>);
-    const returns = hasActiveFilters(filters)
+    const returnsList = hasActiveFilters(filters)
       ? await Return.findAllFiltered(filters)
       : await Return.findAll();
-    res.json({ success: true, data: returns });
+    const missingItemIds = [
+      ...new Set(
+        returnsList
+          .filter((r: { itemId: number | null; issueId: number | null }) => r.itemId != null && r.issueId == null)
+          .map((r: { itemId: number | null }) => r.itemId as number)
+      ),
+    ];
+    let sourceByItemId: Record<number, string | null> = {};
+    if (missingItemIds.length > 0) {
+      const sourceReturns = await prisma.return.findMany({
+        where: {
+          itemId: { in: missingItemIds },
+          condition: "Missing",
+        },
+        orderBy: { returnedAt: "desc" },
+        select: { itemId: true, returnCode: true },
+      });
+      for (const r of sourceReturns) {
+        if (r.itemId != null && sourceByItemId[r.itemId] == null) {
+          sourceByItemId[r.itemId] = r.returnCode;
+        }
+      }
+    }
+    const data = returnsList.map((r: { itemId: number | null; issueId: number | null; [key: string]: unknown }) => {
+      if (r.itemId != null && r.issueId == null) {
+        return { ...r, sourceInwardCode: sourceByItemId[r.itemId] ?? null };
+      }
+      return r;
+    });
+    res.json({ success: true, data });
   } catch (e) {
     next(e);
   }
@@ -254,12 +319,16 @@ export const updateReturn = async (
     if (Number.isNaN(id)) {
       return next(new ValidationError("Invalid return id"));
     }
-    const { remarks, receivedBy, statusId, condition } = req.body;
+    const { remarks, receivedBy, statusId, condition, companyId, contractorId, machineId, locationId } = req.body;
     const updateData: {
       remarks?: string;
       receivedBy?: string;
       statusId?: number | null;
       condition?: string;
+      companyId?: number | null;
+      contractorId?: number | null;
+      machineId?: number | null;
+      locationId?: number | null;
     } = {};
     if (remarks !== undefined) updateData.remarks = remarks;
     if (receivedBy !== undefined)
@@ -281,6 +350,10 @@ export const updateReturn = async (
         ? String(condition).trim()
         : undefined;
     if (newCondition) updateData.condition = newCondition;
+    if (companyId !== undefined) updateData.companyId = companyId == null || companyId === "" ? null : Number(companyId);
+    if (contractorId !== undefined) updateData.contractorId = contractorId == null || contractorId === "" ? null : Number(contractorId);
+    if (machineId !== undefined) updateData.machineId = machineId == null || machineId === "" ? null : Number(machineId);
+    if (locationId !== undefined) updateData.locationId = locationId == null || locationId === "" ? null : Number(locationId);
 
     const existing = await Return.findById(id);
     if (!existing) {

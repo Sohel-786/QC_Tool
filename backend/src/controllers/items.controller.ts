@@ -7,6 +7,7 @@ import {
   ValidationError,
 } from "../utils/errors";
 import { ItemStatus } from "@prisma/client";
+import { prisma } from "../external-libraries/dbClient";
 import fs from "fs";
 import path from "path";
 import {
@@ -131,7 +132,29 @@ export const getMissingItems = async (
 ) => {
   try {
     const items = await Item.findActive(ItemStatus.MISSING);
-    res.json({ success: true, data: items });
+    if (items.length === 0) {
+      return res.json({ success: true, data: [] });
+    }
+    const itemIds = items.map((i) => i.id);
+    const sourceReturns = await prisma.return.findMany({
+      where: {
+        itemId: { in: itemIds },
+        condition: "Missing",
+      },
+      orderBy: { returnedAt: "desc" },
+      select: { itemId: true, returnCode: true },
+    });
+    const sourceByItemId: Record<number, string | null> = {};
+    for (const r of sourceReturns) {
+      if (r.itemId != null && sourceByItemId[r.itemId] == null) {
+        sourceByItemId[r.itemId] = r.returnCode;
+      }
+    }
+    const data = items.map((item) => ({
+      ...item,
+      sourceInwardCode: sourceByItemId[item.id] ?? null,
+    }));
+    res.json({ success: true, data });
   } catch (e) {
     next(e);
   }

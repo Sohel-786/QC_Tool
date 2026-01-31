@@ -18,6 +18,11 @@ type CreateReturnInput = {
   itemId?: number | null;
   /** Required when from issue and condition !== Missing; optional when from missing item */
   returnImage?: string | null;
+  /** Traceability for "receive missing item" */
+  companyId?: number | null;
+  contractorId?: number | null;
+  machineId?: number | null;
+  locationId?: number | null;
 };
 
 const returnCreateInclude = {
@@ -27,9 +32,14 @@ const returnCreateInclude = {
       company: true,
       contractor: true,
       machine: true,
+      location: true,
     },
   },
   item: true,
+  company: true,
+  contractor: true,
+  machine: true,
+  location: true,
   returnedByUser: {
     select: {
       id: true,
@@ -54,6 +64,10 @@ const Return = {
         issueId: data.issueId ?? undefined,
         itemId: data.itemId ?? undefined,
         returnImage: data.returnImage ?? undefined,
+        companyId: data.companyId ?? undefined,
+        contractorId: data.contractorId ?? undefined,
+        machineId: data.machineId ?? undefined,
+        locationId: data.locationId ?? undefined,
       } as unknown as Prisma.ReturnUncheckedCreateInput,
       include: returnCreateInclude as unknown as Prisma.ReturnInclude,
     });
@@ -69,9 +83,14 @@ const Return = {
             company: true,
             contractor: true,
             machine: true,
+            location: true,
           },
         },
         item: true,
+        company: true,
+        contractor: true,
+        machine: true,
+        location: true,
         status: true,
         returnedByUser: {
           select: {
@@ -94,9 +113,14 @@ const Return = {
             company: true,
             contractor: true,
             machine: true,
+            location: true,
           },
         },
         item: true,
+        company: true,
+        contractor: true,
+        machine: true,
+        location: true,
         status: true,
         returnedByUser: {
           select: {
@@ -116,6 +140,7 @@ const Return = {
     if (filters.companyIds.length) conditions.push({ companyId: { in: filters.companyIds } });
     if (filters.contractorIds.length) conditions.push({ contractorId: { in: filters.contractorIds } });
     if (filters.machineIds.length) conditions.push({ machineId: { in: filters.machineIds } });
+    if (filters.locationIds.length) conditions.push({ locationId: { in: filters.locationIds } });
     if (filters.itemIds.length) conditions.push({ itemId: { in: filters.itemIds } });
     if (filters.operatorName.length) {
       conditions.push({
@@ -136,6 +161,7 @@ const Return = {
         { issue: { company: { name: { contains: searchTerm } } } },
         { issue: { contractor: { name: { contains: searchTerm } } } },
         { issue: { machine: { name: { contains: searchTerm } } } },
+        { issue: { location: { name: { contains: searchTerm } } } },
         { issue: { issuedTo: { contains: searchTerm } } },
         { item: { itemName: { contains: searchTerm } } } as unknown as Prisma.ReturnWhereInput,
         { item: { serialNumber: { contains: searchTerm } } } as unknown as Prisma.ReturnWhereInput,
@@ -144,6 +170,9 @@ const Return = {
     const andParts: Prisma.ReturnWhereInput[] = [];
     if (filters.status === "active") andParts.push({ isActive: true } as Prisma.ReturnWhereInput);
     if (filters.status === "inactive") andParts.push({ isActive: false } as Prisma.ReturnWhereInput);
+    if (filters.conditions?.length) {
+      andParts.push({ condition: { in: filters.conditions } } as Prisma.ReturnWhereInput);
+    }
     if (Object.keys(issueWhere).length > 0) {
       const orParts: Prisma.ReturnWhereInput[] = [{ issue: issueWhere }];
       if (filters.itemIds.length > 0) {
@@ -171,9 +200,14 @@ const Return = {
             company: true,
             contractor: true,
             machine: true,
+            location: true,
           },
         },
         item: true,
+        company: true,
+        contractor: true,
+        machine: true,
+        location: true,
         status: true,
         returnedByUser: {
           select: {
@@ -207,13 +241,26 @@ const Return = {
 
   update: async (
     id: number,
-    data: { remarks?: string; receivedBy?: string; statusId?: number | null; condition?: string }
+    data: {
+      remarks?: string;
+      receivedBy?: string;
+      statusId?: number | null;
+      condition?: string;
+      companyId?: number | null;
+      contractorId?: number | null;
+      machineId?: number | null;
+      locationId?: number | null;
+    }
   ) => {
     const updatePayload = {
       ...(data.remarks !== undefined && { remarks: data.remarks }),
       ...(data.receivedBy !== undefined && { receivedBy: data.receivedBy }),
       ...(data.statusId !== undefined && { statusId: data.statusId ?? undefined }),
       ...(data.condition !== undefined && { condition: data.condition }),
+      ...(data.companyId !== undefined && { companyId: data.companyId ?? undefined }),
+      ...(data.contractorId !== undefined && { contractorId: data.contractorId ?? undefined }),
+      ...(data.machineId !== undefined && { machineId: data.machineId ?? undefined }),
+      ...(data.locationId !== undefined && { locationId: data.locationId ?? undefined }),
     } as Prisma.ReturnUncheckedUpdateInput;
     return prisma.return.update({
       where: { id },
@@ -225,9 +272,14 @@ const Return = {
             company: true,
             contractor: true,
             machine: true,
+            location: true,
           },
         },
         item: true,
+        company: true,
+        contractor: true,
+        machine: true,
+        location: true,
         status: true,
         returnedByUser: {
           select: {

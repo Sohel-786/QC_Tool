@@ -13,15 +13,29 @@ model Return {
   returnedAt  DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  // Traceability for "receive missing item" (when issueId is null)
+  companyId    Int?
+  contractorId Int?
+  machineId    Int?
+  locationId   Int?
+
   // Relations
   issue         Issue?   @relation(fields: [issueId], references: [id], onDelete: Cascade)
   item          Item?    @relation("InwardFromMissing", fields: [itemId], references: [id], onDelete: Restrict)
   returnedByUser User   @relation("ReturnedBy", fields: [returnedBy], references: [id], onDelete: Cascade)
   status        Status?  @relation(fields: [statusId], references: [id], onDelete: Restrict)
+  company       Company?   @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  contractor    Contractor? @relation(fields: [contractorId], references: [id], onDelete: Restrict)
+  machine       Machine?   @relation(fields: [machineId], references: [id], onDelete: Restrict)
+  location      Location?  @relation(fields: [locationId], references: [id], onDelete: Restrict)
 
   @@map("returns")
   @@index([issueId])
   @@index([itemId])
   @@index([returnedBy])
   @@index([statusId])
+  @@index([companyId])
+  @@index([contractorId])
+  @@index([machineId])
+  @@index([locationId])
 }

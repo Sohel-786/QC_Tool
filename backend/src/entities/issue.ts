@@ -11,6 +11,7 @@ type CreateIssueInput = {
   companyId: number;
   contractorId: number;
   machineId: number;
+  locationId: number;
 };
 
 const Issue = {
@@ -25,12 +26,14 @@ const Issue = {
         companyId: data.companyId,
         contractorId: data.contractorId,
         machineId: data.machineId,
+        locationId: data.locationId,
       },
       include: {
         item: true,
         company: true,
         contractor: true,
         machine: true,
+        location: true,
         issuedByUser: {
           select: {
             id: true,
@@ -51,6 +54,7 @@ const Issue = {
         company: true,
         contractor: true,
         machine: true,
+        location: true,
         issuedByUser: {
           select: {
             id: true,
@@ -83,6 +87,7 @@ const Issue = {
         company: true,
         contractor: true,
         machine: true,
+        location: true,
         issuedByUser: {
           select: {
             id: true,
@@ -102,6 +107,7 @@ const Issue = {
         company: true,
         contractor: true,
         machine: true,
+        location: true,
         issuedByUser: {
           select: {
             id: true,
@@ -122,6 +128,7 @@ const Issue = {
     if (filters.companyIds.length) conditions.push({ companyId: { in: filters.companyIds } });
     if (filters.contractorIds.length) conditions.push({ contractorId: { in: filters.contractorIds } });
     if (filters.machineIds.length) conditions.push({ machineId: { in: filters.machineIds } });
+    if (filters.locationIds.length) conditions.push({ locationId: { in: filters.locationIds } });
     if (filters.itemIds.length) conditions.push({ itemId: { in: filters.itemIds } });
     if (filters.operatorName.length) {
       conditions.push({
@@ -138,6 +145,7 @@ const Issue = {
           { company: { name: { contains: searchTerm } } },
           { contractor: { name: { contains: searchTerm } } },
           { machine: { name: { contains: searchTerm } } },
+          { location: { name: { contains: searchTerm } } },
           { issuedTo: { contains: searchTerm } },
         ],
       });
@@ -150,6 +158,7 @@ const Issue = {
         company: true,
         contractor: true,
         machine: true,
+        location: true,
         issuedByUser: {
           select: {
             id: true,
@@ -171,6 +180,7 @@ const Issue = {
         company: true,
         contractor: true,
         machine: true,
+        location: true,
         issuedByUser: {
           select: {
             id: true,
@@ -199,6 +209,7 @@ const Issue = {
       companyId?: number;
       contractorId?: number;
       machineId?: number;
+      locationId?: number;
       isActive?: boolean;
     }
   ) => {
@@ -210,6 +221,7 @@ const Issue = {
         company: true,
         contractor: true,
         machine: true,
+        location: true,
         issuedByUser: {
           select: {
             id: true,

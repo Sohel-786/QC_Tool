@@ -8,6 +8,7 @@ model Issue {
   companyId    Int
   contractorId Int
   machineId    Int
+  locationId   Int
   isActive     Boolean   @default(true)
   isReturned   Boolean   @default(false)
   issuedAt     DateTime  @default(now())
@@ -19,6 +20,7 @@ model Issue {
   company      Company   @relation(fields: [companyId], references: [id], onDelete: Restrict)
   contractor   Contractor @relation(fields: [contractorId], references: [id], onDelete: Restrict)
   machine      Machine   @relation(fields: [machineId], references: [id], onDelete: Restrict)
+  location     Location  @relation(fields: [locationId], references: [id], onDelete: Restrict)
   returns      Return[]  // returns from this issue (when issueId set)
 
   @@map("issues")
@@ -27,4 +29,5 @@ model Issue {
   @@index([companyId])
   @@index([contractorId])
   @@index([machineId])
+  @@index([locationId])
 }

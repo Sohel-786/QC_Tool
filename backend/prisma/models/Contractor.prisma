@@ -5,7 +5,8 @@ model Contractor {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  issues Issue[]
+  issues  Issue[]
+  returns Return[]
 
   @@map("contractors")
 }

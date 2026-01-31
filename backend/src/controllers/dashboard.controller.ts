@@ -102,6 +102,7 @@ export const getRecentIssues = async (
     const issues = await prisma.issue.findMany({
       include: {
         item: true,
+        location: true,
         issuedByUser: {
           select: {
             id: true,
@@ -132,6 +133,7 @@ export const getRecentReturns = async (
         issue: {
           include: {
             item: true,
+            location: true,
           },
         },
         returnedByUser: {

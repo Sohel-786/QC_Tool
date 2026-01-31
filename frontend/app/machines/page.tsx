@@ -294,7 +294,7 @@ export default function MachinesPage() {
                 <div className="overflow-x-auto rounded-lg border border-secondary-200">
                   <table className="w-full text-left text-sm">
                     <thead>
-                      <tr className="border-b border-secondary-200 bg-secondary-50">
+                      <tr className="border-b border-primary-200 bg-primary-100">
                         <th className="px-4 py-3 font-semibold text-text w-16">
                           Sr.No
                         </th>
@@ -316,7 +316,7 @@ export default function MachinesPage() {
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: idx * 0.03 }}
-                          className="border-b border-secondary-100 hover:bg-secondary-50/50"
+                          className="border-b border-secondary-100 hover:bg-primary-50 transition-colors"
                         >
                           <td className="px-4 py-3 text-secondary-600">
                             {idx + 1}

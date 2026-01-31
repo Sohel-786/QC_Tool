@@ -29,6 +29,7 @@ function buildIssuedReportWhere(filters: TransactionListFilters): Prisma.IssueWh
   if (filters.companyIds?.length) conditions.push({ companyId: { in: filters.companyIds } });
   if (filters.contractorIds?.length) conditions.push({ contractorId: { in: filters.contractorIds } });
   if (filters.machineIds?.length) conditions.push({ machineId: { in: filters.machineIds } });
+  if (filters.locationIds?.length) conditions.push({ locationId: { in: filters.locationIds } });
   if (filters.itemIds?.length) conditions.push({ itemId: { in: filters.itemIds } });
   if (filters.operatorName?.trim()) {
     conditions.push({ issuedTo: { contains: filters.operatorName.trim() } });
@@ -43,6 +44,7 @@ function buildIssuedReportWhere(filters: TransactionListFilters): Prisma.IssueWh
         { company: { name: { contains: searchTerm } } },
         { contractor: { name: { contains: searchTerm } } },
         { machine: { name: { contains: searchTerm } } },
+        { location: { name: { contains: searchTerm } } },
         { issuedTo: { contains: searchTerm } },
       ],
     });
@@ -68,6 +70,11 @@ function buildMissingReportWhere(filters: TransactionListFilters): Prisma.ItemWh
       issues: { some: { machineId: { in: filters.machineIds } } },
     });
   }
+  if (filters.locationIds?.length) {
+    conditions.push({
+      issues: { some: { locationId: { in: filters.locationIds } } },
+    });
+  }
   if (filters.itemIds?.length) {
     conditions.push({ id: { in: filters.itemIds } });
   }
@@ -87,6 +94,7 @@ function buildMissingReportWhere(filters: TransactionListFilters): Prisma.ItemWh
         { issues: { some: { company: { name: { contains: searchTerm } } } } },
         { issues: { some: { contractor: { name: { contains: searchTerm } } } } },
         { issues: { some: { machine: { name: { contains: searchTerm } } } } },
+        { issues: { some: { location: { name: { contains: searchTerm } } } } },
         { issues: { some: { issuedTo: { contains: searchTerm } } } },
       ],
     });
@@ -111,6 +119,7 @@ export const getIssuedItemsReport = async (
           company: true,
           contractor: true,
           machine: true,
+          location: true,
           issuedByUser: {
             select: {
               id: true,
@@ -150,7 +159,13 @@ export const getMissingItemsReport = async (
     const [items, total] = await Promise.all([
       prisma.item.findMany({
         where,
-        include: { issues: true, category: true },
+        include: {
+          issues: {
+            include: { location: true },
+            orderBy: { issuedAt: "desc" },
+          },
+          category: true,
+        },
         orderBy: { itemName: "asc" },
         skip: (page - 1) * limit,
         take: limit,
@@ -174,6 +189,10 @@ type LedgerRow = {
   date: Date;
   issueNo: string;
   description: string;
+  company?: string | null;
+  contractor?: string | null;
+  machine?: string | null;
+  location?: string | null;
   user?: string;
   remarks?: string | null;
   returnCode?: string | null;
@@ -197,6 +216,7 @@ function buildLedgerIssueWhere(
   if (filters.companyIds?.length) conditions.push({ companyId: { in: filters.companyIds } });
   if (filters.contractorIds?.length) conditions.push({ contractorId: { in: filters.contractorIds } });
   if (filters.machineIds?.length) conditions.push({ machineId: { in: filters.machineIds } });
+  if (filters.locationIds?.length) conditions.push({ locationId: { in: filters.locationIds } });
   if (filters.operatorName?.trim()) {
     conditions.push({ issuedTo: { contains: filters.operatorName.trim() } });
   }
@@ -207,6 +227,7 @@ function buildLedgerIssueWhere(
         { issueNo: { contains: searchTerm } },
         { issuedTo: { contains: searchTerm } },
         { remarks: { contains: searchTerm } },
+        { location: { name: { contains: searchTerm } } },
       ],
     });
   }
@@ -220,6 +241,10 @@ function buildLedgerRows(
     issuedAt: Date;
     issuedTo: string | null;
     remarks: string | null;
+    location?: { name: string } | null;
+    company?: { name: string } | null;
+    contractor?: { name: string } | null;
+    machine?: { name: string } | null;
     issuedByUser: { firstName: string; lastName: string } | null;
     returns: Array<{
       returnedAt: Date;
@@ -235,6 +260,10 @@ function buildLedgerRows(
     remarks: string | null;
     condition?: string | null;
     returnedByUser: { firstName: string; lastName: string } | null;
+    company?: { name: string } | null;
+    contractor?: { name: string } | null;
+    machine?: { name: string } | null;
+    location?: { name: string } | null;
   }>
 ): LedgerRow[] {
   const rows: LedgerRow[] = [];
@@ -242,11 +271,19 @@ function buildLedgerRows(
     const issueUser =
       issue.issuedByUser &&
       `${issue.issuedByUser.firstName ?? ""} ${issue.issuedByUser.lastName ?? ""}`.trim();
+    const locationName = issue.location?.name ?? null;
+    const companyName = issue.company?.name ?? null;
+    const contractorName = issue.contractor?.name ?? null;
+    const machineName = issue.machine?.name ?? null;
     rows.push({
       type: "issue",
       date: issue.issuedAt,
       issueNo: issue.issueNo,
       description: `Issued to ${issue.issuedTo ?? "—"}`,
+      company: companyName,
+      contractor: contractorName,
+      machine: machineName,
+      location: locationName,
       user: issueUser || undefined,
       remarks: issue.remarks ?? undefined,
     });
@@ -260,6 +297,10 @@ function buildLedgerRows(
         date: r.returnedAt,
         issueNo: issue.issueNo,
         description: cond ? `Returned (${cond})` : "Returned",
+        company: companyName,
+        contractor: contractorName,
+        machine: machineName,
+        location: locationName,
         user: returnUser || undefined,
         remarks: r.remarks ?? undefined,
         returnCode: r.returnCode ?? undefined,
@@ -272,11 +313,19 @@ function buildLedgerRows(
     const returnUser =
       r.returnedByUser &&
       `${r.returnedByUser.firstName ?? ""} ${r.returnedByUser.lastName ?? ""}`.trim();
+    const locName = r.location?.name ?? null;
+    const companyName = r.company?.name ?? null;
+    const contractorName = r.contractor?.name ?? null;
+    const machineName = r.machine?.name ?? null;
     rows.push({
       type: "return",
       date: r.returnedAt,
       issueNo: "—",
       description: cond ? `Received (Missing item) (${cond})` : "Received (Missing item)",
+      company: companyName ?? undefined,
+      contractor: contractorName ?? undefined,
+      machine: machineName ?? undefined,
+      location: locName ?? undefined,
       user: returnUser || undefined,
       remarks: r.remarks ?? undefined,
       returnCode: r.returnCode ?? undefined,
@@ -327,6 +376,10 @@ export const getItemHistoryLedger = async (
       prisma.issue.findMany({
         where: issueWhere,
         include: {
+          location: true,
+          company: true,
+          contractor: true,
+          machine: true,
           issuedByUser: {
             select: {
               id: true,
@@ -362,7 +415,11 @@ export const getItemHistoryLedger = async (
               lastName: true,
             },
           },
-        },
+          company: true,
+          contractor: true,
+          machine: true,
+          location: true,
+        } as Record<string, unknown>,
         orderBy: { returnedAt: "asc" },
       }),
     ]);
@@ -370,7 +427,7 @@ export const getItemHistoryLedger = async (
     let rows = buildLedgerRows(
       itemId,
       issues as Parameters<typeof buildLedgerRows>[1],
-      standaloneReturns as Parameters<typeof buildLedgerRows>[2]
+      standaloneReturns as unknown as Parameters<typeof buildLedgerRows>[2]
     );
 
     if (filters.search?.trim()) {
@@ -379,6 +436,10 @@ export const getItemHistoryLedger = async (
         (r) =>
           r.issueNo.toLowerCase().includes(term) ||
           r.description.toLowerCase().includes(term) ||
+          (r.company && r.company.toLowerCase().includes(term)) ||
+          (r.contractor && r.contractor.toLowerCase().includes(term)) ||
+          (r.machine && r.machine.toLowerCase().includes(term)) ||
+          (r.location && r.location.toLowerCase().includes(term)) ||
           (r.user && r.user.toLowerCase().includes(term)) ||
           (r.remarks && r.remarks.toLowerCase().includes(term)) ||
           (r.returnCode && r.returnCode.toLowerCase().includes(term)) ||
@@ -463,6 +524,7 @@ export const exportIssuedItemsReport = async (
       where,
       include: {
         item: true,
+        location: true,
         issuedByUser: {
           select: {
             id: true,
@@ -480,6 +542,7 @@ export const exportIssuedItemsReport = async (
       "Entry Date": new Date(issue.issuedAt).toLocaleString(),
       "Serial No": issue.item?.serialNumber ?? "N/A",
       "Item Name": issue.item?.itemName ?? "N/A",
+      Location: (issue as { location?: { name: string } | null }).location?.name ?? "N/A",
       "Issued To": issue.issuedTo ?? "N/A",
       "Issued By": issue.issuedByUser
         ? `${issue.issuedByUser.firstName ?? ""} ${issue.issuedByUser.lastName ?? ""}`.trim()
@@ -508,19 +571,29 @@ export const exportMissingItemsReport = async (
     const where = buildMissingReportWhere(filters);
     const items = await prisma.item.findMany({
       where,
-      include: { issues: true },
+      include: {
+        issues: {
+          include: { location: true },
+          orderBy: { issuedAt: "desc" },
+        },
+      },
       orderBy: { itemName: "asc" },
     });
-    const rows = items.map((item, idx) => ({
-      "Sr.No": idx + 1,
-      "Serial No": item.serialNumber ?? "N/A",
-      "Item Name": item.itemName,
-      Description: item.description ?? "N/A",
-      Status: item.status,
-      "Total Issues": item.issues?.length ?? 0,
-      "Created At": new Date(item.createdAt).toLocaleString(),
-      "Last Updated": new Date(item.updatedAt).toLocaleString(),
-    }));
+    const rows = items.map((item, idx) => {
+      const lastIssue = (item.issues as Array<{ location?: { name: string } | null }>)?.[0];
+      const locationName = lastIssue?.location?.name ?? "N/A";
+      return {
+        "Sr.No": idx + 1,
+        "Serial No": item.serialNumber ?? "N/A",
+        "Item Name": item.itemName,
+        Location: locationName,
+        Description: item.description ?? "N/A",
+        Status: item.status,
+        "Total Issues": item.issues?.length ?? 0,
+        "Created At": new Date(item.createdAt).toLocaleString(),
+        "Last Updated": new Date(item.updatedAt).toLocaleString(),
+      };
+    });
     const buffer = buildExcelBuffer(rows, "Missing Items");
     const filename = `missing-items-report-${new Date().toISOString().split("T")[0]}.xlsx`;
     res.setHeader("Content-Type", getExcelMime());
@@ -553,6 +626,10 @@ export const exportItemHistoryReport = async (
         prisma.issue.findMany({
           where: issueWhere,
           include: {
+            location: true,
+            company: true,
+            contractor: true,
+            machine: true,
             issuedByUser: {
               select: { firstName: true, lastName: true },
             },
@@ -573,7 +650,11 @@ export const exportItemHistoryReport = async (
             returnedByUser: {
               select: { firstName: true, lastName: true },
             },
-          },
+            company: true,
+            contractor: true,
+            machine: true,
+            location: true,
+          } as any,
           orderBy: { returnedAt: "asc" },
         }),
       ]);
@@ -581,7 +662,7 @@ export const exportItemHistoryReport = async (
       let rows = buildLedgerRows(
         itemId,
         issues as Parameters<typeof buildLedgerRows>[1],
-        standaloneReturns as Parameters<typeof buildLedgerRows>[2]
+        standaloneReturns as unknown as Parameters<typeof buildLedgerRows>[2]
       );
       if (filters.search?.trim()) {
         const term = filters.search.trim().toLowerCase();
@@ -589,6 +670,10 @@ export const exportItemHistoryReport = async (
           (r) =>
             r.issueNo.toLowerCase().includes(term) ||
             r.description.toLowerCase().includes(term) ||
+            (r.company && r.company.toLowerCase().includes(term)) ||
+            (r.contractor && r.contractor.toLowerCase().includes(term)) ||
+            (r.machine && r.machine.toLowerCase().includes(term)) ||
+            (r.location && r.location.toLowerCase().includes(term)) ||
             (r.user && r.user.toLowerCase().includes(term)) ||
             (r.remarks && r.remarks.toLowerCase().includes(term)) ||
             (r.returnCode && r.returnCode.toLowerCase().includes(term)) ||
@@ -605,6 +690,10 @@ export const exportItemHistoryReport = async (
         Date: new Date(r.date).toLocaleString(),
         Event: r.type === "issue" ? "Issued" : "Returned",
         "Issue No": r.issueNo,
+        Company: r.company ?? "N/A",
+        Contractor: r.contractor ?? "N/A",
+        Machine: r.machine ?? "N/A",
+        Location: r.location ?? "N/A",
         Description: r.description,
         By: r.user ?? "N/A",
         Condition: r.condition ?? "N/A",

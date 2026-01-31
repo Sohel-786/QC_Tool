@@ -12,6 +12,7 @@ import {
   Company,
   Contractor,
   Machine,
+  Location,
   Role,
   ItemStatus,
 } from "@/types";
@@ -44,6 +45,7 @@ const issueSchema = z.object({
   companyId: z.number().min(1, "Company is required"),
   contractorId: z.number().min(1, "Contractor is required"),
   machineId: z.number().min(1, "Machine is required"),
+  locationId: z.number().min(1, "Location is required"),
   issuedTo: z.string().optional(),
   remarks: z.string().optional(),
 });
@@ -112,6 +114,14 @@ export default function IssuesPage() {
     },
   });
 
+  const { data: locations = [] } = useQuery<Location[]>({
+    queryKey: ["locations", "active"],
+    queryFn: async () => {
+      const res = await api.get("/locations/active");
+      return res.data?.data ?? [];
+    },
+  });
+
   const { data: filterItems = [] } = useQuery<Item[]>({
     queryKey: ["items", "active"],
     queryFn: async () => {
@@ -136,6 +146,7 @@ export default function IssuesPage() {
   const watchedCompanyId = watch("companyId");
   const watchedContractorId = watch("contractorId");
   const watchedMachineId = watch("machineId");
+  const watchedLocationId = watch("locationId");
 
   const hasAllRequired =
     typeof selectedCategoryId === "number" &&
@@ -152,7 +163,10 @@ export default function IssuesPage() {
     watchedContractorId >= 1 &&
     typeof watchedMachineId === "number" &&
     !Number.isNaN(watchedMachineId) &&
-    watchedMachineId >= 1;
+    watchedMachineId >= 1 &&
+    typeof watchedLocationId === "number" &&
+    !Number.isNaN(watchedLocationId) &&
+    watchedLocationId >= 1;
 
   const { data: itemsByCategory = [], isLoading: itemsLoading } = useQuery<
     Item[]
@@ -175,6 +189,7 @@ export default function IssuesPage() {
         companyId: data.companyId || undefined,
         contractorId: data.contractorId || undefined,
         machineId: data.machineId || undefined,
+        locationId: data.locationId || undefined,
       });
       return res.data;
     },
@@ -200,6 +215,7 @@ export default function IssuesPage() {
         companyId: data.companyId ?? undefined,
         contractorId: data.contractorId ?? undefined,
         machineId: data.machineId ?? undefined,
+        locationId: data.locationId ?? undefined,
         issuedTo: data.issuedTo ?? undefined,
         remarks: data.remarks ?? undefined,
       });
@@ -288,6 +304,7 @@ export default function IssuesPage() {
     setValue("companyId", issue.companyId ?? 0);
     setValue("contractorId", issue.contractorId ?? 0);
     setValue("machineId", issue.machineId ?? 0);
+    setValue("locationId", issue.locationId ?? 0);
     setValue("issuedTo", issue.issuedTo ?? "");
     setValue("remarks", issue.remarks ?? "");
     setIsFormOpen(true);
@@ -334,9 +351,10 @@ export default function IssuesPage() {
       company: companies.map((c) => ({ value: c.id, label: c.name })),
       contractor: contractors.map((c) => ({ value: c.id, label: c.name })),
       machine: machines.map((m) => ({ value: m.id, label: m.name })),
+      location: locations.map((l) => ({ value: l.id, label: l.name })),
       item: filterItems.map((i) => ({ value: i.id, label: i.serialNumber ? `${i.itemName} (${i.serialNumber})` : i.itemName })),
     }),
-    [companies, contractors, machines, filterItems],
+    [companies, contractors, machines, locations, filterItems],
   );
 
   const itemSelectOptions = useMemo(() => {
@@ -381,9 +399,10 @@ export default function IssuesPage() {
             companyOptions={filterOptions.company}
             contractorOptions={filterOptions.contractor}
             machineOptions={filterOptions.machine}
+            locationOptions={filterOptions.location}
             itemOptions={filterOptions.item}
             onClear={() => setFilters(defaultFilters)}
-            searchPlaceholder="Search by outward no., item, company, operator…"
+            searchPlaceholder="Search by outward no., item, company, location, operator…"
             className="shadow-sm"
           />
 
@@ -400,36 +419,39 @@ export default function IssuesPage() {
                 <div className="overflow-x-auto rounded-lg border border-secondary-200">
                   <table className="w-full text-left text-sm">
                     <thead>
-                      <tr className="border-b border-secondary-200 bg-secondary-50">
-                        <th className="px-4 py-3 font-semibold text-text text-center">
+                      <tr className="border-b border-primary-200 bg-primary-100">
+                        <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[110px]">
                           Issue No
                         </th>
-                        <th className="px-4 py-3 font-semibold text-text text-center">
+                        <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[120px]">
                           Outward Date
                         </th>
-                        <th className="px-4 py-3 font-semibold text-text text-center">
+                        <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[140px]">
                           Item
                         </th>
-                        <th className="px-4 py-3 font-semibold text-text text-center">
+                        <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[120px]">
                           Company
                         </th>
-                        <th className="px-4 py-3 font-semibold text-text text-center">
+                        <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[120px]">
                           Contractor
                         </th>
-                        <th className="px-4 py-3 font-semibold text-text text-center">
+                        <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[120px]">
                           Machine
                         </th>
-                        <th className="px-4 py-3 font-semibold text-text text-center">
+                        <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[120px]">
+                          Location
+                        </th>
+                        <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[100px]">
                           Operator
                         </th>
-                        <th className="px-4 py-3 font-semibold text-text text-center">
+                        <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[90px]">
                           Status
                         </th>
-                        <th className="px-4 py-3 font-semibold text-text text-center">
+                        <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[100px]">
                           Inward Done
                         </th>
                         {(canAddOutward || canEditOutward) && (
-                          <th className="px-4 py-3 font-semibold text-text text-center min-w-[200px]">
+                          <th className="px-4 py-3 font-semibold text-primary-900 text-center min-w-[200px]">
                             Actions
                           </th>
                         )}
@@ -442,7 +464,7 @@ export default function IssuesPage() {
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: idx * 0.02 }}
-                          className="border-b border-secondary-100 hover:bg-secondary-50/50"
+                          className="border-b border-secondary-100 hover:bg-primary-50 transition-colors"
                         >
                           <td className="px-4 py-3 font-mono text-secondary-700 text-center">
                             {issue.issueNo}
@@ -461,6 +483,9 @@ export default function IssuesPage() {
                           </td>
                           <td className="px-4 py-3 text-secondary-600 text-center">
                             {issue.machine?.name ?? "—"}
+                          </td>
+                          <td className="px-4 py-3 text-secondary-600 text-center">
+                            {issue.location?.name ?? "—"}
                           </td>
                           <td className="px-4 py-3 text-secondary-600 text-center">
                             {issue.issuedTo ?? "—"}
@@ -809,6 +834,39 @@ export default function IssuesPage() {
                       </p>
                     )}
                   </div>
+                  <div>
+                    <Label
+                      htmlFor="outward-location-id"
+                      className="text-sm font-medium text-secondary-700"
+                    >
+                      Location <span className="text-red-500">*</span>
+                    </Label>
+                    <select
+                      id="outward-location-id"
+                      {...register("locationId", {
+                        setValueAs: (v) =>
+                          v === "" || v == null ? undefined : Number(v),
+                      })}
+                      disabled={isViewOnly}
+                      className="mt-1.5 flex h-10 w-full rounded-md border border-secondary-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 disabled:opacity-60 disabled:cursor-not-allowed"
+                      aria-required="true"
+                    >
+                      <option value="">Select location</option>
+                      {locations.map((l) => (
+                        <option key={l.id} value={l.id}>
+                          {l.name}
+                        </option>
+                      ))}
+                    </select>
+                    {errors.locationId && (
+                      <p className="mt-1 text-sm text-red-600" role="alert">
+                        {errors.locationId.message}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label
                       htmlFor="outward-operator"

@@ -27,6 +27,7 @@ import {
 } from "@/components/filters/transaction-filters";
 import { MultiSelectSearch } from "@/components/ui/multi-select-search";
 import type { MultiSelectSearchOption } from "@/components/ui/multi-select-search";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { buildFilterParams, hasActiveFilters } from "@/lib/filters";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { cn } from "@/lib/utils";
@@ -55,6 +56,10 @@ interface LedgerRow {
   date: string;
   issueNo: string;
   description: string;
+  company?: string | null;
+  contractor?: string | null;
+  machine?: string | null;
+  location?: string | null;
   user?: string;
   remarks?: string | null;
   returnCode?: string | null;
@@ -80,6 +85,8 @@ function ReportsContent() {
     useState<TransactionFiltersState>(defaultFilters);
   const [ledgerDateFrom, setLedgerDateFrom] = useState("");
   const [ledgerDateTo, setLedgerDateTo] = useState("");
+  const [ledgerCategoryId, setLedgerCategoryId] = useState<number | null>(null);
+  const [ledgerSelectedItemId, setLedgerSelectedItemId] = useState<number | null>(null);
 
   const debouncedSearch = useDebouncedValue(filters.search, 400);
   const debouncedMissingSearch = useDebouncedValue(missingFilters.search, 400);
@@ -145,6 +152,13 @@ function ReportsContent() {
       return res.data?.data ?? [];
     },
   });
+  const { data: locations = [] } = useQuery({
+    queryKey: ["locations", "active"],
+    queryFn: async () => {
+      const res = await api.get("/locations/active");
+      return res.data?.data ?? [];
+    },
+  });
   const { data: filterItems = [] } = useQuery({
     queryKey: ["items", "active"],
     queryFn: async () => {
@@ -159,8 +173,7 @@ function ReportsContent() {
       return res.data?.data ?? [];
     },
   });
-  const ledgerItemId =
-    ledgerFiltersForApi.itemIds.length > 0 ? ledgerFiltersForApi.itemIds[0] : null;
+  const ledgerItemId = ledgerSelectedItemId;
 
   const issuedParams = useMemo(
     () => ({
@@ -268,7 +281,7 @@ function ReportsContent() {
         alert("Failed to export report. Please try again.");
       }
     },
-    [filtersForApi, missingFiltersForApi, ledgerItemId]
+    [filtersForApi, missingFiltersForApi, ledgerItemId, ledgerFiltersForApi, ledgerDateFrom, ledgerDateTo]
   );
 
   const companyOptions: MultiSelectSearchOption[] = useMemo(
@@ -285,6 +298,11 @@ function ReportsContent() {
       machines.map((m: { id: number; name: string }) => ({ value: m.id, label: m.name })),
     [machines]
   );
+  const locationOptions: MultiSelectSearchOption[] = useMemo(
+    () =>
+      locations.map((l: { id: number; name: string }) => ({ value: l.id, label: l.name })),
+    [locations]
+  );
   const itemOptions: MultiSelectSearchOption[] = useMemo(
     () =>
       filterItems.map((i: { id: number; itemName: string; serialNumber?: string | null }) => ({
@@ -298,7 +316,22 @@ function ReportsContent() {
       categories.map((c: { id: number; name: string }) => ({ value: c.id, label: c.name })),
     [categories]
   );
-  const ledgerItemOptions: MultiSelectSearchOption[] = itemOptions;
+  const ledgerItemsByCategory = useMemo(() => {
+    if (ledgerCategoryId == null) return filterItems;
+    return filterItems.filter(
+      (i: { categoryId?: number | null }) => i.categoryId === ledgerCategoryId
+    );
+  }, [filterItems, ledgerCategoryId]);
+  const ledgerItemOptions: MultiSelectSearchOption[] = useMemo(
+    () =>
+      ledgerItemsByCategory.map(
+        (i: { id: number; itemName: string; serialNumber?: string | null }) => ({
+          value: i.id,
+          label: i.serialNumber ? `${i.itemName} (${i.serialNumber})` : i.itemName,
+        })
+      ),
+    [ledgerItemsByCategory]
+  );
 
   const issuedData = Array.isArray(issuedReport?.data) ? issuedReport.data : [];
   const issuedTotal = issuedReport?.total ?? 0;
@@ -408,12 +441,13 @@ function ReportsContent() {
                 companyOptions={companyOptions}
                 contractorOptions={contractorOptions}
                 machineOptions={machineOptions}
+                locationOptions={locationOptions}
                 itemOptions={itemOptions}
                 onClear={() => {
                   setFilters(defaultFilters);
                   resetPagination();
                 }}
-                searchPlaceholder="Search by issue no., item, operator…"
+                searchPlaceholder="Search by issue no., item, location, operator…"
                 className="shadow-sm"
               />
               <ReportToolbar
@@ -438,23 +472,26 @@ function ReportsContent() {
                       <div className="overflow-x-auto rounded-b-lg border border-secondary-200 border-t-0">
                         <table className="w-full text-left text-sm">
                           <thead>
-                            <tr className="border-b border-secondary-200 bg-secondary-50">
-                              <th className="px-4 py-3 font-semibold text-text text-center whitespace-nowrap">
+                            <tr className="border-b border-primary-200 bg-primary-100">
+                              <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[110px]">
                                 Issue No
                               </th>
-                              <th className="px-4 py-3 font-semibold text-text text-center whitespace-nowrap">
+                              <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[150px]">
                                 Entry Date
                               </th>
-                              <th className="px-4 py-3 font-semibold text-text text-center whitespace-nowrap">
+                              <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[160px]">
                                 Item
                               </th>
-                              <th className="px-4 py-3 font-semibold text-text text-center whitespace-nowrap">
+                              <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[120px]">
+                                Location
+                              </th>
+                              <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[120px]">
                                 Issued To
                               </th>
-                              <th className="px-4 py-3 font-semibold text-text text-center whitespace-nowrap">
+                              <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[130px]">
                                 Issued By
                               </th>
-                              <th className="px-4 py-3 font-semibold text-text text-center whitespace-nowrap">
+                              <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[90px]">
                                 Status
                               </th>
                             </tr>
@@ -463,7 +500,7 @@ function ReportsContent() {
                             {issuedData.map((issue: any) => (
                               <tr
                                 key={issue.id}
-                                className="border-b border-secondary-100 hover:bg-secondary-50/50 transition-colors"
+                                className="border-b border-secondary-100 hover:bg-primary-50 transition-colors"
                               >
                                 <td className="px-4 py-3 font-mono text-secondary-700 text-center">
                                   {issue.issueNo}
@@ -471,7 +508,7 @@ function ReportsContent() {
                                 <td className="px-4 py-3 text-secondary-600 text-center whitespace-nowrap">
                                   {formatDateTime(issue.issuedAt)}
                                 </td>
-                                <td className="px-4 py-3 font-medium text-text text-center">
+                                <td className="px-4 py-3 font-medium text-text text-center min-w-[160px]">
                                   <div>
                                     <p className="font-medium">{issue.item?.itemName ?? "—"}</p>
                                     {issue.item?.serialNumber && (
@@ -480,6 +517,9 @@ function ReportsContent() {
                                       </p>
                                     )}
                                   </div>
+                                </td>
+                                <td className="px-4 py-3 text-secondary-600 text-center">
+                                  {(issue as { location?: { name: string } | null }).location?.name ?? "—"}
                                 </td>
                                 <td className="px-4 py-3 text-secondary-600 text-center">
                                   {issue.issuedTo ?? "—"}
@@ -548,12 +588,13 @@ function ReportsContent() {
                 companyOptions={companyOptions}
                 contractorOptions={contractorOptions}
                 machineOptions={machineOptions}
+                locationOptions={locationOptions}
                 itemOptions={itemOptions}
                 onClear={() => {
                   setMissingFilters(defaultFilters);
                   resetPagination();
                 }}
-                searchPlaceholder="Search by item name, serial, issue no., company, contractor, machine…"
+                searchPlaceholder="Search by item name, serial, issue no., company, contractor, machine, location…"
                 className="shadow-sm"
               />
               <ReportToolbar
@@ -578,23 +619,26 @@ function ReportsContent() {
                       <div className="overflow-x-auto rounded-b-lg border border-secondary-200 border-t-0">
                         <table className="w-full text-left text-sm">
                           <thead>
-                            <tr className="border-b border-secondary-200 bg-secondary-50">
-                              <th className="px-4 py-3 font-semibold text-text text-center whitespace-nowrap">
+                            <tr className="border-b border-primary-200 bg-primary-100">
+                              <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap">
                                 Serial No
                               </th>
-                              <th className="px-4 py-3 font-semibold text-text text-center whitespace-nowrap">
+                              <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap">
                                 Item Name
                               </th>
-                              <th className="px-4 py-3 font-semibold text-text text-center whitespace-nowrap">
+                              <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap">
+                                Location
+                              </th>
+                              <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap">
                                 Description
                               </th>
-                              <th className="px-4 py-3 font-semibold text-text text-center whitespace-nowrap">
+                              <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap">
                                 Total Issues
                               </th>
-                              <th className="px-4 py-3 font-semibold text-text text-center whitespace-nowrap">
+                              <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap">
                                 Status
                               </th>
-                              <th className="px-4 py-3 font-semibold text-text text-center whitespace-nowrap">
+                              <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap">
                                 Created At
                               </th>
                             </tr>
@@ -603,13 +647,16 @@ function ReportsContent() {
                             {missingData.map((item: any) => (
                               <tr
                                 key={item.id}
-                                className="border-b border-secondary-100 hover:bg-secondary-50/50 transition-colors"
+                                className="border-b border-secondary-100 hover:bg-primary-50 transition-colors"
                               >
                                 <td className="px-4 py-3 font-mono text-secondary-700 text-center">
                                   {item.serialNumber ?? "—"}
                                 </td>
                                 <td className="px-4 py-3 font-medium text-text text-center">
                                   {item.itemName}
+                                </td>
+                                <td className="px-4 py-3 text-secondary-600 text-center">
+                                  {item.issues?.[0]?.location?.name ?? "—"}
                                 </td>
                                 <td className="px-4 py-3 text-secondary-600 text-center">
                                   {item.description ?? "—"}
@@ -663,23 +710,82 @@ function ReportsContent() {
               transition={{ duration: 0.3 }}
               className="space-y-4"
             >
+              <Card className="shadow-sm border-primary-200 bg-primary-50/20">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Select item for ledger</CardTitle>
+                  <p className="text-sm text-secondary-600 font-normal mt-1">
+                    Choose a category, then an item. The table below shows the full history for that item. Use filters to narrow results; export uses the same filters.
+                  </p>
+                </CardHeader>
+                <CardContent className="flex flex-wrap items-end gap-4">
+                  <div className="min-w-0 flex-1 sm:min-w-[200px] max-w-[280px]">
+                    <Label className="text-sm font-medium text-secondary-700 mb-1.5 block">
+                      Category
+                    </Label>
+                    <SearchableSelect
+                      id="ledger-category"
+                      options={categoryOptions}
+                      value={ledgerCategoryId ?? ""}
+                      onChange={(v) => {
+                        setLedgerCategoryId(v ? Number(v) : null);
+                        setLedgerSelectedItemId(null);
+                        resetPagination();
+                      }}
+                      placeholder="All categories"
+                      searchPlaceholder="Search category..."
+                      aria-label="Category"
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1 sm:min-w-[220px] max-w-[320px]">
+                    <Label className="text-sm font-medium text-secondary-700 mb-1.5 block">
+                      Item
+                    </Label>
+                    <SearchableSelect
+                      id="ledger-item"
+                      options={ledgerItemOptions}
+                      value={ledgerSelectedItemId ?? ""}
+onChange={(v) => {
+                          const id = v ? Number(v) : null;
+                          setLedgerSelectedItemId(id);
+                          setLedgerFilters((prev) => ({
+                            ...prev,
+                            itemIds: id != null ? [id] : [],
+                          }));
+                          resetPagination();
+                        }}
+                      placeholder={ledgerCategoryId != null ? "Select item in this category" : "Select category first or pick any item"}
+                      searchPlaceholder="Search item..."
+                      aria-label="Item"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
               <TransactionFilters
                 filters={ledgerFilters}
                 onFiltersChange={(f) => {
                   setLedgerFilters(f);
+                  const itemId = f.itemIds?.[0] ?? null;
+                  setLedgerSelectedItemId(itemId);
+                  if (itemId != null) {
+                    const item = filterItems.find((i: { id: number; categoryId?: number | null }) => i.id === itemId);
+                    if (item?.categoryId != null) setLedgerCategoryId(item.categoryId);
+                  }
                   resetPagination();
                 }}
                 companyOptions={companyOptions}
                 contractorOptions={contractorOptions}
                 machineOptions={machineOptions}
+                locationOptions={locationOptions}
                 itemOptions={ledgerItemOptions}
                 onClear={() => {
                   setLedgerFilters(defaultFilters);
                   setLedgerDateFrom("");
                   setLedgerDateTo("");
+                  setLedgerCategoryId(null);
+                  setLedgerSelectedItemId(null);
                   resetPagination();
                 }}
-                searchPlaceholder="Search by issue no., description, by, remarks, condition…"
+                searchPlaceholder="Search by issue no., description, company, contractor, machine, location, by, remarks, condition…"
                 className="shadow-sm"
               />
               <Card className="shadow-sm">
@@ -715,14 +821,23 @@ function ReportsContent() {
                     </div>
                   </div>
                   <p className="text-xs text-secondary-500 mt-2">
-                    Select an item in the filter above to view full traceability (who received it, where it was, current status). Recent transactions appear first.
+                    Use the category and item selectors above, then apply filters (date range, search, company, etc.) as needed. Export Excel uses the same filters. Recent transactions appear first.
                   </p>
                 </CardContent>
               </Card>
               {ledgerItem && (
                 <Card className="shadow-sm border-primary-200 bg-primary-50/30">
                   <CardContent className="p-4">
-                    <p className="text-sm font-semibold text-text">
+                    <p className="text-xs font-medium text-secondary-600 uppercase tracking-wide">
+                      Ledger for
+                    </p>
+                    <p className="text-sm font-semibold text-text mt-0.5">
+                      {ledgerItem.category ? (
+                        <>
+                          <span className="text-primary-600">{ledgerItem.category.name}</span>
+                          <span className="text-secondary-400 mx-2">»</span>
+                        </>
+                      ) : null}
                       {ledgerItem.itemName}
                       {ledgerItem.serialNumber && (
                         <span className="font-mono text-secondary-600 ml-2">
@@ -732,7 +847,7 @@ function ReportsContent() {
                     </p>
                     {ledgerItem.category && (
                       <p className="text-xs text-secondary-500 mt-1">
-                        Category: {ledgerItem.category.name}
+                        Category: {ledgerItem.category.name} · Item: {ledgerItem.itemName}
                       </p>
                     )}
                   </CardContent>
@@ -754,7 +869,7 @@ function ReportsContent() {
                     Item History (Ledger)
                     {ledgerItem
                       ? ` — ${ledgerItem.itemName} (${ledgerTotal} records)`
-                      : " — Select an item in the filter above"}
+                      : " — Select a category and item above"}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
@@ -769,28 +884,40 @@ function ReportsContent() {
                   ) : ledgerRows.length > 0 ? (
                     <>
                       <div className="overflow-x-auto rounded-b-lg border border-secondary-200 border-t-0">
-                        <table className="w-full text-left text-sm">
+                        <table className="w-full text-left text-sm min-w-[1200px]">
                           <thead>
-                            <tr className="border-b border-secondary-200 bg-secondary-50">
-                              <th className="px-4 py-3 font-semibold text-text text-center whitespace-nowrap">
+                            <tr className="border-b border-primary-200 bg-primary-100">
+                              <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[140px] w-[140px]">
                                 Date
                               </th>
-                              <th className="px-4 py-3 font-semibold text-text text-center whitespace-nowrap">
+                              <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[90px] w-[90px]">
                                 Event
                               </th>
-                              <th className="px-4 py-3 font-semibold text-text text-center whitespace-nowrap">
+                              <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[100px] w-[100px]">
                                 Issue No
                               </th>
-                              <th className="px-4 py-3 font-semibold text-text text-center whitespace-nowrap">
+                              <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[120px]">
+                                Company
+                              </th>
+                              <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[120px]">
+                                Contractor
+                              </th>
+                              <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[120px]">
+                                Machine
+                              </th>
+                              <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[120px]">
+                                Location
+                              </th>
+                              <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[160px]">
                                 Description
                               </th>
-                              <th className="px-4 py-3 font-semibold text-text text-center whitespace-nowrap">
+                              <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[100px] w-[100px]">
                                 Condition
                               </th>
-                              <th className="px-4 py-3 font-semibold text-text text-center whitespace-nowrap">
+                              <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[120px]">
                                 By
                               </th>
-                              <th className="px-4 py-3 font-semibold text-text text-center whitespace-nowrap">
+                              <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[140px]">
                                 Remarks
                               </th>
                             </tr>
@@ -799,7 +926,7 @@ function ReportsContent() {
                             {ledgerRows.map((row: LedgerRow, idx: number) => (
                               <tr
                                 key={`${row.issueNo}-${row.date}-${idx}`}
-                                className="border-b border-secondary-100 hover:bg-secondary-50/50 transition-colors"
+                                className="border-b border-secondary-100 hover:bg-primary-50 transition-colors"
                               >
                                 <td className="px-4 py-3 text-secondary-600 text-center whitespace-nowrap">
                                   {formatDateTime(row.date)}
@@ -820,10 +947,37 @@ function ReportsContent() {
                                   {row.issueNo}
                                 </td>
                                 <td className="px-4 py-3 text-secondary-600 text-center">
-                                  {row.description}
+                                  {row.company ?? "—"}
                                 </td>
                                 <td className="px-4 py-3 text-secondary-600 text-center">
-                                  {row.condition ?? "—"}
+                                  {row.contractor ?? "—"}
+                                </td>
+                                <td className="px-4 py-3 text-secondary-600 text-center">
+                                  {row.machine ?? "—"}
+                                </td>
+                                <td className="px-4 py-3 text-secondary-600 text-center">
+                                  {row.location ?? "—"}
+                                </td>
+                                <td className="px-4 py-3 text-secondary-600 text-center">
+                                  {row.description}
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  <span
+                                    className={cn(
+                                      "inline-flex px-2.5 py-1 rounded-full text-xs font-medium border",
+                                      row.condition === "OK"
+                                        ? "bg-green-100 text-green-700 border-green-200"
+                                        : row.condition === "Damaged"
+                                          ? "bg-amber-100 text-amber-700 border-amber-200"
+                                          : row.condition === "Calibration Required"
+                                            ? "bg-blue-100 text-blue-700 border-blue-200"
+                                            : row.condition === "Missing"
+                                              ? "bg-red-100 text-red-700 border-red-200"
+                                              : "bg-secondary-100 text-secondary-700 border-secondary-200"
+                                    )}
+                                  >
+                                    {row.condition ?? "—"}
+                                  </span>
                                 </td>
                                 <td className="px-4 py-3 text-secondary-600 text-center">
                                   {row.user ?? "—"}

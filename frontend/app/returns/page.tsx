@@ -42,6 +42,10 @@ const returnSchema = z
     statusId: z.number().optional(),
     remarks: z.string().optional(),
     receivedBy: z.string().optional(),
+    companyId: z.number().optional(),
+    contractorId: z.number().optional(),
+    machineId: z.number().optional(),
+    locationId: z.number().optional(),
   })
   .refine(
     (data) =>
@@ -146,6 +150,13 @@ export default function ReturnsPage() {
       return res.data?.data ?? [];
     },
   });
+  const { data: filterLocations = [] } = useQuery({
+    queryKey: ["locations", "active"],
+    queryFn: async () => {
+      const res = await api.get("/locations/active");
+      return res.data?.data ?? [];
+    },
+  });
   const { data: filterItems = [] } = useQuery({
     queryKey: ["items", "active"],
     queryFn: async () => {
@@ -179,6 +190,10 @@ export default function ReturnsPage() {
       statusId: undefined,
       remarks: "",
       receivedBy: "",
+      companyId: undefined,
+      contractorId: undefined,
+      machineId: undefined,
+      locationId: undefined,
     },
   });
 
@@ -243,6 +258,11 @@ export default function ReturnsPage() {
         value: m.id,
         label: m.name,
       })),
+      location: filterLocations.map((l: { id: number; name: string }) => ({
+        value: l.id,
+        label: l.name,
+      })),
+      condition: RETURN_CONDITIONS.map((c) => ({ value: c, label: c })),
       item: filterItems.map(
         (i: {
           id: number;
@@ -256,7 +276,13 @@ export default function ReturnsPage() {
         }),
       ),
     }),
-    [filterCompanies, filterContractors, filterMachines, filterItems],
+    [
+      filterCompanies,
+      filterContractors,
+      filterMachines,
+      filterLocations,
+      filterItems,
+    ],
   );
 
   const createMutation = useMutation({
@@ -356,6 +382,10 @@ export default function ReturnsPage() {
       statusId: undefined,
       remarks: "",
       receivedBy: "",
+      companyId: undefined,
+      contractorId: undefined,
+      machineId: undefined,
+      locationId: undefined,
     });
     setImageFile(null);
     setImagePreview(null);
@@ -466,6 +496,16 @@ export default function ReturnsPage() {
     if (data.remarks) formData.append("remarks", data.remarks);
     if (data.receivedBy?.trim())
       formData.append("receivedBy", data.receivedBy.trim());
+    if (data.entryMode === "missing_item") {
+      if (data.companyId != null && data.companyId >= 1)
+        formData.append("companyId", String(data.companyId));
+      if (data.contractorId != null && data.contractorId >= 1)
+        formData.append("contractorId", String(data.contractorId));
+      if (data.machineId != null && data.machineId >= 1)
+        formData.append("machineId", String(data.machineId));
+      if (data.locationId != null && data.locationId >= 1)
+        formData.append("locationId", String(data.locationId));
+    }
     createMutation.mutate({ formData });
   };
 
@@ -497,7 +537,10 @@ export default function ReturnsPage() {
             companyOptions={filterOptions.company}
             contractorOptions={filterOptions.contractor}
             machineOptions={filterOptions.machine}
+            locationOptions={filterOptions.location}
             itemOptions={filterOptions.item}
+            showConditionFilter={true}
+            conditionOptions={filterOptions.condition}
             onClear={() => setFilters(defaultFilters)}
             searchPlaceholder="Search by inward no., issue no., item, status…"
             className="shadow-sm"
@@ -516,45 +559,48 @@ export default function ReturnsPage() {
                 <div className="overflow-x-auto rounded-lg border border-secondary-200">
                   <table className="w-full text-left text-sm">
                     <thead>
-                      <tr className="border-b border-secondary-200 bg-secondary-50">
-                        <th className="px-4 py-3 font-semibold text-text text-center">
+                      <tr className="border-b border-primary-200 bg-primary-100">
+                        <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[100px]">
                           Inward No
                         </th>
-                        <th className="px-4 py-3 font-semibold text-text text-center">
+                        <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[150px]">
                           Inward Date
                         </th>
-                        <th className="px-4 py-3 font-semibold text-text text-center">
+                        <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[120px]">
                           Issue No / Source
                         </th>
-                        <th className="px-4 py-3 font-semibold text-text text-center">
+                        <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[140px]">
                           Item
                         </th>
-                        <th className="px-4 py-3 font-semibold text-text text-center">
+                        <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[110px]">
                           Condition
                         </th>
-                        <th className="px-4 py-3 font-semibold text-text text-center">
+                        <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[120px]">
                           Company
                         </th>
-                        <th className="px-4 py-3 font-semibold text-text text-center">
+                        <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[120px]">
                           Contractor
                         </th>
-                        <th className="px-4 py-3 font-semibold text-text text-center">
+                        <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[120px]">
                           Machine
                         </th>
-                        <th className="px-4 py-3 font-semibold text-text text-center">
+                        <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[120px]">
+                          Location
+                        </th>
+                        <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[90px]">
                           Status
                         </th>
-                        <th className="px-4 py-3 font-semibold text-text text-center">
+                        <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[110px]">
                           Received by
                         </th>
-                        <th className="px-4 py-3 font-semibold text-text text-center">
+                        <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[80px]">
                           Active
                         </th>
-                        <th className="px-4 py-3 font-semibold text-text text-center w-[30px]">
+                        <th className="px-4 py-3 font-semibold text-primary-900 text-center w-[60px] min-w-[60px]">
                           Image
                         </th>
                         {(canAddInward || canEditInward) && (
-                          <th className="px-4 py-3 font-semibold text-text text-center min-w-[160px]">
+                          <th className="px-4 py-3 font-semibold text-primary-900 text-center min-w-[160px]">
                             Actions
                           </th>
                         )}
@@ -567,7 +613,7 @@ export default function ReturnsPage() {
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: idx * 0.02 }}
-                          className="border-b border-secondary-100 hover:bg-secondary-50/50"
+                          className="border-b border-secondary-100 hover:bg-primary-50 transition-colors"
                         >
                           <td className="px-4 py-3 font-mono text-secondary-700 text-center">
                             {r.returnCode ?? "—"}
@@ -583,20 +629,45 @@ export default function ReturnsPage() {
                           <td className="px-4 py-3 font-medium text-text text-center">
                             {r.issue?.item?.itemName ?? r.item?.itemName ?? "—"}
                           </td>
-                          <td className="px-4 py-3 text-secondary-600 text-center">
-                            {r.condition ?? "—"}
+                          <td className="px-4 py-3 text-center">
+                            <span
+                              className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium border ${
+                                r.condition === "OK"
+                                  ? "bg-green-100 text-green-700 border-green-200"
+                                  : r.condition === "Damaged"
+                                    ? "bg-amber-100 text-amber-700 border-amber-200"
+                                    : r.condition === "Calibration Required"
+                                      ? "bg-blue-100 text-blue-700 border-blue-200"
+                                      : r.condition === "Missing"
+                                        ? "bg-red-100 text-red-700 border-red-200"
+                                        : "bg-secondary-100 text-secondary-700 border-secondary-200"
+                              }`}
+                            >
+                              {r.condition ?? "—"}
+                            </span>
                           </td>
-                          <td className="px-4 py-3 text-secondary-600 text-center">
-                            {r.issue?.company?.name ?? "—"}
+                          <td className="px-4 py-3 text-secondary-600 text-center min-w-[120px]">
+                            {r.issue?.company?.name ?? r.company?.name ?? "—"}
                           </td>
-                          <td className="px-4 py-3 text-secondary-600 text-center">
-                            {r.issue?.contractor?.name ?? "—"}
+                          <td className="px-4 py-3 text-secondary-600 text-center min-w-[120px]">
+                            {r.issue?.contractor?.name ??
+                              r.contractor?.name ??
+                              "—"}
                           </td>
-                          <td className="px-4 py-3 text-secondary-600 text-center">
-                            {r.issue?.machine?.name ?? "—"}
+                          <td className="px-4 py-3 text-secondary-600 text-center min-w-[120px]">
+                            {r.issue?.machine?.name ?? r.machine?.name ?? "—"}
                           </td>
-                          <td className="px-4 py-3 text-secondary-600 text-center">
-                            {r.status?.name ?? "—"}
+                          <td className="px-4 py-3 text-secondary-600 text-center min-w-[120px]">
+                            {r.issue?.location?.name ?? r.location?.name ?? "—"}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            {r.status?.name ? (
+                              <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-medium bg-primary-100 text-primary-800 border border-primary-200">
+                                {r.status.name}
+                              </span>
+                            ) : (
+                              <span className="text-secondary-500">—</span>
+                            )}
                           </td>
                           <td className="px-4 py-3 text-secondary-600 text-center">
                             {r.receivedBy?.trim() ? r.receivedBy : "—"}
@@ -807,10 +878,30 @@ export default function ReturnsPage() {
                           Missing item
                         </h4>
                         <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-secondary-700">
+                          <span>Source Inward No</span>
+                          <span>
+                            {editingReturn.sourceInwardCode ?? "—"}
+                          </span>
                           <span>Item</span>
                           <span>{editingReturn.item.itemName}</span>
                           <span>Serial</span>
                           <span>{editingReturn.item.serialNumber ?? "—"}</span>
+                          <span>Company</span>
+                          <span>
+                            {editingReturn.company?.name ?? "—"}
+                          </span>
+                          <span>Contractor</span>
+                          <span>
+                            {editingReturn.contractor?.name ?? "—"}
+                          </span>
+                          <span>Machine</span>
+                          <span>
+                            {editingReturn.machine?.name ?? "—"}
+                          </span>
+                          <span>Location</span>
+                          <span>
+                            {editingReturn.location?.name ?? "—"}
+                          </span>
                         </div>
                       </div>
                     )}
@@ -1040,29 +1131,161 @@ export default function ReturnsPage() {
                     )}
 
                     {isMissingItemMode && (
-                      <div>
-                        <Label
-                          htmlFor="inward-item-id"
-                          className="text-sm font-medium text-secondary-700"
-                        >
-                          Missing item <span className="text-red-500">*</span>
-                        </Label>
-                        <div className="mt-1.5">
-                          <SearchableSelect
-                            id="inward-item-id"
-                            options={missingItemOptions}
-                            value={hasValidMissingItem ? numItemId : ""}
-                            onChange={(v) => setValue("itemId", Number(v))}
-                            placeholder="Select missing item"
-                            searchPlaceholder="Search item..."
-                            error={errors.itemId?.message}
-                            aria-label="Missing item"
-                          />
+                      <>
+                        <div>
+                          <Label
+                            htmlFor="inward-item-id"
+                            className="text-sm font-medium text-secondary-700"
+                          >
+                            Missing item <span className="text-red-500">*</span>
+                          </Label>
+                          <div className="mt-1.5">
+                            <SearchableSelect
+                              id="inward-item-id"
+                              options={missingItemOptions}
+                              value={hasValidMissingItem ? numItemId : ""}
+                              onChange={(v) => setValue("itemId", Number(v))}
+                              placeholder="Select missing item"
+                              searchPlaceholder="Search item..."
+                              error={errors.itemId?.message}
+                              aria-label="Missing item"
+                            />
+                          </div>
+                          <p className="mt-1 text-xs text-secondary-500">
+                            Items previously inwarded as Missing appear here.
+                          </p>
                         </div>
-                        <p className="mt-1 text-xs text-secondary-500">
-                          Items previously inwarded as Missing appear here.
-                        </p>
-                      </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <Label
+                              htmlFor="inward-missing-company"
+                              className="text-sm font-medium text-secondary-700"
+                            >
+                              Company{" "}
+                              <span className="text-secondary-400 font-normal">
+                                (optional)
+                              </span>
+                            </Label>
+                            <div className="mt-1.5">
+                              <SearchableSelect
+                                id="inward-missing-company"
+                                options={filterOptions.company}
+                                value={
+                                  watch("companyId") &&
+                                  Number(watch("companyId")) >= 1
+                                    ? Number(watch("companyId"))
+                                    : ""
+                                }
+                                onChange={(v) =>
+                                  setValue(
+                                    "companyId",
+                                    v ? Number(v) : undefined,
+                                  )
+                                }
+                                placeholder="Select company"
+                                searchPlaceholder="Search company..."
+                                aria-label="Company"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <Label
+                              htmlFor="inward-missing-contractor"
+                              className="text-sm font-medium text-secondary-700"
+                            >
+                              Contractor{" "}
+                              <span className="text-secondary-400 font-normal">
+                                (optional)
+                              </span>
+                            </Label>
+                            <div className="mt-1.5">
+                              <SearchableSelect
+                                id="inward-missing-contractor"
+                                options={filterOptions.contractor}
+                                value={
+                                  watch("contractorId") &&
+                                  Number(watch("contractorId")) >= 1
+                                    ? Number(watch("contractorId"))
+                                    : ""
+                                }
+                                onChange={(v) =>
+                                  setValue(
+                                    "contractorId",
+                                    v ? Number(v) : undefined,
+                                  )
+                                }
+                                placeholder="Select contractor"
+                                searchPlaceholder="Search contractor..."
+                                aria-label="Contractor"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <Label
+                              htmlFor="inward-missing-machine"
+                              className="text-sm font-medium text-secondary-700"
+                            >
+                              Machine{" "}
+                              <span className="text-secondary-400 font-normal">
+                                (optional)
+                              </span>
+                            </Label>
+                            <div className="mt-1.5">
+                              <SearchableSelect
+                                id="inward-missing-machine"
+                                options={filterOptions.machine}
+                                value={
+                                  watch("machineId") &&
+                                  Number(watch("machineId")) >= 1
+                                    ? Number(watch("machineId"))
+                                    : ""
+                                }
+                                onChange={(v) =>
+                                  setValue(
+                                    "machineId",
+                                    v ? Number(v) : undefined,
+                                  )
+                                }
+                                placeholder="Select machine"
+                                searchPlaceholder="Search machine..."
+                                aria-label="Machine"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <Label
+                              htmlFor="inward-missing-location"
+                              className="text-sm font-medium text-secondary-700"
+                            >
+                              Location{" "}
+                              <span className="text-secondary-400 font-normal">
+                                (optional)
+                              </span>
+                            </Label>
+                            <div className="mt-1.5">
+                              <SearchableSelect
+                                id="inward-missing-location"
+                                options={filterOptions.location}
+                                value={
+                                  watch("locationId") &&
+                                  Number(watch("locationId")) >= 1
+                                    ? Number(watch("locationId"))
+                                    : ""
+                                }
+                                onChange={(v) =>
+                                  setValue(
+                                    "locationId",
+                                    v ? Number(v) : undefined,
+                                  )
+                                }
+                                placeholder="Select location"
+                                searchPlaceholder="Search location..."
+                                aria-label="Location"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </>
                     )}
 
                     <div>
@@ -1146,6 +1369,8 @@ export default function ReturnsPage() {
                           <span>{displayIssue.contractor?.name ?? "—"}</span>
                           <span>Machine</span>
                           <span>{displayIssue.machine?.name ?? "—"}</span>
+                          <span>Location</span>
+                          <span>{displayIssue.location?.name ?? "—"}</span>
                           <span>Operator</span>
                           <span>{displayIssue.issuedTo ?? "—"}</span>
                         </div>
@@ -1158,10 +1383,37 @@ export default function ReturnsPage() {
                           Missing item
                         </h4>
                         <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-secondary-700">
+                          <span>Inward No</span>
+                          <span>{nextInwardCode ?? "—"}</span>
                           <span>Item</span>
                           <span>{displayMissingItem.itemName}</span>
                           <span>Serial</span>
                           <span>{displayMissingItem.serialNumber ?? "—"}</span>
+                          <span>Company</span>
+                          <span>
+                            {filterOptions.company.find(
+                              (c: any) => c.value === watch("companyId"),
+                            )?.label ?? "—"}
+                          </span>
+                          <span>Contractor</span>
+                          <span>
+                            {filterOptions.contractor.find(
+                              (c: any) =>
+                                c.value === watch("contractorId"),
+                            )?.label ?? "—"}
+                          </span>
+                          <span>Machine</span>
+                          <span>
+                            {filterOptions.machine.find(
+                              (m: any) => m.value === watch("machineId"),
+                            )?.label ?? "—"}
+                          </span>
+                          <span>Location</span>
+                          <span>
+                            {filterOptions.location.find(
+                              (l: any) => l.value === watch("locationId"),
+                            )?.label ?? "—"}
+                          </span>
                         </div>
                       </div>
                     )}

@@ -299,17 +299,17 @@ export default function ContractorsPage() {
                 <div className="overflow-x-auto rounded-lg border border-secondary-200">
                   <table className="w-full text-left text-sm">
                     <thead>
-                      <tr className="border-b border-secondary-200 bg-secondary-50">
-                        <th className="px-4 py-3 font-semibold text-text w-16">
+                      <tr className="border-b border-primary-200 bg-primary-100">
+                        <th className="px-4 py-3 font-semibold text-primary-900 w-16">
                           Sr.No
                         </th>
-                        <th className="px-4 py-3 font-semibold text-text">
+                        <th className="px-4 py-3 font-semibold text-primary-900">
                           Name
                         </th>
-                        <th className="px-4 py-3 font-semibold text-text">
+                        <th className="px-4 py-3 font-semibold text-primary-900">
                           Status
                         </th>
-                        <th className="px-4 py-3 font-semibold text-text text-right">
+                        <th className="px-4 py-3 font-semibold text-primary-900 text-right">
                           Actions
                         </th>
                       </tr>
@@ -321,7 +321,7 @@ export default function ContractorsPage() {
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: idx * 0.03 }}
-                          className="border-b border-secondary-100 hover:bg-secondary-50/50"
+                          className="border-b border-secondary-100 hover:bg-primary-50 transition-colors"
                         >
                           <td className="px-4 py-3 text-secondary-600">
                             {idx + 1}

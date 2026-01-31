@@ -13,7 +13,10 @@
     "prisma:generate": "npx prisma generate",
     "prisma:studio": "npx prisma studio",
     "db:run-settings-migration": "npx prisma db execute --file prisma/add-admin-role-and-settings.sql --schema prisma/schema.prisma",
-    "db:fix-datetimes": "npx prisma db execute --file prisma/fix-invalid-datetimes.sql --schema prisma/schema.prisma"
+    "db:fix-datetimes": "npx prisma db execute --file prisma/fix-invalid-datetimes.sql --schema prisma/schema.prisma",
+    "seed": "npx ts-node src/database/seed-mass.ts",
+    "seed:mass": "npx ts-node src/database/seed-mass.ts",
+    "seed:fresh": "npx ts-node src/database/seed-mass.ts --clean"
   },
   "dependencies": {
     "@prisma/client": "^6.19.2",

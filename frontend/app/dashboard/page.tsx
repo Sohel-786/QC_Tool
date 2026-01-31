@@ -364,8 +364,8 @@ export default function DashboardPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
-                      <tr className="border-b border-secondary-200 bg-secondary-50/50">
-                        <th className="text-left py-3 px-4 font-semibold text-sm text-secondary-700 w-16">
+                      <tr className="border-b border-primary-200 bg-primary-100">
+                        <th className="text-left py-3 px-4 font-semibold text-sm text-primary-900 w-16">
                           Sr.No
                         </th>
                         <th className="text-left py-3 px-4 font-semibold text-sm text-secondary-700">
@@ -392,7 +392,7 @@ export default function DashboardPage() {
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: index * 0.03 }}
-                          className="border-b border-secondary-100 hover:bg-secondary-50 transition-colors"
+                          className="border-b border-secondary-100 hover:bg-primary-50 transition-colors"
                         >
                           <td className="py-3 px-4 text-secondary-600">
                             {index + 1}

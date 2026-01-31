@@ -641,17 +641,17 @@ export default function SettingsPage() {
                       <>
                         <table className="w-full border-collapse">
                           <thead>
-                            <tr className="border-b border-secondary-200">
-                              <th className="text-left py-3 px-4 font-semibold text-text">
+                            <tr className="border-b border-primary-200 bg-primary-100">
+                              <th className="text-left py-3 px-4 font-semibold text-primary-900">
                                 Permission
                               </th>
-                              <th className="text-center py-3 px-4 font-semibold text-text">
+                              <th className="text-center py-3 px-4 font-semibold text-primary-900">
                                 User
                               </th>
-                              <th className="text-center py-3 px-4 font-semibold text-text">
+                              <th className="text-center py-3 px-4 font-semibold text-primary-900">
                                 Manager
                               </th>
-                              <th className="text-center py-3 px-4 font-semibold text-text">
+                              <th className="text-center py-3 px-4 font-semibold text-primary-900">
                                 Admin
                               </th>
                             </tr>
@@ -769,21 +769,21 @@ export default function SettingsPage() {
                     </div>
                     <div className="border border-secondary-200 rounded-lg overflow-hidden">
                       <table className="w-full">
-                        <thead className="bg-secondary-50 border-b border-secondary-200">
+                        <thead className="bg-primary-100 border-b border-primary-200">
                           <tr>
-                            <th className="text-left py-3 px-4 font-semibold text-text text-sm">
+                            <th className="text-left py-3 px-4 font-semibold text-primary-900 text-sm">
                               Name
                             </th>
-                            <th className="text-left py-3 px-4 font-semibold text-text text-sm">
+                            <th className="text-left py-3 px-4 font-semibold text-primary-900 text-sm">
                               Username
                             </th>
-                            <th className="text-left py-3 px-4 font-semibold text-text text-sm">
+                            <th className="text-left py-3 px-4 font-semibold text-primary-900 text-sm">
                               Role
                             </th>
-                            <th className="text-left py-3 px-4 font-semibold text-text text-sm">
+                            <th className="text-left py-3 px-4 font-semibold text-primary-900 text-sm">
                               Status
                             </th>
-                            <th className="text-right py-3 px-4 font-semibold text-text text-sm">
+                            <th className="text-right py-3 px-4 font-semibold text-primary-900 text-sm">
                               Actions
                             </th>
                           </tr>
