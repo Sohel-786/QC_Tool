@@ -12,6 +12,7 @@ import fs from "fs";
 import path from "path";
 import {
   buildExcelBuffer,
+  buildFormattedExcelBuffer,
   parseExcelBuffer,
   normalizeRowKeys,
   getExcelMime,
@@ -318,7 +319,7 @@ export const exportItems = async (
       Description: i.description ?? "",
       Active: i.isActive ? "Yes" : "No",
     }));
-    const buffer = buildExcelBuffer(rows, "Items");
+    const buffer = await buildFormattedExcelBuffer(rows, "Items");
     const filename = `items-export-${new Date().toISOString().split("T")[0]}.xlsx`;
     res.setHeader("Content-Type", getExcelMime());
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);

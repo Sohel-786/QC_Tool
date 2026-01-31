@@ -6,7 +6,7 @@ import { prisma } from '../external-libraries/dbClient';
 
 export const createUser = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { username, password, firstName, lastName, role, isActive } = req.body;
+    const { username, password, firstName, lastName, role, isActive, avatar } = req.body;
     const createdBy = req.user?.id;
 
     if (!username || !password || !firstName || !lastName || !role) {
@@ -27,6 +27,7 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
       lastName,
       role,
       isActive: isActive !== undefined ? isActive : true,
+      avatar: avatar ?? null,
       createdBy,
     });
 
@@ -72,7 +73,7 @@ export const getUserById = async (req: Request, res: Response, next: NextFunctio
 export const updateUser = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    const { username, password, firstName, lastName, role, isActive } = req.body;
+    const { username, password, firstName, lastName, role, isActive, avatar } = req.body;
 
     const user = await User.findById(parseInt(id));
     if (!user) {
@@ -94,6 +95,7 @@ export const updateUser = async (req: Request, res: Response, next: NextFunction
     if (lastName) updateData.lastName = lastName;
     if (role) updateData.role = role;
     if (isActive !== undefined) updateData.isActive = isActive;
+    if (avatar !== undefined) updateData.avatar = avatar || null;
 
     const updatedUser = await User.update(parseInt(id), updateData);
 

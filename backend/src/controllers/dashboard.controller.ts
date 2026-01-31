@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../external-libraries/dbClient";
 import { ItemStatus } from "@prisma/client";
-import { buildExcelBuffer, getExcelMime } from "../utils/excel";
+import { buildFormattedExcelBuffer, getExcelMime } from "../utils/excel";
 
 function parseDashboardItemFilters(query: Record<string, unknown>): {
   categoryIds: number[];
@@ -215,7 +215,7 @@ export const getDashboardTotalItems = async (
   }
 };
 
-function exportItemsToExcel(
+async function exportItemsToExcel(
   items: Array<{
     itemName: string;
     serialNumber: string | null;
@@ -225,7 +225,7 @@ function exportItemsToExcel(
     category?: { name: string } | null;
   }>,
   sheetName: string
-): Buffer {
+): Promise<Buffer> {
   const rows = items.map((item, idx) => ({
     "Sr.No": idx + 1,
     "Item Name": item.itemName,
@@ -234,7 +234,7 @@ function exportItemsToExcel(
     Description: item.description ?? "N/A",
     Status: item.status,
   }));
-  return buildExcelBuffer(rows, sheetName);
+  return buildFormattedExcelBuffer(rows, sheetName);
 }
 
 export const exportDashboardAvailableItems = async (
@@ -250,7 +250,7 @@ export const exportDashboardAvailableItems = async (
       include: { category: true },
       orderBy: { itemName: "asc" },
     });
-    const buffer = exportItemsToExcel(items, "Available Items");
+    const buffer = await exportItemsToExcel(items, "Available Items");
     const filename = `dashboard-available-items-${new Date().toISOString().split("T")[0]}.xlsx`;
     res.setHeader("Content-Type", getExcelMime());
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
@@ -273,7 +273,7 @@ export const exportDashboardMissingItems = async (
       include: { category: true },
       orderBy: { itemName: "asc" },
     });
-    const buffer = exportItemsToExcel(items, "Missing Items");
+    const buffer = await exportItemsToExcel(items, "Missing Items");
     const filename = `dashboard-missing-items-${new Date().toISOString().split("T")[0]}.xlsx`;
     res.setHeader("Content-Type", getExcelMime());
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
@@ -299,7 +299,7 @@ export const exportDashboardTotalItems = async (
       include: { category: true },
       orderBy: { itemName: "asc" },
     });
-    const buffer = exportItemsToExcel(items, "Total Items");
+    const buffer = await exportItemsToExcel(items, "Total Items");
     const filename = `dashboard-total-items-${new Date().toISOString().split("T")[0]}.xlsx`;
     res.setHeader("Content-Type", getExcelMime());
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);

@@ -71,9 +71,21 @@ export function useUpdateUser() {
       const response = await api.patch(`/users/${id}`, data);
       return response.data.data;
     },
-    onSuccess: (_, variables) => {
+    onSuccess: (updatedUser, variables) => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       queryClient.invalidateQueries({ queryKey: ['users', variables.id] });
+      // If current user updated their own profile, refresh localStorage so header shows new avatar
+      try {
+        const stored = localStorage.getItem('user');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed?.id === updatedUser.id) {
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+          }
+        }
+      } catch {
+        // ignore
+      }
       toast.success('User updated successfully');
     },
     onError: (error: any) => {

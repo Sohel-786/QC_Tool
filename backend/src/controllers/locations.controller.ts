@@ -4,6 +4,7 @@ import Location from "../entities/location";
 import { NotFoundError, ValidationError } from "../utils/errors";
 import {
   buildExcelBuffer,
+  buildFormattedExcelBuffer,
   getExcelMime,
   parseExcelBuffer,
   normalizeRowKeys,
@@ -129,7 +130,7 @@ export const exportLocations = async (
       Name: c.name,
       Active: c.isActive ? "Yes" : "No",
     }));
-    const buffer = buildExcelBuffer(rows, "Locations");
+    const buffer = await buildFormattedExcelBuffer(rows, "Locations");
     const filename = `locations-export-${new Date().toISOString().split("T")[0]}.xlsx`;
     res.setHeader("Content-Type", getExcelMime());
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);

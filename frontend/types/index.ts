@@ -17,6 +17,7 @@ export interface User {
   lastName: string;
   role: Role;
   isActive: boolean;
+  avatar?: string | null;
   createdAt: string;
   updatedAt: string;
 }

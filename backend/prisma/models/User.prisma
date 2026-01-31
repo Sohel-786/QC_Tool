@@ -12,6 +12,7 @@ model User {
   lastName  String
   role      Role     @default(QC_USER)
   isActive  Boolean  @default(true)
+  avatar    String?  // filename from /assets/avatar/ (e.g. default-avatar.svg)
   createdBy Int?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

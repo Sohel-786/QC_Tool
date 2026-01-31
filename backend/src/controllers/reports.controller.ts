@@ -7,7 +7,7 @@ import {
   parseTransactionFiltersFromQuery,
   type TransactionListFilters,
 } from "../types/filter";
-import { buildExcelBuffer, getExcelMime } from "../utils/excel";
+import { buildFormattedExcelBuffer, getExcelMime } from "../utils/excel";
 
 const ROW_LIMITS = [25, 50, 75, 100] as const;
 const DEFAULT_PAGE = 1;
@@ -551,7 +551,7 @@ export const exportIssuedItemsReport = async (
       "Issued Date": new Date(issue.issuedAt).toLocaleString(),
       Remarks: issue.remarks ?? "N/A",
     }));
-    const buffer = buildExcelBuffer(rows, "Active Issues");
+    const buffer = await buildFormattedExcelBuffer(rows, "Active Issues");
     const filename = `active-issues-report-${new Date().toISOString().split("T")[0]}.xlsx`;
     res.setHeader("Content-Type", getExcelMime());
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
@@ -594,7 +594,7 @@ export const exportMissingItemsReport = async (
         "Last Updated": new Date(item.updatedAt).toLocaleString(),
       };
     });
-    const buffer = buildExcelBuffer(rows, "Missing Items");
+    const buffer = await buildFormattedExcelBuffer(rows, "Missing Items");
     const filename = `missing-items-report-${new Date().toISOString().split("T")[0]}.xlsx`;
     res.setHeader("Content-Type", getExcelMime());
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
@@ -615,6 +615,7 @@ export const exportItemHistoryReport = async (
     if (!Number.isNaN(itemId) && itemId > 0) {
       const item = await prisma.item.findUnique({
         where: { id: itemId },
+        include: { category: true },
       });
       if (!item) {
         return next(new NotFoundError("Item not found"));
@@ -701,7 +702,13 @@ export const exportItemHistoryReport = async (
         Remarks: r.remarks ?? "N/A",
       }));
 
-      const buffer = buildExcelBuffer(flatRows, "Ledger");
+      const categoryLabel = (item as { category?: { name: string } | null }).category?.name;
+      const titleRow = categoryLabel
+        ? `Ledger for: ${categoryLabel} » ${item.itemName} (Serial: ${item.serialNumber ?? "N/A"})`
+        : `Ledger for: ${item.itemName} (Serial: ${item.serialNumber ?? "N/A"})`;
+      const buffer = await buildFormattedExcelBuffer(flatRows, "Ledger", {
+        titleRow,
+      });
       const filename = `ledger-report-${item.itemName.replace(/[^a-z0-9]/gi, "-")}-${new Date().toISOString().split("T")[0]}.xlsx`;
       res.setHeader("Content-Type", getExcelMime());
       res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
@@ -780,7 +787,7 @@ export const exportItemHistoryReport = async (
         }
       }
     }
-    const buffer = buildExcelBuffer(historyRows, "Item History");
+    const buffer = await buildFormattedExcelBuffer(historyRows, "Item History");
     const filename = `item-history-report-${new Date().toISOString().split("T")[0]}.xlsx`;
     res.setHeader("Content-Type", getExcelMime());
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);

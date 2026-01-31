@@ -8,6 +8,7 @@ type CreateUserInput = {
   lastName: string;
   role: Role;
   isActive?: boolean;
+  avatar?: string | null;
   createdBy?: number;
 };
 
@@ -18,6 +19,7 @@ type UpdateUserInput = {
   lastName?: string;
   role?: Role;
   isActive?: boolean;
+  avatar?: string | null;
 };
 
 const User = {
@@ -31,6 +33,7 @@ const User = {
         lastName: true,
         role: true,
         isActive: true,
+        avatar: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -53,6 +56,7 @@ const User = {
         lastName: true,
         role: true,
         isActive: true,
+        avatar: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -86,6 +90,7 @@ const User = {
         lastName: true,
         role: true,
         isActive: true,
+        avatar: true,
         createdAt: true,
         updatedAt: true,
       },

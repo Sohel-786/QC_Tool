@@ -13,7 +13,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Plus, Edit2, Search, Trash2, Users, Shield } from "lucide-react";
+import { Plus, Edit2, Search, Trash2, Users, Shield, Check } from "lucide-react";
 import {
   useUsers,
   useCreateUser,
@@ -21,6 +21,7 @@ import {
   useDeleteUser,
 } from "@/hooks/use-users";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { AVATAR_OPTIONS, DEFAULT_AVATAR_PATH } from "@/lib/avatar-options";
 
 const userSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
@@ -34,6 +35,7 @@ const userSchema = z.object({
   lastName: z.string().min(1, "Last name is required"),
   role: z.nativeEnum(Role),
   isActive: z.boolean().optional(),
+  avatar: z.string().nullable().optional(),
 });
 
 type UserForm = z.infer<typeof userSchema>;
@@ -68,6 +70,7 @@ export default function UsersPage() {
       lastName: "",
       role: Role.QC_USER,
       isActive: true,
+      avatar: null as string | null,
     },
     mode: "onChange", // Validate on change for real-time feedback
     shouldUnregister: true, // Unregister fields when component unmounts
@@ -88,6 +91,7 @@ export default function UsersPage() {
           lastName: "",
           role: Role.QC_USER,
           isActive: true,
+          avatar: null,
         },
         { keepDefaultValues: false },
       );
@@ -102,6 +106,7 @@ export default function UsersPage() {
             lastName: "",
             role: Role.QC_USER,
             isActive: true,
+            avatar: null,
           },
           { keepDefaultValues: false },
         );
@@ -148,6 +153,7 @@ export default function UsersPage() {
             lastName: user.lastName,
             role: user.role,
             isActive: user.isActive,
+            avatar: user.avatar ?? null,
             password: "", // Don't set password for editing
           },
           { keepDefaultValues: false },
@@ -170,6 +176,7 @@ export default function UsersPage() {
       lastName: "",
       role: Role.QC_USER,
       isActive: true,
+      avatar: null,
     });
   };
 
@@ -211,6 +218,7 @@ export default function UsersPage() {
         lastName: data.lastName,
         role: data.role,
         isActive: data.isActive ?? true,
+        avatar: data.avatar ?? null,
       };
       createUser.mutate(createData, {
         onSuccess: () => {
@@ -332,9 +340,23 @@ export default function UsersPage() {
                         <div className="flex items-start justify-between mb-4">
                           <div className="flex-1">
                             <div className="flex items-center space-x-3 mb-2">
-                              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center text-white font-bold text-lg shadow-md">
-                                {user.firstName?.[0]}
-                                {user.lastName?.[0]}
+                              <div className="relative w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center text-white font-bold text-lg shadow-md ring-2 ring-white">
+                                {user.avatar ? (
+                                  <img
+                                    src={`/assets/avatar/${user.avatar}`}
+                                    alt=""
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      const el = e.target as HTMLImageElement;
+                                      el.style.display = "none";
+                                      el.nextElementSibling?.classList.remove("hidden");
+                                    }}
+                                  />
+                                ) : null}
+                                <span className={user.avatar ? "hidden absolute inset-0 flex items-center justify-center" : ""}>
+                                  {user.firstName?.[0]}
+                                  {user.lastName?.[0]}
+                                </span>
                               </div>
                               <div>
                                 <h3 className="font-bold text-lg text-text">
@@ -434,12 +456,12 @@ export default function UsersPage() {
           isOpen={isFormOpen}
           onClose={handleCloseForm}
           title={editingUser ? "Update User" : "Add New User"}
-          size="md"
+          size="lg"
         >
           <form
             key={`${editingUser?.id || "new"}-${isFormOpen}`}
             onSubmit={handleSubmit(onSubmit)}
-            className="space-y-4"
+            className="space-y-6"
           >
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -577,6 +599,55 @@ export default function UsersPage() {
                 <option value={Role.QC_ADMIN}>Admin</option>
               </Select>
             </div>
+
+            {/* Avatar selection – below Role; row layout, 30px each, from /assets/avatar/ and default /assets/avatar.jpg */}
+            <div className="space-y-2">
+              <Label className="text-base font-semibold text-primary-900">Avatar</Label>
+              <p className="text-sm text-primary-700/80">
+                Choose an avatar for this user. It will appear in the header and user list.
+              </p>
+              <div className="flex flex-row flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setValue("avatar", null, { shouldValidate: true })}
+                  className={`relative w-[30px] h-[30px] rounded-full overflow-hidden flex-shrink-0 cursor-pointer transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
+                    !watch("avatar")
+                      ? "scale-[1.05] ring-2 ring-primary-500 ring-offset-2 ring-offset-white shadow-sm"
+                      : "border border-secondary-200 hover:border-primary-300"
+                  }`}
+                  title="Default avatar"
+                >
+                  <img
+                    src={DEFAULT_AVATAR_PATH}
+                    alt="Default"
+                    className="w-full h-full object-cover"
+                  />
+                </button>
+                {AVATAR_OPTIONS.map((filename) => {
+                  const isSelected = watch("avatar") === filename;
+                  return (
+                    <button
+                      key={filename}
+                      type="button"
+                      onClick={() => setValue("avatar", filename, { shouldValidate: true })}
+                      className={`relative w-[30px] h-[30px] rounded-full overflow-hidden flex-shrink-0 cursor-pointer transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
+                        isSelected
+                          ? "scale-[1.05] ring-2 ring-primary-500 ring-offset-2 ring-offset-white shadow-sm"
+                          : "border border-secondary-200 hover:border-primary-300"
+                      }`}
+                      title={filename}
+                    >
+                      <img
+                        src={`/assets/avatar/${filename}`}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {editingUser && (
               <div>
                 <Label

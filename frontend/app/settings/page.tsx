@@ -35,6 +35,7 @@ import { User, RolePermission } from "@/types";
 import { Plus, Edit2, Search, Eye, EyeOff } from "lucide-react";
 import { applyPrimaryColor } from "@/lib/theme";
 import { useSoftwareProfileDraft } from "@/contexts/software-profile-draft-context";
+import { AVATAR_OPTIONS, DEFAULT_AVATAR_PATH } from "@/lib/avatar-options";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
@@ -56,6 +57,7 @@ const userSchema = z.object({
   lastName: z.string().min(1, "Last name is required"),
   role: z.nativeEnum(Role),
   isActive: z.boolean().optional(),
+  avatar: z.string().nullable().optional(),
 });
 type UserForm = z.infer<typeof userSchema>;
 
@@ -139,6 +141,8 @@ export default function SettingsPage() {
     handleSubmit,
     reset,
     formState: { errors },
+    setValue,
+    watch,
   } = useForm<UserForm>({
     resolver: zodResolver(userSchema),
     defaultValues: {
@@ -148,6 +152,7 @@ export default function SettingsPage() {
       lastName: "",
       role: Role.QC_USER,
       isActive: true,
+      avatar: null as string | null,
     },
   });
 
@@ -266,6 +271,7 @@ export default function SettingsPage() {
         lastName: "",
         role: Role.QC_USER,
         isActive: true,
+        avatar: null,
       });
     }
   }, [isUserFormOpen, reset]);
@@ -363,6 +369,7 @@ export default function SettingsPage() {
         lastName: user.lastName,
         role: user.role,
         isActive: user.isActive,
+        avatar: user.avatar ?? null,
         password: "",
       });
     } else {
@@ -374,6 +381,7 @@ export default function SettingsPage() {
         lastName: "",
         role: Role.QC_USER,
         isActive: true,
+        avatar: null,
       });
     }
     setIsUserFormOpen(true);
@@ -392,6 +400,7 @@ export default function SettingsPage() {
         lastName: data.lastName,
         role: data.role,
         isActive: data.isActive,
+        avatar: data.avatar ?? null,
       };
       if (data.password?.trim()) updateData.password = data.password;
       updateUser.mutate(
@@ -408,6 +417,7 @@ export default function SettingsPage() {
           lastName: data.lastName,
           role: data.role,
           isActive: data.isActive ?? true,
+          avatar: data.avatar ?? null,
         },
         { onSuccess: handleCloseUserForm },
       );
@@ -883,12 +893,12 @@ export default function SettingsPage() {
         isOpen={isUserFormOpen}
         onClose={handleCloseUserForm}
         title={editingUser ? "Edit User" : "Add User"}
-        size="md"
+        size="lg"
       >
         <form
           key={editingUser ? `edit-${editingUser.id}` : "add"}
           onSubmit={handleSubmit(onSubmitUser)}
-          className="space-y-4"
+          className="space-y-6"
         >
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -976,6 +986,55 @@ export default function SettingsPage() {
               <option value={Role.QC_ADMIN}>Admin</option>
             </select>
           </div>
+
+          {/* Avatar selection – below Role; row layout, 30px each, from /assets/avatar/ and default /assets/avatar.jpg */}
+          <div className="space-y-2">
+            <Label className="text-base font-semibold text-primary-900">Avatar</Label>
+            <p className="text-sm text-primary-700/80">
+              Choose an avatar for this user. It will appear in the header and user list.
+            </p>
+            <div className="flex flex-row flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setValue("avatar", null, { shouldValidate: true })}
+                className={`relative w-[30px] h-[30px] rounded-full overflow-hidden flex-shrink-0 cursor-pointer transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
+                  !watch("avatar")
+                    ? "scale-[1.05] ring-2 ring-primary-500 ring-offset-2 ring-offset-white shadow-sm"
+                    : "border border-secondary-200 hover:border-primary-300"
+                }`}
+                title="Default avatar"
+              >
+                <img
+                  src={DEFAULT_AVATAR_PATH}
+                  alt="Default"
+                  className="w-full h-full object-cover"
+                />
+              </button>
+              {AVATAR_OPTIONS.map((filename) => {
+                const isSelected = watch("avatar") === filename;
+                return (
+                  <button
+                    key={filename}
+                    type="button"
+                    onClick={() => setValue("avatar", filename, { shouldValidate: true })}
+                    className={`relative w-[30px] h-[30px] rounded-full overflow-hidden flex-shrink-0 cursor-pointer transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
+                      isSelected
+                        ? "scale-[1.05] ring-2 ring-primary-500 ring-offset-2 ring-offset-white shadow-sm"
+                        : "border border-secondary-200 hover:border-primary-300"
+                    }`}
+                    title={filename}
+                  >
+                    <img
+                      src={`/assets/avatar/${filename}`}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div className="flex items-center gap-2">
             <input
               type="checkbox"

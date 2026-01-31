@@ -72,13 +72,13 @@ interface LedgerItemPayload {
   total?: number;
 }
 
-
 function ReportsContent() {
   const searchParams = useSearchParams();
   const [activeReport, setActiveReport] = useState<ReportType>("issued");
   const [page, setPage] = useState(1);
   const [rowCount, setRowCount] = useState<RowCount>(25);
-  const [filters, setFilters] = useState<TransactionFiltersState>(defaultFilters);
+  const [filters, setFilters] =
+    useState<TransactionFiltersState>(defaultFilters);
   const [missingFilters, setMissingFilters] =
     useState<TransactionFiltersState>(defaultFilters);
   const [ledgerFilters, setLedgerFilters] =
@@ -86,27 +86,32 @@ function ReportsContent() {
   const [ledgerDateFrom, setLedgerDateFrom] = useState("");
   const [ledgerDateTo, setLedgerDateTo] = useState("");
   const [ledgerCategoryId, setLedgerCategoryId] = useState<number | null>(null);
-  const [ledgerSelectedItemId, setLedgerSelectedItemId] = useState<number | null>(null);
+  const [ledgerSelectedItemId, setLedgerSelectedItemId] = useState<
+    number | null
+  >(null);
 
   const debouncedSearch = useDebouncedValue(filters.search, 400);
   const debouncedMissingSearch = useDebouncedValue(missingFilters.search, 400);
   const debouncedLedgerSearch = useDebouncedValue(ledgerFilters.search, 400);
   const filtersForApi = useMemo(
     () => ({ ...filters, search: debouncedSearch }),
-    [filters, debouncedSearch]
+    [filters, debouncedSearch],
   );
   const missingFiltersForApi = useMemo(
     () => ({ ...missingFilters, search: debouncedMissingSearch }),
-    [missingFilters, debouncedMissingSearch]
+    [missingFilters, debouncedMissingSearch],
   );
   const ledgerFiltersForApi = useMemo(
     () => ({ ...ledgerFilters, search: debouncedLedgerSearch }),
-    [ledgerFilters, debouncedLedgerSearch]
+    [ledgerFilters, debouncedLedgerSearch],
   );
-  const filterKey = useMemo(() => JSON.stringify(filtersForApi), [filtersForApi]);
+  const filterKey = useMemo(
+    () => JSON.stringify(filtersForApi),
+    [filtersForApi],
+  );
   const missingFilterKey = useMemo(
     () => JSON.stringify(missingFiltersForApi),
-    [missingFiltersForApi]
+    [missingFiltersForApi],
   );
   const ledgerFilterKey = useMemo(
     () =>
@@ -115,7 +120,7 @@ function ReportsContent() {
         dateFrom: ledgerDateFrom,
         dateTo: ledgerDateTo,
       }),
-    [ledgerFiltersForApi, ledgerDateFrom, ledgerDateTo]
+    [ledgerFiltersForApi, ledgerDateFrom, ledgerDateTo],
   );
 
   useEffect(() => {
@@ -181,15 +186,18 @@ function ReportsContent() {
       page: String(page),
       limit: String(rowCount),
     }),
-    [filtersForApi, page, rowCount]
+    [filtersForApi, page, rowCount],
   );
-  const { data: issuedReport, isLoading: loadingIssued } = useQuery<IssuedReportResponse>({
-    queryKey: ["reports", "issued", filterKey, page, rowCount],
-    queryFn: async () => {
-      const res = await api.get("/reports/issued-items", { params: issuedParams });
-      return res.data;
-    },
-  });
+  const { data: issuedReport, isLoading: loadingIssued } =
+    useQuery<IssuedReportResponse>({
+      queryKey: ["reports", "issued", filterKey, page, rowCount],
+      queryFn: async () => {
+        const res = await api.get("/reports/issued-items", {
+          params: issuedParams,
+        });
+        return res.data;
+      },
+    });
 
   const missingParams = useMemo(
     () => ({
@@ -197,7 +205,7 @@ function ReportsContent() {
       page: String(page),
       limit: String(rowCount),
     }),
-    [missingFiltersForApi, page, rowCount]
+    [missingFiltersForApi, page, rowCount],
   );
   const { data: missingReport, isLoading: loadingMissing } =
     useQuery<MissingReportResponse>({
@@ -218,10 +226,17 @@ function ReportsContent() {
       ...(ledgerDateFrom && { dateFrom: ledgerDateFrom }),
       ...(ledgerDateTo && { dateTo: ledgerDateTo }),
     }),
-    [ledgerFiltersForApi, page, rowCount, ledgerDateFrom, ledgerDateTo]
+    [ledgerFiltersForApi, page, rowCount, ledgerDateFrom, ledgerDateTo],
   );
   const { data: ledgerReport, isLoading: loadingLedger } = useQuery({
-    queryKey: ["reports", "ledger", ledgerItemId, ledgerFilterKey, page, rowCount],
+    queryKey: [
+      "reports",
+      "ledger",
+      ledgerItemId,
+      ledgerFilterKey,
+      page,
+      rowCount,
+    ],
     queryFn: async () => {
       const res = await api.get(`/reports/item-history/${ledgerItemId}`, {
         params: ledgerParams,
@@ -281,69 +296,113 @@ function ReportsContent() {
         alert("Failed to export report. Please try again.");
       }
     },
-    [filtersForApi, missingFiltersForApi, ledgerItemId, ledgerFiltersForApi, ledgerDateFrom, ledgerDateTo]
+    [
+      filtersForApi,
+      missingFiltersForApi,
+      ledgerItemId,
+      ledgerFiltersForApi,
+      ledgerDateFrom,
+      ledgerDateTo,
+    ],
   );
 
   const companyOptions: MultiSelectSearchOption[] = useMemo(
-    () => companies.map((c: { id: number; name: string }) => ({ value: c.id, label: c.name })),
-    [companies]
+    () =>
+      companies.map((c: { id: number; name: string }) => ({
+        value: c.id,
+        label: c.name,
+      })),
+    [companies],
   );
   const contractorOptions: MultiSelectSearchOption[] = useMemo(
     () =>
-      contractors.map((c: { id: number; name: string }) => ({ value: c.id, label: c.name })),
-    [contractors]
+      contractors.map((c: { id: number; name: string }) => ({
+        value: c.id,
+        label: c.name,
+      })),
+    [contractors],
   );
   const machineOptions: MultiSelectSearchOption[] = useMemo(
     () =>
-      machines.map((m: { id: number; name: string }) => ({ value: m.id, label: m.name })),
-    [machines]
+      machines.map((m: { id: number; name: string }) => ({
+        value: m.id,
+        label: m.name,
+      })),
+    [machines],
   );
   const locationOptions: MultiSelectSearchOption[] = useMemo(
     () =>
-      locations.map((l: { id: number; name: string }) => ({ value: l.id, label: l.name })),
-    [locations]
+      locations.map((l: { id: number; name: string }) => ({
+        value: l.id,
+        label: l.name,
+      })),
+    [locations],
   );
   const itemOptions: MultiSelectSearchOption[] = useMemo(
     () =>
-      filterItems.map((i: { id: number; itemName: string; serialNumber?: string | null }) => ({
-        value: i.id,
-        label: i.serialNumber ? `${i.itemName} (${i.serialNumber})` : i.itemName,
-      })),
-    [filterItems]
+      filterItems.map(
+        (i: {
+          id: number;
+          itemName: string;
+          serialNumber?: string | null;
+        }) => ({
+          value: i.id,
+          label: i.serialNumber
+            ? `${i.itemName} (${i.serialNumber})`
+            : i.itemName,
+        }),
+      ),
+    [filterItems],
   );
   const categoryOptions: MultiSelectSearchOption[] = useMemo(
     () =>
-      categories.map((c: { id: number; name: string }) => ({ value: c.id, label: c.name })),
-    [categories]
+      categories.map((c: { id: number; name: string }) => ({
+        value: c.id,
+        label: c.name,
+      })),
+    [categories],
   );
   const ledgerItemsByCategory = useMemo(() => {
     if (ledgerCategoryId == null) return filterItems;
     return filterItems.filter(
-      (i: { categoryId?: number | null }) => i.categoryId === ledgerCategoryId
+      (i: { categoryId?: number | null }) => i.categoryId === ledgerCategoryId,
     );
   }, [filterItems, ledgerCategoryId]);
   const ledgerItemOptions: MultiSelectSearchOption[] = useMemo(
     () =>
       ledgerItemsByCategory.map(
-        (i: { id: number; itemName: string; serialNumber?: string | null }) => ({
+        (i: {
+          id: number;
+          itemName: string;
+          serialNumber?: string | null;
+        }) => ({
           value: i.id,
-          label: i.serialNumber ? `${i.itemName} (${i.serialNumber})` : i.itemName,
-        })
+          label: i.serialNumber
+            ? `${i.itemName} (${i.serialNumber})`
+            : i.itemName,
+        }),
       ),
-    [ledgerItemsByCategory]
+    [ledgerItemsByCategory],
   );
 
   const issuedData = Array.isArray(issuedReport?.data) ? issuedReport.data : [];
   const issuedTotal = issuedReport?.total ?? 0;
-  const missingData = Array.isArray(missingReport?.data) ? missingReport.data : [];
+  const missingData = Array.isArray(missingReport?.data)
+    ? missingReport.data
+    : [];
   const missingTotal = missingReport?.total ?? 0;
   const ledgerPayload =
-    ledgerReport != null && typeof ledgerReport === "object" && "data" in ledgerReport
+    ledgerReport != null &&
+    typeof ledgerReport === "object" &&
+    "data" in ledgerReport
       ? (ledgerReport as { data: LedgerItemPayload }).data
       : undefined;
-  const ledgerRows = Array.isArray(ledgerPayload?.rows) ? ledgerPayload.rows : [];
+  const ledgerRows = Array.isArray(ledgerPayload?.rows)
+    ? ledgerPayload.rows
+    : [];
   const ledgerTotal = ledgerPayload?.total ?? 0;
-  const ledgerItem: (Item & { category?: ItemCategory | null }) | undefined = ledgerPayload?.item;
+  const ledgerItem: (Item & { category?: ItemCategory | null }) | undefined =
+    ledgerPayload?.item;
   const totalPagesIssued = Math.ceil(issuedTotal / rowCount) || 1;
   const totalPagesMissing = Math.ceil(missingTotal / rowCount) || 1;
   const totalPagesLedger = Math.ceil(ledgerTotal / rowCount) || 1;
@@ -400,7 +459,7 @@ function ReportsContent() {
                       "relative flex items-center space-x-2 px-6 py-3 rounded-lg font-medium transition-all",
                       isActive
                         ? "bg-primary-600 text-white shadow-md"
-                        : "bg-secondary-50 text-secondary-700 hover:bg-secondary-100"
+                        : "bg-secondary-50 text-secondary-700 hover:bg-secondary-100",
                     )}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
@@ -410,7 +469,9 @@ function ReportsContent() {
                     <span
                       className={cn(
                         "px-2 py-0.5 rounded-full text-xs",
-                        isActive ? "bg-white/20 text-white" : "bg-secondary-200 text-secondary-600"
+                        isActive
+                          ? "bg-white/20 text-white"
+                          : "bg-secondary-200 text-secondary-600",
                       )}
                     >
                       {tab.count}
@@ -510,7 +571,9 @@ function ReportsContent() {
                                 </td>
                                 <td className="px-4 py-3 font-medium text-text text-center min-w-[160px]">
                                   <div>
-                                    <p className="font-medium">{issue.item?.itemName ?? "—"}</p>
+                                    <p className="font-medium">
+                                      {issue.item?.itemName ?? "—"}
+                                    </p>
                                     {issue.item?.serialNumber && (
                                       <p className="text-xs text-secondary-500 font-mono">
                                         {issue.item.serialNumber}
@@ -519,7 +582,11 @@ function ReportsContent() {
                                   </div>
                                 </td>
                                 <td className="px-4 py-3 text-secondary-600 text-center">
-                                  {(issue as { location?: { name: string } | null }).location?.name ?? "—"}
+                                  {(
+                                    issue as {
+                                      location?: { name: string } | null;
+                                    }
+                                  ).location?.name ?? "—"}
                                 </td>
                                 <td className="px-4 py-3 text-secondary-600 text-center">
                                   {issue.issuedTo ?? "—"}
@@ -535,7 +602,7 @@ function ReportsContent() {
                                       "inline-flex px-2.5 py-1 rounded-full text-xs font-medium border",
                                       issue.isReturned
                                         ? "bg-green-100 text-green-700 border-green-200"
-                                        : "bg-blue-100 text-blue-700 border-blue-200"
+                                        : "bg-blue-100 text-blue-700 border-blue-200",
                                     )}
                                   >
                                     {issue.isReturned ? "Returned" : "Active"}
@@ -712,9 +779,13 @@ function ReportsContent() {
             >
               <Card className="shadow-sm border-primary-200 bg-primary-50/20">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Select item for ledger</CardTitle>
+                  <CardTitle className="text-base">
+                    Select item for ledger
+                  </CardTitle>
                   <p className="text-sm text-secondary-600 font-normal mt-1">
-                    Choose a category, then an item. The table below shows the full history for that item. Use filters to narrow results; export uses the same filters.
+                    Choose a category, then an item. The table below shows the
+                    full history for that item. Use filters to narrow results;
+                    export uses the same filters.
                   </p>
                 </CardHeader>
                 <CardContent className="flex flex-wrap items-end gap-4">
@@ -744,16 +815,20 @@ function ReportsContent() {
                       id="ledger-item"
                       options={ledgerItemOptions}
                       value={ledgerSelectedItemId ?? ""}
-onChange={(v) => {
-                          const id = v ? Number(v) : null;
-                          setLedgerSelectedItemId(id);
-                          setLedgerFilters((prev) => ({
-                            ...prev,
-                            itemIds: id != null ? [id] : [],
-                          }));
-                          resetPagination();
-                        }}
-                      placeholder={ledgerCategoryId != null ? "Select item in this category" : "Select category first or pick any item"}
+                      onChange={(v) => {
+                        const id = v ? Number(v) : null;
+                        setLedgerSelectedItemId(id);
+                        setLedgerFilters((prev) => ({
+                          ...prev,
+                          itemIds: id != null ? [id] : [],
+                        }));
+                        resetPagination();
+                      }}
+                      placeholder={
+                        ledgerCategoryId != null
+                          ? "Select item in this category"
+                          : "Select category first or pick any item"
+                      }
                       searchPlaceholder="Search item..."
                       aria-label="Item"
                     />
@@ -767,8 +842,12 @@ onChange={(v) => {
                   const itemId = f.itemIds?.[0] ?? null;
                   setLedgerSelectedItemId(itemId);
                   if (itemId != null) {
-                    const item = filterItems.find((i: { id: number; categoryId?: number | null }) => i.id === itemId);
-                    if (item?.categoryId != null) setLedgerCategoryId(item.categoryId);
+                    const item = filterItems.find(
+                      (i: { id: number; categoryId?: number | null }) =>
+                        i.id === itemId,
+                    );
+                    if (item?.categoryId != null)
+                      setLedgerCategoryId(item.categoryId);
                   }
                   resetPagination();
                 }}
@@ -821,7 +900,10 @@ onChange={(v) => {
                     </div>
                   </div>
                   <p className="text-xs text-secondary-500 mt-2">
-                    Use the category and item selectors above, then apply filters (date range, search, company, etc.) as needed. Export Excel uses the same filters. Recent transactions appear first.
+                    Use the category and item selectors above, then apply
+                    filters (date range, search, company, etc.) as needed.
+                    Export Excel uses the same filters. Recent transactions
+                    appear first.
                   </p>
                 </CardContent>
               </Card>
@@ -834,7 +916,9 @@ onChange={(v) => {
                     <p className="text-sm font-semibold text-text mt-0.5">
                       {ledgerItem.category ? (
                         <>
-                          <span className="text-primary-600">{ledgerItem.category.name}</span>
+                          <span className="text-primary-600">
+                            {ledgerItem.category.name}
+                          </span>
                           <span className="text-secondary-400 mx-2">»</span>
                         </>
                       ) : null}
@@ -847,7 +931,8 @@ onChange={(v) => {
                     </p>
                     {ledgerItem.category && (
                       <p className="text-xs text-secondary-500 mt-1">
-                        Category: {ledgerItem.category.name} · Item: {ledgerItem.itemName}
+                        Category: {ledgerItem.category.name} · Item:{" "}
+                        {ledgerItem.itemName}
                       </p>
                     )}
                   </CardContent>
@@ -876,7 +961,8 @@ onChange={(v) => {
                   {ledgerItemId == null ? (
                     <div className="text-center py-12">
                       <p className="text-secondary-500 text-lg">
-                        Select an item in the filter bar to view full traceability from beginning to end.
+                        Select an item in the filter bar to view full
+                        traceability from beginning to end.
                       </p>
                     </div>
                   ) : loadingLedger ? (
@@ -937,10 +1023,12 @@ onChange={(v) => {
                                       "inline-flex px-2.5 py-1 rounded-full text-xs font-medium border",
                                       row.type === "issue"
                                         ? "bg-blue-100 text-blue-700 border-blue-200"
-                                        : "bg-green-100 text-green-700 border-green-200"
+                                        : "bg-green-100 text-green-700 border-green-200",
                                     )}
                                   >
-                                    {row.type === "issue" ? "Issued" : "Returned"}
+                                    {row.type === "issue"
+                                      ? "Issued"
+                                      : "Returned"}
                                   </span>
                                 </td>
                                 <td className="px-4 py-3 font-mono text-secondary-700 text-center">
@@ -969,11 +1057,12 @@ onChange={(v) => {
                                         ? "bg-green-100 text-green-700 border-green-200"
                                         : row.condition === "Damaged"
                                           ? "bg-amber-100 text-amber-700 border-amber-200"
-                                          : row.condition === "Calibration Required"
+                                          : row.condition ===
+                                              "Calibration Required"
                                             ? "bg-blue-100 text-blue-700 border-blue-200"
                                             : row.condition === "Missing"
                                               ? "bg-red-100 text-red-700 border-red-200"
-                                              : "bg-secondary-100 text-secondary-700 border-secondary-200"
+                                              : "bg-secondary-100 text-secondary-700 border-secondary-200",
                                     )}
                                   >
                                     {row.condition ?? "—"}
@@ -1003,7 +1092,9 @@ onChange={(v) => {
                   ) : (
                     <div className="text-center py-12">
                       <p className="text-secondary-500 text-lg">
-                        {hasActiveFilters(ledgerFilters) || ledgerDateFrom || ledgerDateTo
+                        {hasActiveFilters(ledgerFilters) ||
+                        ledgerDateFrom ||
+                        ledgerDateTo
                           ? "No ledger records match your filters."
                           : "No traceability records for this item."}
                       </p>
@@ -1051,7 +1142,10 @@ function ReportToolbar({
       <CardContent className="p-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <Label htmlFor="report-row-count" className="text-sm font-medium text-secondary-700">
+            <Label
+              htmlFor="report-row-count"
+              className="text-sm font-medium text-secondary-700"
+            >
               Rows per page
             </Label>
             <select

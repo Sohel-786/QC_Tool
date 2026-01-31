@@ -7,6 +7,7 @@ import {
 } from "../utils/errors";
 import {
   buildExcelBuffer,
+  buildFormattedExcelBuffer,
   parseExcelBuffer,
   normalizeRowKeys,
   getExcelMime,
@@ -133,7 +134,7 @@ export const exportItemCategories = async (
       Name: c.name,
       Active: c.isActive ? "Yes" : "No",
     }));
-    const buffer = buildExcelBuffer(rows, "Item Categories");
+    const buffer = await buildFormattedExcelBuffer(rows, "Item Categories");
     const filename = `item-categories-export-${new Date().toISOString().split("T")[0]}.xlsx`;
     res.setHeader("Content-Type", getExcelMime());
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);

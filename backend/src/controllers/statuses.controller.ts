@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import Status from "../entities/status";
 import { NotFoundError, ValidationError } from "../utils/errors";
 import {
-  buildExcelBuffer,
+  buildFormattedExcelBuffer,
   parseExcelBuffer,
   normalizeRowKeys,
   getExcelMime,
@@ -129,7 +129,7 @@ export const exportStatuses = async (
       Name: c.name,
       Active: c.isActive ? "Yes" : "No",
     }));
-    const buffer = buildExcelBuffer(rows, "Statuses");
+    const buffer = await buildFormattedExcelBuffer(rows, "Statuses");
     const filename = `statuses-export-${new Date().toISOString().split("T")[0]}.xlsx`;
     res.setHeader("Content-Type", getExcelMime());
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);

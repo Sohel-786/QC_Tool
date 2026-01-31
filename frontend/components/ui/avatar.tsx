@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { User } from '@/types';
+import { FALLBACK_AVATAR_PATH } from '@/lib/avatar-options';
 
 interface AvatarProps {
   user: User;
@@ -29,7 +30,6 @@ export function Avatar({ user, size = 'md', showName = false }: AvatarProps) {
   };
 
   const getBackgroundColor = () => {
-    // Generate a consistent color based on user's name
     const name = `${user.firstName}${user.lastName}`;
     const colors = [
       'bg-primary-600',
@@ -45,8 +45,10 @@ export function Avatar({ user, size = 'md', showName = false }: AvatarProps) {
     return colors[index % colors.length];
   };
 
-  // Use local avatar image from assets
-  const avatarUrl = '/assets/avatar.jpg';
+  // Selected avatar from /assets/avatar/ or fallback (seeded users may have no avatar)
+  const avatarUrl = user.avatar
+    ? `/assets/avatar/${user.avatar}`
+    : FALLBACK_AVATAR_PATH;
   const [imageError, setImageError] = React.useState(false);
 
   return (
