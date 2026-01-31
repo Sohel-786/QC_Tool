@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { User } from '@/types';
-import { FALLBACK_AVATAR_PATH } from '@/lib/avatar-options';
+import { getAvatarUrl } from '@/lib/avatar-options';
 
 interface AvatarProps {
   user: User;
@@ -45,10 +45,8 @@ export function Avatar({ user, size = 'md', showName = false }: AvatarProps) {
     return colors[index % colors.length];
   };
 
-  // Selected avatar from /assets/avatar/ or fallback (seeded users may have no avatar)
-  const avatarUrl = user.avatar
-    ? `/assets/avatar/${user.avatar}`
-    : FALLBACK_AVATAR_PATH;
+  // Preset avatars from /avatar/, legacy from /assets/avatar/, or fallback
+  const avatarUrl = getAvatarUrl(user.avatar);
   const [imageError, setImageError] = React.useState(false);
 
   return (

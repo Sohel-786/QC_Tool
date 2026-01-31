@@ -74,13 +74,17 @@ export function useUpdateUser() {
     onSuccess: (updatedUser, variables) => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       queryClient.invalidateQueries({ queryKey: ['users', variables.id] });
-      // If current user updated their own profile, refresh localStorage so header shows new avatar
+      // If current user updated their own profile, refresh localStorage and notify Header
       try {
         const stored = localStorage.getItem('user');
         if (stored) {
           const parsed = JSON.parse(stored);
           if (parsed?.id === updatedUser.id) {
             localStorage.setItem('user', JSON.stringify(updatedUser));
+            // Notify AuthLayout/Header to reflect changes without page reload
+            window.dispatchEvent(
+              new CustomEvent('currentUserUpdated', { detail: updatedUser }),
+            );
           }
         }
       } catch {

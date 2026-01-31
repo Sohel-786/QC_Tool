@@ -35,7 +35,7 @@ import { User, RolePermission } from "@/types";
 import { Plus, Edit2, Search, Eye, EyeOff } from "lucide-react";
 import { applyPrimaryColor } from "@/lib/theme";
 import { useSoftwareProfileDraft } from "@/contexts/software-profile-draft-context";
-import { AVATAR_OPTIONS, DEFAULT_AVATAR_PATH } from "@/lib/avatar-options";
+import { AVATAR_OPTIONS, AVATAR_PRESETS_PATH, DEFAULT_AVATAR_PATH } from "@/lib/avatar-options";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
@@ -987,7 +987,7 @@ export default function SettingsPage() {
             </select>
           </div>
 
-          {/* Avatar selection – below Role; row layout, 30px each, from /assets/avatar/ and default /assets/avatar.jpg */}
+          {/* Avatar selection – preset SVGs from /avatar/, default from /assets/avatar.jpg */}
           <div className="space-y-2">
             <Label className="text-base font-semibold text-primary-900">Avatar</Label>
             <p className="text-sm text-primary-700/80">
@@ -1025,7 +1025,7 @@ export default function SettingsPage() {
                     title={filename}
                   >
                     <img
-                      src={`/assets/avatar/${filename}`}
+                      src={`${AVATAR_PRESETS_PATH}/${filename}`}
                       alt=""
                       className="w-full h-full object-cover"
                     />

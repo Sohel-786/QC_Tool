@@ -1,17 +1,19 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { motion, AnimatePresence } from 'framer-motion';
-import Image from 'next/image';
+import { motion } from 'framer-motion';
 import { useLogin } from '@/hooks/use-auth-mutations';
 import { useAppSettings } from '@/hooks/use-settings';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { User, Lock, Eye, EyeOff, Building2 } from 'lucide-react';
+import { LoginBackground1 } from '@/components/login/LoginBackground1';
+import { LoginBackground2 } from '@/components/login/LoginBackground2';
+import { LoginMainBackground } from '@/components/login/LoginMainBackground';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -26,8 +28,6 @@ export default function LoginPage() {
   const loginMutation = useLogin();
   const { data: appSettings } = useAppSettings();
   const [showPassword, setShowPassword] = useState(false);
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [imagesLoaded, setImagesLoaded] = useState<boolean[]>([false, false]);
 
   const softwareName = appSettings?.softwareName?.trim() || appSettings?.companyName?.trim() || 'QC Item System';
   const logoUrl = appSettings?.companyLogo ? `${API_BASE}/storage/${appSettings.companyLogo}` : null;
@@ -44,343 +44,165 @@ export default function LoginPage() {
     loginMutation.mutate(data);
   };
 
-  // Blur placeholder - a tiny base64 encoded image for blur effect
-  const blurDataURL =
-    'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQADAD8AktJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R//2Q==';
-
-  const images = ['/assets/Image1.jpg', '/assets/Image2.jpg'];
-
-  // Preload all images on mount using link tags and Image objects
-  useEffect(() => {
-    // Add link preload tags to head
-    images.forEach((src) => {
-      const link = document.createElement('link');
-      link.rel = 'preload';
-      link.as = 'image';
-      link.href = src;
-      document.head.appendChild(link);
-    });
-
-    // Also preload using Image objects for better browser support
-    const preloadImages = images.map((src, index) => {
-      const img = new window.Image();
-      img.onload = () => {
-        setImagesLoaded((prev) => {
-          const newState = [...prev];
-          newState[index] = true;
-          return newState;
-        });
-      };
-      img.src = src;
-      return img;
-    });
-
-    // Cleanup function
-    return () => {
-      images.forEach((src) => {
-        const links = document.querySelectorAll(`link[href="${src}"]`);
-        links.forEach((link) => link.remove());
-      });
-    };
-  }, []);
-
-  // Auto-switch images every 4 seconds with infinite loop
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentImageIndex((prev) => (prev + 1) % 2);
-    }, 4000);
-
-    return () => clearInterval(interval);
-  }, []);
-
   return (
-    <div className="min-h-screen flex">
-      {/* Left Panel - Login Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white relative z-10">
-        <div className="w-full max-w-md">
-          {/* Logo & Software name */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="mb-8"
-          >
-            <div className="flex items-center gap-4 mb-2">
-              {logoUrl ? (
-                <img
-                  src={logoUrl}
-                  alt=""
-                  className="h-14 w-14 shrink-0 rounded-xl object-contain border border-secondary-200 bg-white shadow-sm"
-                />
-              ) : (
-                <div className="h-14 w-14 shrink-0 bg-gradient-to-br from-primary-600 to-primary-700 rounded-xl flex items-center justify-center">
-                  <Building2 className="h-7 w-7 text-white" />
-                </div>
-              )}
-              <div className="min-w-0">
-                <h1 className="text-2xl font-bold text-black truncate">
-                  {softwareName}
-                </h1>
-                <p className="text-sm text-secondary-500 mt-0.5">Sign in to your account</p>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Sign In Form */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            <h2 className="text-3xl font-bold text-text mb-2">Sign in</h2>
-            <p className="text-secondary-600 mb-8">
-              Enter your credentials to access your account
-            </p>
-
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-              {/* Username Field */}
-              <div className="space-y-2">
-                <Label htmlFor="username" className="text-sm font-medium text-text">
-                  Username
-                </Label>
-                <div className="relative">
-                  <User className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-secondary-400" />
-                  <Input
-                    id="username"
-                    type="text"
-                    placeholder="Enter your username"
-                    {...register('username')}
-                    className="pl-12 h-12 rounded-lg border-secondary-300 focus:border-primary-500 focus:ring-primary-500"
-                  />
-                </div>
-                {errors.username && (
-                  <p className="text-sm text-red-600 mt-1">{errors.username.message}</p>
-                )}
-              </div>
-
-              {/* Password Field */}
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm font-medium text-text">
-                  Password
-                </Label>
-                <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-secondary-400" />
-                  <Input
-                    id="password"
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="Enter your password"
-                    {...register('password')}
-                    className="pl-12 pr-12 h-12 rounded-lg border-secondary-300 focus:border-primary-500 focus:ring-primary-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-secondary-400 hover:text-secondary-600 transition-colors"
-                  >
-                    {showPassword ? (
-                      <EyeOff className="w-5 h-5" />
-                    ) : (
-                      <Eye className="w-5 h-5" />
-                    )}
-                  </button>
-                </div>
-                {errors.password && (
-                  <p className="text-sm text-red-600 mt-1">{errors.password.message}</p>
-                )}
-              </div>
-
-              {/* Submit Button */}
-              <motion.div
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <Button
-                  type="submit"
-                  className="w-full h-12 rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-medium shadow-md hover:shadow-lg transition-all"
-                  disabled={loginMutation.isPending}
-                >
-                  {loginMutation.isPending ? (
-                    <span className="flex items-center justify-center">
-                      <svg
-                        className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        ></circle>
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        ></path>
-                      </svg>
-                      Signing in...
-                    </span>
-                  ) : (
-                    'Sign In'
-                  )}
-                </Button>
-              </motion.div>
-
-              {/* Authentication error message */}
-              {loginMutation.isError && (
-                <p className="text-sm text-red-600 text-center">
-                  {(loginMutation.error as any)?.response?.status === 401
-                    ? 'Invalid username or password. Please verify your credentials and try again.'
-                    : (loginMutation.error as any)?.response?.data?.message ||
-                      'Unable to sign you in at the moment. Please try again.'}
-                </p>
-              )}
-            </form>
-          </motion.div>
-        </div>
-      </div>
-
-      {/* Right Panel - Visual Background with Auto-Switching Images */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-primary-50 to-secondary-50">
-        {/* Background SVG */}
+    <div className="min-h-screen h-dvh w-full flex items-center justify-center relative overflow-hidden">
+      {/* Main background container - full viewport */}
+      <div className="absolute top-0 left-0 right-0 bottom-0 w-full h-full pointer-events-none" aria-hidden>
+        {/* Base: primary gradient - top, left, right, bottom: 0 */}
         <div
-          className="absolute inset-0 opacity-30"
-          style={{
-            backgroundImage: "url('/assets/signin_background.svg')",
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            backgroundRepeat: 'no-repeat',
-          }}
+          className="absolute top-0 left-0 right-0 bottom-0 bg-gradient-to-br from-[var(--primary-50)] via-[var(--primary-100)] to-[var(--primary-200)]"
+          aria-hidden
         />
-
-        {/* Auto-Switching Images with Slide Animation */}
-        <div className="relative w-full h-full overflow-hidden bg-gradient-to-br from-primary-100 to-secondary-100">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={currentImageIndex}
-              initial={{ x: '100%', opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: '-100%', opacity: 0 }}
-              transition={{ duration: 0.8, ease: 'easeInOut' }}
-              className="absolute inset-0"
-            >
-              <Image
-                src={images[currentImageIndex]}
-                alt={`Background ${currentImageIndex + 1}`}
-                fill
-                quality={80}
-                placeholder="blur"
-                blurDataURL={blurDataURL}
-                className="object-cover transition-opacity duration-300"
-                priority={true}
-                sizes="50vw"
-                onLoad={() => {
-                  setImagesLoaded((prev) => {
-                    const newState = [...prev];
-                    newState[currentImageIndex] = true;
-                    return newState;
-                  });
-                }}
-              />
-              {/* Overlay for better text readability if needed */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent" />
-            </motion.div>
-          </AnimatePresence>
-          
-          {/* Preload next image off-screen */}
-          <div className="absolute -left-[9999px] w-1 h-1 overflow-hidden">
-            <Image
-              src={images[(currentImageIndex + 1) % 2]}
-              alt="Preload next"
-              width={1}
-              height={1}
-              quality={80}
-              placeholder="blur"
-              blurDataURL={blurDataURL}
-              priority={true}
-            />
-          </div>
+        {/* mainbackground.svg - primary-colored via mask, full viewport */}
+        <LoginMainBackground />
+        {/* Blurred ellipses (primary-themed) - top, left, bottom: 0 */}
+        <div className="absolute top-0 left-0 bottom-0 w-[80vmin] overflow-hidden opacity-30">
+          <LoginBackground1 className="w-full h-full text-[var(--primary-300)]" />
         </div>
-
-        {/* Image Indicator Circles at Bottom */}
-        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-20 flex items-center gap-3">
-          {images.map((_, index) => (
-            <motion.div
-              key={index}
-              className="relative"
-              initial={false}
-              animate={{
-                width: currentImageIndex === index ? 32 : 12,
-                height: 12,
-              }}
-              transition={{ duration: 0.3, ease: 'easeInOut' }}
-            >
-              <div
-                className={`absolute inset-0 rounded-full backdrop-blur-md ${
-                  currentImageIndex === index
-                    ? 'bg-white/60'
-                    : 'bg-white/30'
-                }`}
-                style={{
-                  borderRadius: currentImageIndex === index ? '6px' : '50%',
-                }}
-              />
-            </motion.div>
-          ))}
+        {/* Blurred ellipses - top, right, bottom: 0 */}
+        <div className="absolute top-0 right-0 bottom-0 w-[70vmin] overflow-hidden opacity-25">
+          <LoginBackground1 className="w-full h-full text-[var(--primary-400)]" />
         </div>
-
-        {/* Optional: Floating decorative elements */}
-        <div className="absolute inset-0 pointer-events-none">
-          <motion.div
-            animate={{
-              y: [0, -20, 0],
-              rotate: [0, 5, 0],
-            }}
-            transition={{
-              duration: 6,
-              repeat: Infinity,
-              ease: 'easeInOut',
-            }}
-            className="absolute top-20 right-20 w-32 h-32 bg-primary-200/20 rounded-full blur-3xl"
-          />
-          <motion.div
-            animate={{
-              y: [0, 20, 0],
-              rotate: [0, -5, 0],
-            }}
-            transition={{
-              duration: 8,
-              repeat: Infinity,
-              ease: 'easeInOut',
-            }}
-            className="absolute bottom-20 left-20 w-40 h-40 bg-secondary-200/20 rounded-full blur-3xl"
-          />
+        {/* Radial pattern (primary gradient) - right: top, right, bottom: 0 */}
+        <div className="absolute top-0 right-0 bottom-0 w-[50vw] max-w-[600px] opacity-40">
+          <LoginBackground2 className="w-full h-full" />
         </div>
-
-        {/* Content overlay */}
-        <div className="absolute inset-0 flex items-center justify-center p-12 z-10">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5, duration: 0.8 }}
-            className="text-center text-white max-w-md"
-          >
-            <motion.h3
-              className="text-4xl font-bold mb-4 drop-shadow-lg"
-              animate={{ y: [0, -5, 0] }}
-              transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-            >
-              Welcome Back
-            </motion.h3>
-            <p className="text-xl text-white/90 drop-shadow-md">
-              Manage your QC items efficiently
-            </p>
-          </motion.div>
-        </div>
+        {/* Soft overlay for form readability */}
+        <div
+          className="absolute top-0 left-0 right-0 bottom-0 bg-gradient-to-r from-transparent via-white/25 to-transparent"
+          aria-hidden
+        />
       </div>
+
+      {/* Centered sign-in section */}
+      <motion.section
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: 'easeOut' }}
+        className="relative z-10 w-full max-w-[420px] mx-4"
+      >
+        <div className="rounded-2xl shadow-xl shadow-black/10 bg-white/95 backdrop-blur-md border border-white/60 p-8 sm:p-10">
+          {/* Logo & software name */}
+          <div className="flex items-center gap-4 mb-8">
+            {logoUrl ? (
+              <img
+                src={logoUrl}
+                alt=""
+                className="h-14 w-14 shrink-0 rounded-xl object-contain border border-secondary-200 bg-white shadow-sm"
+              />
+            ) : (
+              <div className="h-14 w-14 shrink-0 rounded-xl flex items-center justify-center bg-primary shadow-lg shadow-primary/25">
+                <Building2 className="h-7 w-7 text-white" />
+              </div>
+            )}
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold text-text truncate">{softwareName}</h1>
+              <p className="text-sm text-secondary-500 mt-0.5">Sign in to your account</p>
+            </div>
+          </div>
+
+          <h2 className="text-2xl font-bold text-text mb-1">Sign in</h2>
+          <p className="text-secondary-600 text-sm mb-6">Enter your credentials to access your account</p>
+
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="username" className="text-sm font-medium text-text">
+                Username
+              </Label>
+              <div className="relative">
+                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-secondary-400 pointer-events-none" />
+                <Input
+                  id="username"
+                  type="text"
+                  placeholder="Enter your username"
+                  {...register('username')}
+                  className="pl-12 h-12 rounded-xl border-secondary-200 bg-secondary-50/50 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-shadow"
+                />
+              </div>
+              {errors.username && (
+                <p className="text-sm text-red-600 mt-1">{errors.username.message}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="password" className="text-sm font-medium text-text">
+                Password
+              </Label>
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-secondary-400 pointer-events-none" />
+                <Input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Enter your password"
+                  {...register('password')}
+                  className="pl-12 pr-12 h-12 rounded-xl border-secondary-200 bg-secondary-50/50 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-shadow"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-secondary-400 hover:text-secondary-600 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/20 rounded-lg p-1"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+              {errors.password && (
+                <p className="text-sm text-red-600 mt-1">{errors.password.message}</p>
+              )}
+            </div>
+
+            <motion.div
+              className="pt-1"
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.99 }}
+            >
+              <Button
+                type="submit"
+                className="w-full h-12 rounded-xl bg-primary hover:bg-primary-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200 focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                disabled={loginMutation.isPending}
+              >
+                {loginMutation.isPending ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg
+                      className="animate-spin h-5 w-5 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      aria-hidden
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
+                    </svg>
+                    Signing in...
+                  </span>
+                ) : (
+                  'Sign In'
+                )}
+              </Button>
+            </motion.div>
+
+            {loginMutation.isError && (
+              <p className="text-sm text-red-600 text-center pt-1">
+                {(loginMutation.error as { response?: { status?: number; data?: { message?: string } } })?.response?.status === 401
+                  ? 'Invalid username or password. Please verify your credentials and try again.'
+                  : (loginMutation.error as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+                    'Unable to sign you in at the moment. Please try again.'}
+              </p>
+            )}
+          </form>
+        </div>
+      </motion.section>
     </div>
   );
 }

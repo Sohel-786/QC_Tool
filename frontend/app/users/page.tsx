@@ -21,7 +21,7 @@ import {
   useDeleteUser,
 } from "@/hooks/use-users";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { AVATAR_OPTIONS, DEFAULT_AVATAR_PATH } from "@/lib/avatar-options";
+import { AVATAR_OPTIONS, AVATAR_PRESETS_PATH, DEFAULT_AVATAR_PATH, getAvatarUrl } from "@/lib/avatar-options";
 
 const userSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
@@ -343,7 +343,7 @@ export default function UsersPage() {
                               <div className="relative w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center text-white font-bold text-lg shadow-md ring-2 ring-white">
                                 {user.avatar ? (
                                   <img
-                                    src={`/assets/avatar/${user.avatar}`}
+                                    src={getAvatarUrl(user.avatar)}
                                     alt=""
                                     className="w-full h-full object-cover"
                                     onError={(e) => {
@@ -600,7 +600,7 @@ export default function UsersPage() {
               </Select>
             </div>
 
-            {/* Avatar selection – below Role; row layout, 30px each, from /assets/avatar/ and default /assets/avatar.jpg */}
+            {/* Avatar selection – preset SVGs from /avatar/, default from /assets/avatar.jpg */}
             <div className="space-y-2">
               <Label className="text-base font-semibold text-primary-900">Avatar</Label>
               <p className="text-sm text-primary-700/80">
@@ -638,7 +638,7 @@ export default function UsersPage() {
                       title={filename}
                     >
                       <img
-                        src={`/assets/avatar/${filename}`}
+                        src={`${AVATAR_PRESETS_PATH}/${filename}`}
                         alt=""
                         className="w-full h-full object-cover"
                       />

@@ -19,6 +19,17 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const sidebarWidth = sidebarExpanded ? SIDEBAR_WIDTH_EXPANDED : SIDEBAR_WIDTH_COLLAPSED;
 
+  // React to current user updates from Settings/User Management (without reload)
+  useEffect(() => {
+    const handleCurrentUserUpdated = (e: Event) => {
+      setUser((e as CustomEvent<User>).detail);
+    };
+    window.addEventListener('currentUserUpdated', handleCurrentUserUpdated);
+    return () => {
+      window.removeEventListener('currentUserUpdated', handleCurrentUserUpdated);
+    };
+  }, []);
+
   useEffect(() => {
     const validateAndGetUser = async () => {
       // Skip auth check for login page
