@@ -63,8 +63,8 @@ export default function ItemsPage() {
   const { user: currentUser } = useCurrentUser();
   const isAdmin = currentUser?.role === Role.QC_ADMIN;
   const { data: permissions } = useCurrentUserPermissions();
-  const canAddMaster = permissions?.addMaster ?? true;
-  const canEditMaster = permissions?.editMaster ?? true;
+  const canAddMaster = permissions?.addMaster ?? false;
+  const canEditMaster = permissions?.editMaster ?? false;
   const canImportExportMaster = permissions?.importExportMaster ?? false;
   const { handleExport, handleImport, exportLoading, importLoading } =
     useMasterExportImport("items", ["items"]);

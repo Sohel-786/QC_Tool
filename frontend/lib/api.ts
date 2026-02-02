@@ -27,7 +27,7 @@ api.interceptors.response.use(
       const isLoginRequest =
         requestUrl?.includes("/auth/login") || requestUrl?.endsWith("/auth/login");
 
-      if (!isLoginRequest && typeof window !== "undefined") {
+      if (!isLoginRequest && typeof window !== "undefined" && window.location.pathname !== "/login") {
         // Redirect to login on unauthorized for protected API calls
         window.location.href = "/login";
       }

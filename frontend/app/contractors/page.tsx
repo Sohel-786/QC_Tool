@@ -39,8 +39,8 @@ export default function ContractorsPage() {
   const queryClient = useQueryClient();
   const importFileRef = useRef<HTMLInputElement>(null);
   const { data: permissions } = useCurrentUserPermissions();
-  const canAddMaster = permissions?.addMaster ?? true;
-  const canEditMaster = permissions?.editMaster ?? true;
+  const canAddMaster = permissions?.addMaster ?? false;
+  const canEditMaster = permissions?.editMaster ?? false;
   const canImportExportMaster = permissions?.importExportMaster ?? false;
   const { handleExport, handleImport, exportLoading, importLoading } =
     useMasterExportImport("contractors", ["contractors"]);
@@ -332,8 +332,8 @@ export default function ContractorsPage() {
                           <td className="px-4 py-3">
                             <span
                               className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${c.isActive
-                                  ? "bg-green-100 text-green-700 border border-green-200"
-                                  : "bg-red-100 text-red-700 border border-red-200"
+                                ? "bg-green-100 text-green-700 border border-green-200"
+                                : "bg-red-100 text-red-700 border border-red-200"
                                 }`}
                             >
                               {c.isActive ? "Active" : "Inactive"}

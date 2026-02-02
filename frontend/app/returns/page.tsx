@@ -76,8 +76,8 @@ export default function ReturnsPage() {
   const prefillIssueId = searchParams.get("issueId");
   const { user: currentUser } = useCurrentUser();
   const { data: permissions } = useCurrentUserPermissions();
-  const canAddInward = permissions?.addInward ?? true;
-  const canEditInward = permissions?.editInward ?? true;
+  const canAddInward = permissions?.addInward ?? false;
+  const canEditInward = permissions?.editInward ?? false;
   const isManager = currentUser?.role === Role.QC_MANAGER;
   const isAdmin = currentUser?.role === Role.QC_ADMIN;
 

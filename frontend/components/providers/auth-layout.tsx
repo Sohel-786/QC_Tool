@@ -39,7 +39,9 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const sidebarWidth = sidebarExpanded ? SIDEBAR_WIDTH_EXPANDED : SIDEBAR_WIDTH_COLLAPSED;
 
-  const { data: permissions, isLoading: permissionsLoading } = useCurrentUserPermissions();
+  const { data: permissions, isLoading: permissionsLoading } = useCurrentUserPermissions(
+    pathname !== '/login' && !loading && !!user
+  );
 
   // React to current user updates from Settings/User Management (without reload)
   useEffect(() => {

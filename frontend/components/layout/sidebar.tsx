@@ -31,6 +31,7 @@ import {
   useAppSettings,
   useCurrentUserPermissions,
 } from "@/hooks/use-settings";
+import { useLogout } from "@/hooks/use-auth-mutations";
 import { useSoftwareProfileDraft } from "@/contexts/software-profile-draft-context";
 
 interface SidebarProps {
@@ -130,12 +131,13 @@ export function Sidebar({
       ? HOVER_EXPANDED_WIDTH
       : sidebarWidth;
 
-  const canViewDashboard = permissions?.viewDashboard ?? true;
-  const canViewMaster = permissions?.viewMaster ?? true;
-  const canViewOutward = permissions?.viewOutward ?? true;
-  const canViewInward = permissions?.viewInward ?? true;
-  const canViewReports = permissions?.viewReports ?? true;
-  const canAccessSettings = permissions?.accessSettings ?? (userRole === Role.QC_ADMIN);
+  const canViewDashboard = permissions?.viewDashboard ?? false;
+  const canViewMaster = permissions?.viewMaster ?? false;
+  const canViewOutward = permissions?.viewOutward ?? false;
+  const canViewInward = permissions?.viewInward ?? false;
+  const canViewReports = permissions?.viewReports ?? false;
+  const canAccessSettings =
+    permissions?.accessSettings ?? (userRole === Role.QC_ADMIN && !!permissions);
   const transactionEntries = transactionEntriesAll.filter(
     (e) =>
       (e.href === "/issues" && canViewOutward) ||
@@ -151,13 +153,9 @@ export function Sidebar({
     if (inTransaction) setTransactionOpen(true);
   }, [pathname]);
 
-  const handleLogout = async () => {
-    try {
-      await api.post("/auth/logout");
-      router.push("/login");
-    } catch (error) {
-      router.push("/login");
-    }
+  const logoutMutation = useLogout();
+  const handleLogout = () => {
+    logoutMutation.mutate();
   };
 
   const portalLabel =

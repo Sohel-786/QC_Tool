@@ -7,4 +7,5 @@ export const cookieOptions: CookieOptions = {
   secure: process.env.NODE_ENV === 'production', // false for localhost HTTP
   sameSite: 'lax', // 'lax' works for localhost and production
   maxAge: 24 * 60 * 60 * 1000, // 24 hours
+  path: '/',
 };

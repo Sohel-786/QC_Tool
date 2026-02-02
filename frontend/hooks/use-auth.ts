@@ -37,7 +37,8 @@ export function useAuth() {
       // Ignore errors
     } finally {
       localStorage.removeItem('user');
-      router.push('/login');
+      // Force full page reload to clear all state including React Query
+      window.location.href = '/login';
     }
   };
 

@@ -71,7 +71,7 @@ export function useLogout() {
       window.location.href = '/login';
     },
     onError: () => {
-      // Even if logout fails, clear local state and cookies
+      // Even if logout fails, clear local state and cache
       localStorage.removeItem('user');
       queryClient.clear();
       // Force full page reload to clear cookies

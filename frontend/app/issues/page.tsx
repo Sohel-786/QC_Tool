@@ -62,8 +62,8 @@ export default function IssuesPage() {
   const router = useRouter();
   const { user: currentUser } = useCurrentUser();
   const { data: permissions } = useCurrentUserPermissions();
-  const canAddOutward = permissions?.addOutward ?? true;
-  const canEditOutward = permissions?.editOutward ?? true;
+  const canAddOutward = permissions?.addOutward ?? false;
+  const canEditOutward = permissions?.editOutward ?? false;
   const isManager = currentUser?.role === Role.QC_MANAGER;
   const isAdmin = currentUser?.role === Role.QC_ADMIN;
   const isViewOnly = !!editingIssue?.isReturned;

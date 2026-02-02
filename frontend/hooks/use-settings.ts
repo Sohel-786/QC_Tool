@@ -68,7 +68,7 @@ export function usePermissions() {
 }
 
 /** Current logged-in user's role permissions (from GET /settings/permissions/me). Use for view/add/edit checks on pages. */
-export function useCurrentUserPermissions() {
+export function useCurrentUserPermissions(enabled = true) {
   return useQuery({
     queryKey: ['settings', 'permissions', 'me'],
     queryFn: async (): Promise<RolePermission | null> => {
@@ -77,6 +77,7 @@ export function useCurrentUserPermissions() {
     },
     retry: false,
     staleTime: 2 * 60 * 1000,
+    enabled,
   });
 }
 
