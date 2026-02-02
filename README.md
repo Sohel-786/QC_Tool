@@ -5,12 +5,14 @@ A complete internal QC Tool Management Web CRM built with NestJS backend and Nex
 ## Tech Stack
 
 ### Backend
+
 - NestJS + TypeScript
 - MySQL with TypeORM
 - JWT Authentication
 - Role-based access control (QC_USER, QC_MANAGER)
 
 ### Frontend
+
 - Next.js 14 App Router + TypeScript
 - Tailwind CSS + ShadCN UI
 - Framer Motion for animations
@@ -33,6 +35,7 @@ A complete internal QC Tool Management Web CRM built with NestJS backend and Nex
 ## Getting Started
 
 ### Prerequisites
+
 - Docker and Docker Compose
 - Node.js 18+ (for local development)
 
@@ -43,6 +46,7 @@ docker-compose up -d
 ```
 
 The application will be available at:
+
 - Frontend: http://localhost:3000
 - Backend API: http://localhost:3001
 - MySQL: localhost:3306
@@ -50,6 +54,7 @@ The application will be available at:
 ### Local Development
 
 #### Backend
+
 ```bash
 cd backend
 npm install
@@ -57,6 +62,7 @@ npm run start:dev
 ```
 
 #### Frontend
+
 ```bash
 cd frontend
 npm install
@@ -67,13 +73,24 @@ npm run dev
 
 - Manager: qc_manager / password123
 - User: qc_user / password123
+- User: qc_admin / admin123
+
+## Seed Data for realtime results
+
+```bash
+cd backend
+npm run seed:fresh
 
 ## Project Structure
 
 ```
+
 QC_Tool/
-├── backend/          # NestJS backend
-├── frontend/         # Next.js frontend
+├── backend/ # NestJS backend
+├── frontend/ # Next.js frontend
 ├── docker-compose.yml
 └── README.md
+
+```
+
 ```
