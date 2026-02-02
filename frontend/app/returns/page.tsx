@@ -79,6 +79,7 @@ export default function ReturnsPage() {
   const canAddInward = permissions?.addInward ?? true;
   const canEditInward = permissions?.editInward ?? true;
   const isManager = currentUser?.role === Role.QC_MANAGER;
+  const isAdmin = currentUser?.role === Role.QC_ADMIN;
 
   const debouncedSearch = useDebouncedValue(filters.search, 400);
   const filtersForApi = useMemo(
@@ -632,14 +633,14 @@ export default function ReturnsPage() {
                           <td className="px-4 py-3 text-center">
                             <span
                               className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium border ${r.condition === "OK"
-                                  ? "bg-green-100 text-green-700 border-green-200"
-                                  : r.condition === "Damaged"
-                                    ? "bg-amber-100 text-amber-700 border-amber-200"
-                                    : r.condition === "Calibration Required"
-                                      ? "bg-blue-100 text-blue-700 border-blue-200"
-                                      : r.condition === "Missing"
-                                        ? "bg-red-100 text-red-700 border-red-200"
-                                        : "bg-secondary-100 text-secondary-700 border-secondary-200"
+                                ? "bg-green-100 text-green-700 border-green-200"
+                                : r.condition === "Damaged"
+                                  ? "bg-amber-100 text-amber-700 border-amber-200"
+                                  : r.condition === "Calibration Required"
+                                    ? "bg-blue-100 text-blue-700 border-blue-200"
+                                    : r.condition === "Missing"
+                                      ? "bg-red-100 text-red-700 border-red-200"
+                                      : "bg-secondary-100 text-secondary-700 border-secondary-200"
                                 }`}
                             >
                               {r.condition ?? "—"}
@@ -674,8 +675,8 @@ export default function ReturnsPage() {
                           <td className="px-4 py-3 text-center">
                             <span
                               className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${r.isActive
-                                  ? "bg-green-100 text-green-700 border border-green-200"
-                                  : "bg-red-100 text-red-700 border border-red-200"
+                                ? "bg-green-100 text-green-700 border border-green-200"
+                                : "bg-red-100 text-red-700 border border-red-200"
                                 }`}
                             >
                               {r.isActive ? "Active" : "Inactive"}
@@ -715,32 +716,36 @@ export default function ReturnsPage() {
                                 >
                                   <Edit2 className="w-4 h-4" />
                                 </Button>
-                                {/* Active/Inactive actions - commented out
-                                {r.isActive && (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => setInactiveTarget(r)}
-                                    title="Mark inward inactive"
-                                    className="shrink-0 text-amber-600 hover:bg-amber-50"
-                                    disabled={setInactiveMutation.isPending}
-                                  >
-                                    <Ban className="w-4 h-4" />
-                                  </Button>
+                                {isAdmin && (
+                                  <>
+                                    {r.isActive && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setInactiveTarget(r)}
+                                        title="Mark inward inactive"
+                                        className="shrink-0 text-amber-600 hover:bg-amber-50"
+                                        disabled={setInactiveMutation.isPending}
+                                      >
+                                        <Ban className="w-4 h-4" />
+                                      </Button>
+                                    )}
+                                    {!r.isActive && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() =>
+                                          setActiveMutation.mutate(r.id)
+                                        }
+                                        title="Mark inward active"
+                                        className="shrink-0 text-green-600 hover:bg-green-50"
+                                        disabled={setActiveMutation.isPending}
+                                      >
+                                        <CheckCircle className="w-4 h-4" />
+                                      </Button>
+                                    )}
+                                  </>
                                 )}
-                                {!r.isActive && (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => setActiveMutation.mutate(r.id)}
-                                    title="Mark inward active"
-                                    className="shrink-0 text-green-600 hover:bg-green-50"
-                                    disabled={setActiveMutation.isPending}
-                                  >
-                                    <CheckCircle className="w-4 h-4" />
-                                  </Button>
-                                )}
-                                */}
                               </div>
                             </td>
                           )}

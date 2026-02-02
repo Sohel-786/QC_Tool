@@ -235,6 +235,11 @@ export const updateItem = async (
     if (description !== undefined) updateData.description = description;
     if (status != null) updateData.status = status;
     if (isActive !== undefined) {
+      if (req.user!.role !== "QC_ADMIN") {
+        return next(
+          new ValidationError("Only Admin is allowed to change active status")
+        );
+      }
       updateData.isActive = isActive === true || isActive === "true";
     }
 

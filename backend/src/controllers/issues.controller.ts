@@ -281,6 +281,11 @@ export const setIssueInactive = async (
     if (Number.isNaN(id)) {
       return next(new ValidationError("Invalid issue id"));
     }
+    if (req.user!.role !== "QC_ADMIN") {
+      return next(
+        new ValidationError("Only Admin is allowed to perform this action")
+      );
+    }
     const issue = await Issue.findById(id);
     if (!issue) {
       return next(new NotFoundError(`Issue with ID ${id} not found`));
@@ -309,6 +314,11 @@ export const setIssueActive = async (
     const id = parseInt(req.params.id);
     if (Number.isNaN(id)) {
       return next(new ValidationError("Invalid issue id"));
+    }
+    if (req.user!.role !== "QC_ADMIN") {
+      return next(
+        new ValidationError("Only Admin is allowed to perform this action")
+      );
     }
     const issue = await Issue.findById(id);
     if (!issue) {

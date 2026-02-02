@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import api from "@/lib/api";
-import { Item, ItemStatus, ItemCategory } from "@/types";
+import { Item, ItemStatus, ItemCategory, Role } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +29,7 @@ import { CameraPhotoInput } from "@/components/ui/camera-photo-input";
 import { FullScreenImageViewer } from "@/components/ui/full-screen-image-viewer";
 import { useMasterExportImport } from "@/hooks/use-master-export-import";
 import { useCurrentUserPermissions } from "@/hooks/use-settings";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { toast } from "react-hot-toast";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
@@ -59,6 +60,8 @@ export default function ItemsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const importFileRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+  const { user: currentUser } = useCurrentUser();
+  const isAdmin = currentUser?.role === Role.QC_ADMIN;
   const { data: permissions } = useCurrentUserPermissions();
   const canAddMaster = permissions?.addMaster ?? true;
   const canEditMaster = permissions?.editMaster ?? true;
@@ -465,8 +468,8 @@ export default function ItemsPage() {
                           <td className="px-4 py-3">
                             <span
                               className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${i.isActive
-                                  ? "bg-green-100 text-green-700 border border-green-200"
-                                  : "bg-red-100 text-red-700 border border-red-200"
+                                ? "bg-green-100 text-green-700 border border-green-200"
+                                : "bg-red-100 text-red-700 border border-red-200"
                                 }`}
                             >
                               {i.isActive ? "Active" : "Inactive"}
@@ -506,7 +509,7 @@ export default function ItemsPage() {
                               >
                                 <Edit2 className="w-4 h-4" />
                               </Button>
-                              {canEditMaster &&
+                              {isAdmin &&
                                 (i.isActive ? (
                                   <Button
                                     variant="ghost"

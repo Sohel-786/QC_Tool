@@ -21,6 +21,7 @@ import {
   useUploadCompanyLogo,
   usePermissions,
   useUpdatePermissions,
+  useCurrentUserPermissions,
 } from "@/hooks/use-settings";
 import { useUsers, useCreateUser, useUpdateUser } from "@/hooks/use-users";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,7 +36,11 @@ import { User, RolePermission } from "@/types";
 import { Plus, Edit2, Search, Eye, EyeOff } from "lucide-react";
 import { applyPrimaryColor } from "@/lib/theme";
 import { useSoftwareProfileDraft } from "@/contexts/software-profile-draft-context";
-import { AVATAR_OPTIONS, AVATAR_PRESETS_PATH, DEFAULT_AVATAR_PATH } from "@/lib/avatar-options";
+import {
+  AVATAR_OPTIONS,
+  AVATAR_PRESETS_PATH,
+  DEFAULT_AVATAR_PATH,
+} from "@/lib/avatar-options";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
@@ -156,14 +161,33 @@ export default function SettingsPage() {
     },
   });
 
-  // Admin-only
+  // Admin-only (or anyone with accessSettings permission)
+  const {
+    data: currentUserPermissions,
+    isLoading: currentUserPermissionsLoading,
+  } = useCurrentUserPermissions();
+
   useEffect(() => {
-    if (!userLoading && currentUser) {
-      if (currentUser.role !== Role.QC_ADMIN) {
+    if (
+      !userLoading &&
+      !currentUserPermissionsLoading &&
+      currentUser &&
+      currentUserPermissions
+    ) {
+      if (
+        currentUser.role !== Role.QC_ADMIN &&
+        !currentUserPermissions.accessSettings
+      ) {
         router.push("/dashboard");
       }
     }
-  }, [currentUser, userLoading, router]);
+  }, [
+    currentUser,
+    currentUserPermissions,
+    userLoading,
+    currentUserPermissionsLoading,
+    router,
+  ]);
 
   const softwareSyncedFromServer = useRef(false);
   useEffect(() => {
@@ -241,12 +265,7 @@ export default function SettingsPage() {
     setLogoFile(null);
     applyPrimaryColor(savedPrimaryColor || undefined);
     setDraft?.(null);
-  }, [
-    savedCompanyName,
-    savedSoftwareName,
-    savedPrimaryColor,
-    setDraft,
-  ]);
+  }, [savedCompanyName, savedSoftwareName, savedPrimaryColor, setDraft]);
 
   const revertPermissions = useCallback(() => {
     if (permissions && permissions.length > 0) {
@@ -295,7 +314,11 @@ export default function SettingsPage() {
     );
   }
 
-  if (currentUser && currentUser.role !== Role.QC_ADMIN) {
+  if (
+    currentUser &&
+    currentUser.role !== Role.QC_ADMIN &&
+    (!currentUserPermissions || !currentUserPermissions.accessSettings)
+  ) {
     return null;
   }
 
@@ -696,7 +719,20 @@ export default function SettingsPage() {
                                               e.target.checked,
                                             )
                                           }
-                                          className="w-4 h-4 rounded border-secondary-300 text-primary-600 focus:ring-primary-500"
+                                          disabled={
+                                            role !== Role.QC_ADMIN &&
+                                            (key === "editMaster" ||
+                                              key === "editInward" ||
+                                              key === "editOutward")
+                                          }
+                                          className={`w-4 h-4 rounded border-secondary-300 text-primary-600 focus:ring-primary-500 ${
+                                            role !== Role.QC_ADMIN &&
+                                            (key === "editMaster" ||
+                                              key === "editInward" ||
+                                              key === "editOutward")
+                                              ? "opacity-50 cursor-not-allowed"
+                                              : "cursor-pointer"
+                                          }`}
                                         />
                                       </td>
                                     );
@@ -907,7 +943,9 @@ export default function SettingsPage() {
                 {...register("firstName")}
                 ref={(el) => {
                   register("firstName").ref(el);
-                  (firstNameInputRef as React.MutableRefObject<HTMLInputElement | null>).current = el;
+                  (
+                    firstNameInputRef as React.MutableRefObject<HTMLInputElement | null>
+                  ).current = el;
                 }}
                 className="mt-1"
                 placeholder="Enter first name"
@@ -920,7 +958,11 @@ export default function SettingsPage() {
             </div>
             <div>
               <Label>Last name *</Label>
-              <Input {...register("lastName")} className="mt-1" placeholder="Enter last name" />
+              <Input
+                {...register("lastName")}
+                className="mt-1"
+                placeholder="Enter last name"
+              />
               {errors.lastName && (
                 <p className="text-sm text-red-600 mt-1">
                   {errors.lastName.message}
@@ -952,7 +994,9 @@ export default function SettingsPage() {
                 {...register("password")}
                 className="pr-10"
                 placeholder={
-                  editingUser ? "Leave empty to keep current" : "Min 6 characters"
+                  editingUser
+                    ? "Leave empty to keep current"
+                    : "Min 6 characters"
                 }
               />
               <button
@@ -989,14 +1033,19 @@ export default function SettingsPage() {
 
           {/* Avatar selection – preset SVGs from /avatar/, default from /assets/avatar.jpg */}
           <div className="space-y-2">
-            <Label className="text-base font-semibold text-primary-900">Avatar</Label>
+            <Label className="text-base font-semibold text-primary-900">
+              Avatar
+            </Label>
             <p className="text-sm text-primary-700/80">
-              Choose an avatar for this user. It will appear in the header and user list.
+              Choose an avatar for this user. It will appear in the header and
+              user list.
             </p>
             <div className="flex flex-row flex-wrap gap-2">
               <button
                 type="button"
-                onClick={() => setValue("avatar", null, { shouldValidate: true })}
+                onClick={() =>
+                  setValue("avatar", null, { shouldValidate: true })
+                }
                 className={`relative w-[30px] h-[30px] rounded-full overflow-hidden flex-shrink-0 cursor-pointer transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
                   !watch("avatar")
                     ? "scale-[1.05] ring-2 ring-primary-500 ring-offset-2 ring-offset-white shadow-sm"
@@ -1016,7 +1065,9 @@ export default function SettingsPage() {
                   <button
                     key={filename}
                     type="button"
-                    onClick={() => setValue("avatar", filename, { shouldValidate: true })}
+                    onClick={() =>
+                      setValue("avatar", filename, { shouldValidate: true })
+                    }
                     className={`relative w-[30px] h-[30px] rounded-full overflow-hidden flex-shrink-0 cursor-pointer transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
                       isSelected
                         ? "scale-[1.05] ring-2 ring-primary-500 ring-offset-2 ring-offset-white shadow-sm"

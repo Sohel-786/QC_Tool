@@ -135,7 +135,7 @@ export function Sidebar({
   const canViewOutward = permissions?.viewOutward ?? true;
   const canViewInward = permissions?.viewInward ?? true;
   const canViewReports = permissions?.viewReports ?? true;
-  const canAccessSettings = permissions?.accessSettings ?? false;
+  const canAccessSettings = permissions?.accessSettings ?? (userRole === Role.QC_ADMIN);
   const transactionEntries = transactionEntriesAll.filter(
     (e) =>
       (e.href === "/issues" && canViewOutward) ||
@@ -192,8 +192,8 @@ export function Sidebar({
       {/* Header: when wrapped = only expand button; when expanded = text + collapse button (no logo) */}
       <div
         className={`shrink-0 border-b border-secondary-200 bg-gradient-to-r from-primary-600 to-primary-700 flex transition-[padding] duration-300 ${showFullSidebar
-            ? "min-h-[5.5rem] px-4 py-3 flex-row items-center gap-3"
-            : "min-h-[3rem] px-2 py-2 flex-row items-center justify-center"
+          ? "min-h-[5.5rem] px-4 py-3 flex-row items-center gap-3"
+          : "min-h-[3rem] px-2 py-2 flex-row items-center justify-center"
           }`}
       >
         {showFullSidebar ? (
@@ -311,8 +311,8 @@ export function Sidebar({
                   {masterEntries.map((item) => {
                     const Icon = item.icon;
                     const cellClass = `flex items-center justify-center p-2 rounded-md transition-colors ${pathname === item.href
-                        ? "bg-primary-50 text-primary-600"
-                        : "text-secondary-700 hover:bg-secondary-50"
+                      ? "bg-primary-50 text-primary-600"
+                      : "text-secondary-700 hover:bg-secondary-50"
                       }`;
                     return (
                       <Link key={item.href} href={item.href} title={item.label}>
@@ -380,8 +380,8 @@ export function Sidebar({
                   {transactionEntries.map((item) => {
                     const Icon = item.icon;
                     const cellClass = `flex items-center justify-center p-2 rounded-md transition-colors ${pathname === item.href
-                        ? "bg-primary-50 text-primary-600"
-                        : "text-secondary-700 hover:bg-secondary-50"
+                      ? "bg-primary-50 text-primary-600"
+                      : "text-secondary-700 hover:bg-secondary-50"
                       }`;
                     return (
                       <Link key={item.href} href={item.href} title={item.label}>

@@ -246,7 +246,7 @@ export const getAllReturns = async (
         }
       }
     }
-    const data = returnsList.map((r: { itemId: number | null; issueId: number | null; [key: string]: unknown }) => {
+    const data = returnsList.map((r: { itemId: number | null; issueId: number | null;[key: string]: unknown }) => {
       if (r.itemId != null && r.issueId == null) {
         return { ...r, sourceInwardCode: sourceByItemId[r.itemId] ?? null };
       }
@@ -397,6 +397,11 @@ export const setReturnActive = async (
     if (Number.isNaN(id)) {
       return next(new ValidationError("Invalid return id"));
     }
+    if (req.user!.role !== "QC_ADMIN") {
+      return next(
+        new ValidationError("Only Admin is allowed to perform this action")
+      );
+    }
     const return_ = await Return.setActive(id);
     res.json({ success: true, data: return_ });
   } catch (e) {
@@ -413,6 +418,11 @@ export const setReturnInactive = async (
     const id = parseInt(req.params.id);
     if (Number.isNaN(id)) {
       return next(new ValidationError("Invalid return id"));
+    }
+    if (req.user!.role !== "QC_ADMIN") {
+      return next(
+        new ValidationError("Only Admin is allowed to perform this action")
+      );
     }
     const return_ = await Return.setInactive(id);
     res.json({ success: true, data: return_ });

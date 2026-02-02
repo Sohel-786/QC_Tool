@@ -65,6 +65,7 @@ export default function IssuesPage() {
   const canAddOutward = permissions?.addOutward ?? true;
   const canEditOutward = permissions?.editOutward ?? true;
   const isManager = currentUser?.role === Role.QC_MANAGER;
+  const isAdmin = currentUser?.role === Role.QC_ADMIN;
   const isViewOnly = !!editingIssue?.isReturned;
 
   const debouncedSearch = useDebouncedValue(filters.search, 400);
@@ -493,8 +494,8 @@ export default function IssuesPage() {
                           <td className="px-4 py-3 text-center">
                             <span
                               className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${issue.isActive
-                                  ? "bg-green-100 text-green-700 border border-green-200"
-                                  : "bg-red-100 text-red-700 border border-red-200"
+                                ? "bg-green-100 text-green-700 border border-green-200"
+                                : "bg-red-100 text-red-700 border border-red-200"
                                 }`}
                             >
                               {issue.isActive ? "Active" : "Inactive"}
@@ -503,8 +504,8 @@ export default function IssuesPage() {
                           <td className="px-4 py-3 text-center">
                             <span
                               className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${issue.isReturned
-                                  ? "bg-green-100 text-green-700 border border-green-200"
-                                  : "bg-amber-100 text-amber-700 border border-amber-200"
+                                ? "bg-green-100 text-green-700 border border-green-200"
+                                : "bg-amber-100 text-amber-700 border border-amber-200"
                                 }`}
                             >
                               {issue.isReturned ? "Yes" : "No"}
@@ -533,32 +534,36 @@ export default function IssuesPage() {
                                 >
                                   <Edit2 className="w-4 h-4" />
                                 </Button>
-                                {/* Active/Inactive actions - commented out
-                                {issue.isActive && !issue.isReturned && (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => setInactiveTarget(issue)}
-                                    title="Mark outward inactive"
-                                    className="shrink-0 text-amber-600 hover:bg-amber-50"
-                                    disabled={setInactiveMutation.isPending}
-                                  >
-                                    <Ban className="w-4 h-4" />
-                                  </Button>
+                                {isAdmin && (
+                                  <>
+                                    {issue.isActive && !issue.isReturned && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setInactiveTarget(issue)}
+                                        title="Mark outward inactive"
+                                        className="shrink-0 text-amber-600 hover:bg-amber-50"
+                                        disabled={setInactiveMutation.isPending}
+                                      >
+                                        <Ban className="w-4 h-4" />
+                                      </Button>
+                                    )}
+                                    {!issue.isActive && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() =>
+                                          setActiveMutation.mutate(issue.id)
+                                        }
+                                        title="Mark outward active"
+                                        className="shrink-0 text-green-600 hover:bg-green-50"
+                                        disabled={setActiveMutation.isPending}
+                                      >
+                                        <CheckCircle className="w-4 h-4" />
+                                      </Button>
+                                    )}
+                                  </>
                                 )}
-                                {!issue.isActive && (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => setActiveMutation.mutate(issue.id)}
-                                    title="Mark outward active"
-                                    className="shrink-0 text-green-600 hover:bg-green-50"
-                                    disabled={setActiveMutation.isPending}
-                                  >
-                                    <CheckCircle className="w-4 h-4" />
-                                  </Button>
-                                )}
-                                */}
                               </div>
                             </td>
                           )}
