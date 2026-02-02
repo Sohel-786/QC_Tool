@@ -879,29 +879,19 @@ export default function ReturnsPage() {
                         </h4>
                         <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-secondary-700">
                           <span>Source Inward No</span>
-                          <span>
-                            {editingReturn.sourceInwardCode ?? "—"}
-                          </span>
+                          <span>{editingReturn.sourceInwardCode ?? "—"}</span>
                           <span>Item</span>
                           <span>{editingReturn.item.itemName}</span>
                           <span>Serial</span>
                           <span>{editingReturn.item.serialNumber ?? "—"}</span>
                           <span>Company</span>
-                          <span>
-                            {editingReturn.company?.name ?? "—"}
-                          </span>
+                          <span>{editingReturn.company?.name ?? "—"}</span>
                           <span>Contractor</span>
-                          <span>
-                            {editingReturn.contractor?.name ?? "—"}
-                          </span>
+                          <span>{editingReturn.contractor?.name ?? "—"}</span>
                           <span>Machine</span>
-                          <span>
-                            {editingReturn.machine?.name ?? "—"}
-                          </span>
+                          <span>{editingReturn.machine?.name ?? "—"}</span>
                           <span>Location</span>
-                          <span>
-                            {editingReturn.location?.name ?? "—"}
-                          </span>
+                          <span>{editingReturn.location?.name ?? "—"}</span>
                         </div>
                       </div>
                     )}
@@ -929,10 +919,7 @@ export default function ReturnsPage() {
                         htmlFor="edit-inward-status-id"
                         className="text-sm font-medium text-secondary-700"
                       >
-                        Status{" "}
-                        <span className="text-secondary-400 font-normal">
-                          (optional)
-                        </span>
+                        Status
                       </Label>
                       <select
                         id="edit-inward-status-id"
@@ -1398,8 +1385,7 @@ export default function ReturnsPage() {
                           <span>Contractor</span>
                           <span>
                             {filterOptions.contractor.find(
-                              (c: any) =>
-                                c.value === watch("contractorId"),
+                              (c: any) => c.value === watch("contractorId"),
                             )?.label ?? "—"}
                           </span>
                           <span>Machine</span>
