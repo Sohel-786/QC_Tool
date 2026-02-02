@@ -27,7 +27,10 @@ import { Role } from "@/types";
 import { Button } from "@/components/ui/button";
 import api from "@/lib/api";
 import { useRouter } from "next/navigation";
-import { useAppSettings, useCurrentUserPermissions } from "@/hooks/use-settings";
+import {
+  useAppSettings,
+  useCurrentUserPermissions,
+} from "@/hooks/use-settings";
 import { useSoftwareProfileDraft } from "@/contexts/software-profile-draft-context";
 
 interface SidebarProps {
@@ -44,7 +47,15 @@ interface NavLink {
   icon: React.ComponentType<{ className?: string }>;
 }
 
-const SidebarText = ({ show, children, className = "" }: { show: boolean; children: React.ReactNode; className?: string }) => (
+const SidebarText = ({
+  show,
+  children,
+  className = "",
+}: {
+  show: boolean;
+  children: React.ReactNode;
+  className?: string;
+}) => (
   <AnimatePresence mode="popLayout">
     {show && (
       <motion.span
@@ -68,7 +79,7 @@ const masterEntries: NavLink[] = [
   { href: "/machines", label: "Machine Master", icon: Cog },
   { href: "/items", label: "Item Master", icon: Package },
   { href: "/item-categories", label: "Item Category Master", icon: Layers },
-  { href: "/users", label: "User Master", icon: Building2 }, // Assuming User endpoint, or if not in original just keep original
+  // { href: "/users", label: "User Master", icon: Building2 }, // Assuming User endpoint, or if not in original just keep original
 ];
 
 const transactionEntriesAll: NavLink[] = [
@@ -96,10 +107,15 @@ export function Sidebar({
   // This matches typical expanded width; adjust if parent layout uses a different value
   const HOVER_EXPANDED_WIDTH = 256;
 
-  const companyName = (profileDraft?.companyName ?? appSettings?.companyName ?? "").trim() || "";
+  const companyName =
+    (profileDraft?.companyName ?? appSettings?.companyName ?? "").trim() || "";
   const softwareName =
-    (profileDraft?.softwareName ?? appSettings?.softwareName ?? appSettings?.companyName ?? "").trim() ||
-    "QC Item System";
+    (
+      profileDraft?.softwareName ??
+      appSettings?.softwareName ??
+      appSettings?.companyName ??
+      ""
+    ).trim() || "QC Item System";
 
   // Show full sidebar if manually expanded OR if hovered (while collapsed)
   const showFullSidebar = expanded || isHovered;
@@ -108,7 +124,11 @@ export function Sidebar({
   // If expanded: rely on passed sidebarWidth (controlled by parent)
   // If collapsed but hovered: use fixed HOVER_EXPANDED_WIDTH (overlay)
   // If collapsed and not hovered: use passed sidebarWidth (collapsed size)
-  const currentWidth = expanded ? sidebarWidth : (isHovered ? HOVER_EXPANDED_WIDTH : sidebarWidth);
+  const currentWidth = expanded
+    ? sidebarWidth
+    : isHovered
+      ? HOVER_EXPANDED_WIDTH
+      : sidebarWidth;
 
   const canViewDashboard = permissions?.viewDashboard ?? true;
   const canViewMaster = permissions?.viewMaster ?? true;
@@ -117,12 +137,16 @@ export function Sidebar({
   const canViewReports = permissions?.viewReports ?? true;
   const canAccessSettings = permissions?.accessSettings ?? false;
   const transactionEntries = transactionEntriesAll.filter(
-    (e) => (e.href === "/issues" && canViewOutward) || (e.href === "/returns" && canViewInward)
+    (e) =>
+      (e.href === "/issues" && canViewOutward) ||
+      (e.href === "/returns" && canViewInward),
   );
 
   useEffect(() => {
     const inMaster = masterEntries.some((e) => e.href === pathname);
-    const inTransaction = transactionEntriesAll.some((e) => e.href === pathname);
+    const inTransaction = transactionEntriesAll.some(
+      (e) => e.href === pathname,
+    );
     if (inMaster) setMasterOpen(true);
     if (inTransaction) setTransactionOpen(true);
   }, [pathname]);
@@ -167,23 +191,33 @@ export function Sidebar({
     >
       {/* Header: when wrapped = only expand button; when expanded = text + collapse button (no logo) */}
       <div
-        className={`shrink-0 border-b border-secondary-200 bg-gradient-to-r from-primary-600 to-primary-700 flex transition-[padding] duration-300 ${showFullSidebar
-          ? "min-h-[5.5rem] px-4 py-3 flex-row items-center gap-3"
-          : "min-h-[3rem] px-2 py-2 flex-row items-center justify-center"
-          }`}
+        className={`shrink-0 border-b border-secondary-200 bg-gradient-to-r from-primary-600 to-primary-700 flex transition-[padding] duration-300 ${
+          showFullSidebar
+            ? "min-h-[5.5rem] px-4 py-3 flex-row items-center gap-3"
+            : "min-h-[3rem] px-2 py-2 flex-row items-center justify-center"
+        }`}
       >
         {showFullSidebar ? (
           <>
             <div className="min-w-0 flex-1 flex flex-col justify-center gap-1.5">
               {companyName && (
-                <SidebarText show={showFullSidebar} className="!ml-0 text-base font-bold text-white/90 truncate leading-tight block">
+                <SidebarText
+                  show={showFullSidebar}
+                  className="!ml-0 text-base font-bold text-white/90 truncate leading-tight block"
+                >
                   {companyName}
                 </SidebarText>
               )}
-              <SidebarText show={showFullSidebar} className="!ml-0 text-sm font-semibold text-white truncate leading-tight block">
+              <SidebarText
+                show={showFullSidebar}
+                className="!ml-0 text-sm font-semibold text-white truncate leading-tight block"
+              >
                 {softwareName}
               </SidebarText>
-              <SidebarText show={showFullSidebar} className="!ml-0 text-xs text-white/90 leading-tight block">
+              <SidebarText
+                show={showFullSidebar}
+                className="!ml-0 text-xs text-white/90 leading-tight block"
+              >
                 {portalLabel}
               </SidebarText>
             </div>
@@ -218,7 +252,9 @@ export function Sidebar({
                 className={linkClass("/dashboard", !showFullSidebar)}
               >
                 <LayoutDashboard className="w-5 h-5 shrink-0" />
-                <SidebarText show={showFullSidebar} className="-ml-1">Dashboard</SidebarText>
+                <SidebarText show={showFullSidebar} className="-ml-1">
+                  Dashboard
+                </SidebarText>
               </motion.div>
             </Link>
           )}
@@ -234,7 +270,9 @@ export function Sidebar({
                     className={`${sectionHeaderClass} w-full text-left`}
                     aria-expanded={masterOpen}
                   >
-                    <SidebarText show={showFullSidebar} className="-ml-1">Master Entry</SidebarText>
+                    <SidebarText show={showFullSidebar} className="-ml-1">
+                      Master Entry
+                    </SidebarText>
                     {masterOpen ? (
                       <ChevronDown className="w-4 h-4 shrink-0" />
                     ) : (
@@ -256,7 +294,12 @@ export function Sidebar({
                               className={linkClass(item.href, false)}
                             >
                               <Icon className="w-5 h-5 shrink-0" />
-                              <SidebarText show={showFullSidebar} className="-ml-1">{item.label}</SidebarText>
+                              <SidebarText
+                                show={showFullSidebar}
+                                className="-ml-1"
+                              >
+                                {item.label}
+                              </SidebarText>
                             </motion.div>
                           </Link>
                         );
@@ -268,10 +311,11 @@ export function Sidebar({
                 <div className="space-y-0.5">
                   {masterEntries.map((item) => {
                     const Icon = item.icon;
-                    const cellClass = `flex items-center justify-center p-2 rounded-md transition-colors ${pathname === item.href
-                      ? "bg-primary-50 text-primary-600"
-                      : "text-secondary-700 hover:bg-secondary-50"
-                      }`;
+                    const cellClass = `flex items-center justify-center p-2 rounded-md transition-colors ${
+                      pathname === item.href
+                        ? "bg-primary-50 text-primary-600"
+                        : "text-secondary-700 hover:bg-secondary-50"
+                    }`;
                     return (
                       <Link key={item.href} href={item.href} title={item.label}>
                         <div className={cellClass}>
@@ -296,7 +340,9 @@ export function Sidebar({
                     className={`${sectionHeaderClass} w-full text-left`}
                     aria-expanded={transactionOpen}
                   >
-                    <SidebarText show={showFullSidebar} className="-ml-1">Transaction Entry</SidebarText>
+                    <SidebarText show={showFullSidebar} className="-ml-1">
+                      Transaction Entry
+                    </SidebarText>
                     {transactionOpen ? (
                       <ChevronDown className="w-4 h-4 shrink-0" />
                     ) : (
@@ -318,7 +364,12 @@ export function Sidebar({
                               className={linkClass(item.href, false)}
                             >
                               <Icon className="w-5 h-5 shrink-0" />
-                              <SidebarText show={showFullSidebar} className="-ml-1">{item.label}</SidebarText>
+                              <SidebarText
+                                show={showFullSidebar}
+                                className="-ml-1"
+                              >
+                                {item.label}
+                              </SidebarText>
                             </motion.div>
                           </Link>
                         );
@@ -330,10 +381,11 @@ export function Sidebar({
                 <div className="space-y-0.5">
                   {transactionEntries.map((item) => {
                     const Icon = item.icon;
-                    const cellClass = `flex items-center justify-center p-2 rounded-md transition-colors ${pathname === item.href
-                      ? "bg-primary-50 text-primary-600"
-                      : "text-secondary-700 hover:bg-secondary-50"
-                      }`;
+                    const cellClass = `flex items-center justify-center p-2 rounded-md transition-colors ${
+                      pathname === item.href
+                        ? "bg-primary-50 text-primary-600"
+                        : "text-secondary-700 hover:bg-secondary-50"
+                    }`;
                     return (
                       <Link key={item.href} href={item.href} title={item.label}>
                         <div className={cellClass}>
@@ -356,7 +408,9 @@ export function Sidebar({
                   className={linkClass("/reports", !showFullSidebar)}
                 >
                   <BarChart3 className="w-5 h-5 shrink-0" />
-                  <SidebarText show={showFullSidebar} className="-ml-1">Reports</SidebarText>
+                  <SidebarText show={showFullSidebar} className="-ml-1">
+                    Reports
+                  </SidebarText>
                 </motion.div>
               </Link>
             )}
@@ -367,7 +421,9 @@ export function Sidebar({
                   className={linkClass("/settings", !showFullSidebar)}
                 >
                   <Settings className="w-5 h-5 shrink-0" />
-                  <SidebarText show={showFullSidebar} className="-ml-1">Settings</SidebarText>
+                  <SidebarText show={showFullSidebar} className="-ml-1">
+                    Settings
+                  </SidebarText>
                 </motion.div>
               </Link>
             )}
@@ -384,7 +440,9 @@ export function Sidebar({
           onClick={handleLogout}
         >
           <LogOut className="w-5 h-5 shrink-0" />
-          <SidebarText show={showFullSidebar} className="-ml-1 text-red-600">Logout</SidebarText>
+          <SidebarText show={showFullSidebar} className="-ml-1 text-red-600">
+            Logout
+          </SidebarText>
         </Button>
       </div>
     </aside>
