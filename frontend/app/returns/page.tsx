@@ -213,8 +213,8 @@ export default function ReturnsPage() {
   const hasValidMissingItem = !Number.isNaN(numItemId) && numItemId > 0;
   const displayIssue = hasValidIssue
     ? ((prefetchedIssue?.id === numIssueId
-        ? prefetchedIssue
-        : activeIssues.find((i) => i.id === numIssueId)) ?? null)
+      ? prefetchedIssue
+      : activeIssues.find((i) => i.id === numIssueId)) ?? null)
     : null;
   const displayMissingItem = hasValidMissingItem
     ? (missingItems.find((i) => i.id === numItemId) ?? null)
@@ -556,7 +556,7 @@ export default function ReturnsPage() {
                   <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-600 border-t-transparent" />
                 </div>
               ) : returns.length > 0 ? (
-                <div className="overflow-x-auto rounded-lg border border-secondary-200">
+                <div className="overflow-x-auto overflow-y-hidden rounded-lg border border-secondary-200">
                   <table className="w-full text-left text-sm">
                     <thead>
                       <tr className="border-b border-primary-200 bg-primary-100">
@@ -631,8 +631,7 @@ export default function ReturnsPage() {
                           </td>
                           <td className="px-4 py-3 text-center">
                             <span
-                              className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium border ${
-                                r.condition === "OK"
+                              className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium border ${r.condition === "OK"
                                   ? "bg-green-100 text-green-700 border-green-200"
                                   : r.condition === "Damaged"
                                     ? "bg-amber-100 text-amber-700 border-amber-200"
@@ -641,7 +640,7 @@ export default function ReturnsPage() {
                                       : r.condition === "Missing"
                                         ? "bg-red-100 text-red-700 border-red-200"
                                         : "bg-secondary-100 text-secondary-700 border-secondary-200"
-                              }`}
+                                }`}
                             >
                               {r.condition ?? "—"}
                             </span>
@@ -674,11 +673,10 @@ export default function ReturnsPage() {
                           </td>
                           <td className="px-4 py-3 text-center">
                             <span
-                              className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${
-                                r.isActive
+                              className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${r.isActive
                                   ? "bg-green-100 text-green-700 border border-green-200"
                                   : "bg-red-100 text-red-700 border border-red-200"
-                              }`}
+                                }`}
                             >
                               {r.isActive ? "Active" : "Inactive"}
                             </span>
@@ -1159,7 +1157,7 @@ export default function ReturnsPage() {
                                 options={filterOptions.company}
                                 value={
                                   watch("companyId") &&
-                                  Number(watch("companyId")) >= 1
+                                    Number(watch("companyId")) >= 1
                                     ? Number(watch("companyId"))
                                     : ""
                                 }
@@ -1191,7 +1189,7 @@ export default function ReturnsPage() {
                                 options={filterOptions.contractor}
                                 value={
                                   watch("contractorId") &&
-                                  Number(watch("contractorId")) >= 1
+                                    Number(watch("contractorId")) >= 1
                                     ? Number(watch("contractorId"))
                                     : ""
                                 }
@@ -1223,7 +1221,7 @@ export default function ReturnsPage() {
                                 options={filterOptions.machine}
                                 value={
                                   watch("machineId") &&
-                                  Number(watch("machineId")) >= 1
+                                    Number(watch("machineId")) >= 1
                                     ? Number(watch("machineId"))
                                     : ""
                                 }
@@ -1255,7 +1253,7 @@ export default function ReturnsPage() {
                                 options={filterOptions.location}
                                 value={
                                   watch("locationId") &&
-                                  Number(watch("locationId")) >= 1
+                                    Number(watch("locationId")) >= 1
                                     ? Number(watch("locationId"))
                                     : ""
                                 }

@@ -291,7 +291,7 @@ export default function LocationsPage() {
                   <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary-600 border-t-transparent" />
                 </div>
               ) : filteredLocations.length > 0 ? (
-                <div className="overflow-x-auto rounded-lg border border-secondary-200">
+                <div className="overflow-x-auto overflow-y-hidden rounded-lg border border-secondary-200">
                   <table className="w-full text-left text-sm">
                     <thead>
                       <tr className="border-b border-primary-200 bg-primary-100">
@@ -326,11 +326,10 @@ export default function LocationsPage() {
                           </td>
                           <td className="px-4 py-3">
                             <span
-                              className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${
-                                loc.isActive
+                              className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${loc.isActive
                                   ? "bg-green-100 text-green-700 border border-green-200"
                                   : "bg-red-100 text-red-700 border border-red-200"
-                              }`}
+                                }`}
                             >
                               {loc.isActive ? "Active" : "Inactive"}
                             </span>
@@ -442,26 +441,26 @@ export default function LocationsPage() {
               <Label htmlFor="location-name-input">
                 Location Master Name *
               </Label>
-                <Input
-                  id="location-name-input"
-                  {...register("name")}
-                  placeholder="e.g. Warehouse A"
-                  className="mt-1"
-                  aria-required="true"
-                  aria-invalid={!!errors.name}
-                  aria-describedby={
-                    errors.name ? "location-name-error" : "location-form-hint"
-                  }
-                />
-                {errors.name && (
-                  <p
-                    id="location-name-error"
-                    className="text-sm text-red-600 mt-1"
-                    role="alert"
-                  >
-                    {errors.name.message}
-                  </p>
-                )}
+              <Input
+                id="location-name-input"
+                {...register("name")}
+                placeholder="e.g. Warehouse A"
+                className="mt-1"
+                aria-required="true"
+                aria-invalid={!!errors.name}
+                aria-describedby={
+                  errors.name ? "location-name-error" : "location-form-hint"
+                }
+              />
+              {errors.name && (
+                <p
+                  id="location-name-error"
+                  className="text-sm text-red-600 mt-1"
+                  role="alert"
+                >
+                  {errors.name.message}
+                </p>
+              )}
             </div>
             {editingLocation && (
               <div>

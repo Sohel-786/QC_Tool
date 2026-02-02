@@ -290,7 +290,7 @@ export default function CompaniesPage() {
                   <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary-600 border-t-transparent" />
                 </div>
               ) : filteredCompanies.length > 0 ? (
-                <div className="overflow-x-auto rounded-lg border border-secondary-200">
+                <div className="overflow-x-auto overflow-y-hidden rounded-lg border border-secondary-200">
                   <table className="w-full text-left text-sm">
                     <thead>
                       <tr className="border-b border-primary-200 bg-primary-100">
@@ -325,11 +325,10 @@ export default function CompaniesPage() {
                           </td>
                           <td className="px-4 py-3">
                             <span
-                              className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${
-                                company.isActive
+                              className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${company.isActive
                                   ? "bg-green-100 text-green-700 border border-green-200"
                                   : "bg-red-100 text-red-700 border border-red-200"
-                              }`}
+                                }`}
                             >
                               {company.isActive ? "Active" : "Inactive"}
                             </span>
@@ -437,26 +436,26 @@ export default function CompaniesPage() {
               <Label htmlFor="company-name-input">
                 Company Master Name *
               </Label>
-                <Input
-                  id="company-name-input"
-                  {...register("name")}
-                  placeholder="Acme Corp"
-                  className="mt-1"
-                  aria-required="true"
-                  aria-invalid={!!errors.name}
-                  aria-describedby={
-                    errors.name ? "company-name-error" : "company-form-hint"
-                  }
-                />
-                {errors.name && (
-                  <p
-                    id="company-name-error"
-                    className="text-sm text-red-600 mt-1"
-                    role="alert"
-                  >
-                    {errors.name.message}
-                  </p>
-                )}
+              <Input
+                id="company-name-input"
+                {...register("name")}
+                placeholder="Acme Corp"
+                className="mt-1"
+                aria-required="true"
+                aria-invalid={!!errors.name}
+                aria-describedby={
+                  errors.name ? "company-name-error" : "company-form-hint"
+                }
+              />
+              {errors.name && (
+                <p
+                  id="company-name-error"
+                  className="text-sm text-red-600 mt-1"
+                  role="alert"
+                >
+                  {errors.name.message}
+                </p>
+              )}
             </div>
             {editingCompany && (
               <div>

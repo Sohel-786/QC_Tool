@@ -392,7 +392,7 @@ export default function DashboardPage() {
                   <p className="mt-4 text-secondary-600">Loading...</p>
                 </div>
               ) : tableData.length > 0 ? (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto overflow-y-hidden">
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-primary-200 bg-primary-100">

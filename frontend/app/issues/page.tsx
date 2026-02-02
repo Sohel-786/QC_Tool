@@ -416,7 +416,7 @@ export default function IssuesPage() {
                   <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-600 border-t-transparent" />
                 </div>
               ) : issues.length > 0 ? (
-                <div className="overflow-x-auto rounded-lg border border-secondary-200">
+                <div className="overflow-x-auto overflow-y-hidden rounded-lg border border-secondary-200">
                   <table className="w-full text-left text-sm">
                     <thead>
                       <tr className="border-b border-primary-200 bg-primary-100">
@@ -492,22 +492,20 @@ export default function IssuesPage() {
                           </td>
                           <td className="px-4 py-3 text-center">
                             <span
-                              className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${
-                                issue.isActive
+                              className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${issue.isActive
                                   ? "bg-green-100 text-green-700 border border-green-200"
                                   : "bg-red-100 text-red-700 border border-red-200"
-                              }`}
+                                }`}
                             >
                               {issue.isActive ? "Active" : "Inactive"}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-center">
                             <span
-                              className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${
-                                issue.isReturned
+                              className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${issue.isReturned
                                   ? "bg-green-100 text-green-700 border border-green-200"
                                   : "bg-amber-100 text-amber-700 border border-amber-200"
-                              }`}
+                                }`}
                             >
                               {issue.isReturned ? "Yes" : "No"}
                             </span>
@@ -664,8 +662,8 @@ export default function IssuesPage() {
                         <p className="mt-1.5 h-10 px-3 py-2 rounded-md border border-secondary-200 bg-secondary-50 text-sm text-secondary-700 flex items-center">
                           {editingIssue.item?.categoryId != null
                             ? categories.find(
-                                (c) => c.id === editingIssue.item?.categoryId
-                              )?.name ?? "—"
+                              (c) => c.id === editingIssue.item?.categoryId
+                            )?.name ?? "—"
                             : "—"}
                         </p>
                       </div>

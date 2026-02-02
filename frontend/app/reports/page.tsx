@@ -393,8 +393,8 @@ function ReportsContent() {
   const missingTotal = missingReport?.total ?? 0;
   const ledgerPayload =
     ledgerReport != null &&
-    typeof ledgerReport === "object" &&
-    "data" in ledgerReport
+      typeof ledgerReport === "object" &&
+      "data" in ledgerReport
       ? (ledgerReport as { data: LedgerItemPayload }).data
       : undefined;
   const ledgerRows = Array.isArray(ledgerPayload?.rows)
@@ -530,7 +530,7 @@ function ReportsContent() {
                     <TableSkeleton />
                   ) : issuedData.length > 0 ? (
                     <>
-                      <div className="overflow-x-auto rounded-b-lg border border-secondary-200 border-t-0">
+                      <div className="overflow-x-auto overflow-y-hidden rounded-b-lg border border-secondary-200 border-t-0">
                         <table className="w-full text-left text-sm">
                           <thead>
                             <tr className="border-b border-primary-200 bg-primary-100">
@@ -683,7 +683,7 @@ function ReportsContent() {
                     <TableSkeleton />
                   ) : missingData.length > 0 ? (
                     <>
-                      <div className="overflow-x-auto rounded-b-lg border border-secondary-200 border-t-0">
+                      <div className="overflow-x-auto overflow-y-hidden rounded-b-lg border border-secondary-200 border-t-0">
                         <table className="w-full text-left text-sm">
                           <thead>
                             <tr className="border-b border-primary-200 bg-primary-100">
@@ -969,7 +969,7 @@ function ReportsContent() {
                     <TableSkeleton />
                   ) : ledgerRows.length > 0 ? (
                     <>
-                      <div className="overflow-x-auto rounded-b-lg border border-secondary-200 border-t-0">
+                      <div className="overflow-x-auto overflow-y-hidden rounded-b-lg border border-secondary-200 border-t-0">
                         <table className="w-full text-left text-sm min-w-[1200px]">
                           <thead>
                             <tr className="border-b border-primary-200 bg-primary-100">
@@ -1058,7 +1058,7 @@ function ReportsContent() {
                                         : row.condition === "Damaged"
                                           ? "bg-amber-100 text-amber-700 border-amber-200"
                                           : row.condition ===
-                                              "Calibration Required"
+                                            "Calibration Required"
                                             ? "bg-blue-100 text-blue-700 border-blue-200"
                                             : row.condition === "Missing"
                                               ? "bg-red-100 text-red-700 border-red-200"
@@ -1093,8 +1093,8 @@ function ReportsContent() {
                     <div className="text-center py-12">
                       <p className="text-secondary-500 text-lg">
                         {hasActiveFilters(ledgerFilters) ||
-                        ledgerDateFrom ||
-                        ledgerDateTo
+                          ledgerDateFrom ||
+                          ledgerDateTo
                           ? "No ledger records match your filters."
                           : "No traceability records for this item."}
                       </p>

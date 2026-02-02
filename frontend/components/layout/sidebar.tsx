@@ -191,11 +191,10 @@ export function Sidebar({
     >
       {/* Header: when wrapped = only expand button; when expanded = text + collapse button (no logo) */}
       <div
-        className={`shrink-0 border-b border-secondary-200 bg-gradient-to-r from-primary-600 to-primary-700 flex transition-[padding] duration-300 ${
-          showFullSidebar
+        className={`shrink-0 border-b border-secondary-200 bg-gradient-to-r from-primary-600 to-primary-700 flex transition-[padding] duration-300 ${showFullSidebar
             ? "min-h-[5.5rem] px-4 py-3 flex-row items-center gap-3"
             : "min-h-[3rem] px-2 py-2 flex-row items-center justify-center"
-        }`}
+          }`}
       >
         {showFullSidebar ? (
           <>
@@ -243,7 +242,7 @@ export function Sidebar({
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2 px-2">
+      <nav className="flex-1 overflow-y-hidden hover:overflow-y-auto overflow-x-hidden py-2 px-2">
         <div className="space-y-0.5">
           {canViewDashboard && (
             <Link href="/dashboard">
@@ -311,11 +310,10 @@ export function Sidebar({
                 <div className="space-y-0.5">
                   {masterEntries.map((item) => {
                     const Icon = item.icon;
-                    const cellClass = `flex items-center justify-center p-2 rounded-md transition-colors ${
-                      pathname === item.href
+                    const cellClass = `flex items-center justify-center p-2 rounded-md transition-colors ${pathname === item.href
                         ? "bg-primary-50 text-primary-600"
                         : "text-secondary-700 hover:bg-secondary-50"
-                    }`;
+                      }`;
                     return (
                       <Link key={item.href} href={item.href} title={item.label}>
                         <div className={cellClass}>
@@ -381,11 +379,10 @@ export function Sidebar({
                 <div className="space-y-0.5">
                   {transactionEntries.map((item) => {
                     const Icon = item.icon;
-                    const cellClass = `flex items-center justify-center p-2 rounded-md transition-colors ${
-                      pathname === item.href
+                    const cellClass = `flex items-center justify-center p-2 rounded-md transition-colors ${pathname === item.href
                         ? "bg-primary-50 text-primary-600"
                         : "text-secondary-700 hover:bg-secondary-50"
-                    }`;
+                      }`;
                     return (
                       <Link key={item.href} href={item.href} title={item.label}>
                         <div className={cellClass}>

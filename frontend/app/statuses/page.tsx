@@ -289,7 +289,7 @@ export default function StatusesPage() {
                   <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary-600 border-t-transparent" />
                 </div>
               ) : filteredStatuses.length > 0 ? (
-                <div className="overflow-x-auto rounded-lg border border-secondary-200">
+                <div className="overflow-x-auto overflow-y-hidden rounded-lg border border-secondary-200">
                   <table className="w-full text-left text-sm">
                     <thead>
                       <tr className="border-b border-primary-200 bg-primary-100">
@@ -324,11 +324,10 @@ export default function StatusesPage() {
                           </td>
                           <td className="px-4 py-3">
                             <span
-                              className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${
-                                s.isActive
+                              className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${s.isActive
                                   ? "bg-green-100 text-green-700 border border-green-200"
                                   : "bg-red-100 text-red-700 border border-red-200"
-                              }`}
+                                }`}
                             >
                               {s.isActive ? "Active" : "Inactive"}
                             </span>
@@ -432,26 +431,26 @@ export default function StatusesPage() {
           >
             <div>
               <Label htmlFor="status-name-input">Status Master Name *</Label>
-                <Input
-                  id="status-name-input"
-                  {...register("name")}
-                  placeholder="e.g. In Progress"
-                  className="mt-1"
-                  aria-required="true"
-                  aria-invalid={!!errors.name}
-                  aria-describedby={
-                    errors.name ? "status-name-error" : "status-form-hint"
-                  }
-                />
-                {errors.name && (
-                  <p
-                    id="status-name-error"
-                    className="text-sm text-red-600 mt-1"
-                    role="alert"
-                  >
-                    {errors.name.message}
-                  </p>
-                )}
+              <Input
+                id="status-name-input"
+                {...register("name")}
+                placeholder="e.g. In Progress"
+                className="mt-1"
+                aria-required="true"
+                aria-invalid={!!errors.name}
+                aria-describedby={
+                  errors.name ? "status-name-error" : "status-form-hint"
+                }
+              />
+              {errors.name && (
+                <p
+                  id="status-name-error"
+                  className="text-sm text-red-600 mt-1"
+                  role="alert"
+                >
+                  {errors.name.message}
+                </p>
+              )}
             </div>
             {editingStatus && (
               <div>
