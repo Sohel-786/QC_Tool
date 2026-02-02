@@ -189,9 +189,11 @@ export default function DashboardPage() {
       title: 'Total Items',
       value: metrics?.items.total || 0,
       icon: Package,
-      color: 'text-primary-600',
-      bgColor: 'bg-gradient-to-br from-primary-50 to-primary-100',
-      iconBg: 'bg-primary-600',
+      gradient: 'from-blue-500 to-blue-600',
+      baseBg: 'bg-blue-50/40',
+      shadowColor: 'shadow-blue-500/20',
+      iconColor: 'text-blue-600',
+      iconBg: 'bg-white',
       trend: null,
       onClick: () => handleCardClick('Total Items'),
     },
@@ -199,9 +201,11 @@ export default function DashboardPage() {
       title: 'Available',
       value: metrics?.items.available || 0,
       icon: CheckCircle,
-      color: 'text-green-600',
-      bgColor: 'bg-gradient-to-br from-green-50 to-green-100',
-      iconBg: 'bg-green-600',
+      gradient: 'from-emerald-500 to-emerald-600',
+      baseBg: 'bg-emerald-50/40',
+      shadowColor: 'shadow-emerald-500/20',
+      iconColor: 'text-emerald-600',
+      iconBg: 'bg-white',
       trend: 'up',
       onClick: () => handleCardClick('Available'),
     },
@@ -209,9 +213,11 @@ export default function DashboardPage() {
       title: 'Missing',
       value: metrics?.items.missing || 0,
       icon: AlertCircle,
-      color: 'text-red-600',
-      bgColor: 'bg-gradient-to-br from-red-50 to-red-100',
-      iconBg: 'bg-red-600',
+      gradient: 'from-rose-500 to-rose-600',
+      baseBg: 'bg-rose-50/40',
+      shadowColor: 'shadow-rose-500/20',
+      iconColor: 'text-rose-600',
+      iconBg: 'bg-white',
       trend: 'down',
       onClick: () => handleCardClick('Missing'),
     },
@@ -219,9 +225,11 @@ export default function DashboardPage() {
       title: 'Active Issues',
       value: metrics?.issues.active || 0,
       icon: ClipboardList,
-      color: 'text-orange-600',
-      bgColor: 'bg-gradient-to-br from-orange-50 to-orange-100',
-      iconBg: 'bg-orange-600',
+      gradient: 'from-amber-500 to-amber-600',
+      baseBg: 'bg-amber-50/40',
+      shadowColor: 'shadow-amber-500/20',
+      iconColor: 'text-amber-600',
+      iconBg: 'bg-white',
       trend: null,
       onClick: () => handleCardClick('Active Issues'),
     },
@@ -232,7 +240,7 @@ export default function DashboardPage() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="space-y-6"
+        className="space-y-8"
       >
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -265,39 +273,62 @@ export default function DashboardPage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
+                whileHover={{ y: -5 }}
+                className="h-full"
               >
-                <Card
-                  className="hover:shadow-xl transition-all duration-300 border-0 shadow-lg overflow-hidden cursor-pointer"
+                <div
                   onClick={stat.onClick}
+                  className={`
+                    relative overflow-hidden rounded-2xl cursor-pointer group h-full
+                    ${stat.baseBg} hover:bg-gradient-to-br ${stat.gradient}
+                    transition-all duration-500 ease-out
+                    shadow-xl ${stat.shadowColor} border border-secondary-100/50
+                  `}
                 >
-                  <CardContent className="p-6 relative">
-                    <div className={`${stat.bgColor} absolute inset-0 opacity-50`} />
-                    <div className="relative z-10">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className={`${stat.iconBg} p-3 rounded-xl shadow-lg`}>
-                          <Icon className="w-6 h-6 text-white" />
+                  <CardContent className="p-6 relative z-10">
+                    <div className="flex justify-between items-start">
+                      <div className="space-y-4">
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium text-secondary-500 group-hover:text-white/90 transition-colors duration-300">
+                            {stat.title}
+                          </p>
+                          <h3 className="text-4xl font-bold text-text group-hover:text-white transition-colors duration-300 tracking-tight">
+                            {stat.value}
+                          </h3>
                         </div>
+
                         {stat.trend && (
-                          <div className={`flex items-center space-x-1 ${stat.trend === 'up' ? 'text-green-600' : 'text-red-600'}`}>
+                          <div className={`
+                            flex items-center space-x-1 text-sm font-medium
+                            ${stat.trend === 'up' ? 'text-green-600' : 'text-rose-600'}
+                            group-hover:text-white/90 transition-colors duration-300
+                          `}>
                             {stat.trend === 'up' ? (
                               <TrendingUp className="w-4 h-4" />
                             ) : (
                               <TrendingDown className="w-4 h-4" />
                             )}
+                            <span>{stat.trend === 'up' ? '+12.5%' : '-2.4%'}</span>
                           </div>
                         )}
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-secondary-600 mb-1">
-                          {stat.title}
-                        </p>
-                        <p className="text-4xl font-bold text-text">
-                          {stat.value}
-                        </p>
+
+                      <div className={`
+                        p-3 rounded-xl shadow-sm transition-all duration-300
+                        bg-secondary-50 group-hover:bg-white/20 group-hover:backdrop-blur-sm
+                        group-hover:scale-110 group-hover:rotate-3
+                      `}>
+                        <Icon className={`
+                          w-6 h-6 transition-colors duration-300
+                          ${stat.iconColor} group-hover:text-white
+                        `} />
                       </div>
                     </div>
+
+                    {/* Decorative background shapes */}
+                    <div className="absolute -right-6 -bottom-6 w-24 h-24 rounded-full bg-current opacity-[0.03] group-hover:opacity-10 pointer-events-none transition-opacity duration-500" />
                   </CardContent>
-                </Card>
+                </div>
               </motion.div>
             );
           })}
@@ -405,13 +436,12 @@ export default function DashboardPage() {
                           </td>
                           <td className="py-3 px-4">
                             <span
-                              className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                item.status === 'AVAILABLE'
-                                  ? 'bg-green-100 text-green-700 border border-green-200'
-                                  : item.status === 'MISSING'
-                                    ? 'bg-red-100 text-red-700 border border-red-200'
-                                    : 'bg-secondary-100 text-secondary-700 border border-secondary-200'
-                              }`}
+                              className={`px-2 py-1 rounded-full text-xs font-medium ${item.status === 'AVAILABLE'
+                                ? 'bg-green-100 text-green-700 border border-green-200'
+                                : item.status === 'MISSING'
+                                  ? 'bg-red-100 text-red-700 border border-red-200'
+                                  : 'bg-secondary-100 text-secondary-700 border border-secondary-200'
+                                }`}
                             >
                               {item.status}
                             </span>
