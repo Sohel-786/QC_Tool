@@ -57,7 +57,8 @@ export default function IssuesPage() {
   const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
   const [inactiveTarget, setInactiveTarget] = useState<Issue | null>(null);
   const [nextIssueCode, setNextIssueCode] = useState<string>("");
-  const [filters, setFilters] = useState<TransactionFiltersState>(defaultFilters);
+  const [filters, setFilters] =
+    useState<TransactionFiltersState>(defaultFilters);
   const queryClient = useQueryClient();
   const router = useRouter();
   const { user: currentUser } = useCurrentUser();
@@ -73,12 +74,20 @@ export default function IssuesPage() {
     () => ({ ...filters, search: debouncedSearch }),
     [filters, debouncedSearch],
   );
-  const filterKey = useMemo(() => JSON.stringify(filtersForApi), [filtersForApi]);
+  const filterKey = useMemo(
+    () => JSON.stringify(filtersForApi),
+    [filtersForApi],
+  );
 
   const { data: issues = [], isFetching: issuesLoading } = useQuery<Issue[]>({
     queryKey: ["issues", filterKey],
     queryFn: async () => {
-      const res = await api.get("/issues", { params: buildFilterParams(filtersForApi) });
+      const res = await api.get("/issues", {
+        params: {
+          ...buildFilterParams(filtersForApi),
+          onlyPendingInward: "true",
+        },
+      });
       return res.data?.data ?? [];
     },
   });
@@ -211,7 +220,13 @@ export default function IssuesPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: Partial<IssueForm> }) => {
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: number;
+      data: Partial<IssueForm>;
+    }) => {
       const res = await api.patch(`/issues/${id}`, {
         companyId: data.companyId ?? undefined,
         contractorId: data.contractorId ?? undefined,
@@ -353,7 +368,12 @@ export default function IssuesPage() {
       contractor: contractors.map((c) => ({ value: c.id, label: c.name })),
       machine: machines.map((m) => ({ value: m.id, label: m.name })),
       location: locations.map((l) => ({ value: l.id, label: l.name })),
-      item: filterItems.map((i) => ({ value: i.id, label: i.serialNumber ? `${i.itemName} (${i.serialNumber})` : i.itemName })),
+      item: filterItems.map((i) => ({
+        value: i.id,
+        label: i.serialNumber
+          ? `${i.itemName} (${i.serialNumber})`
+          : i.itemName,
+      })),
     }),
     [companies, contractors, machines, locations, filterItems],
   );
@@ -448,9 +468,9 @@ export default function IssuesPage() {
                         <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[90px]">
                           Status
                         </th>
-                        <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[100px]">
+                        {/* <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[100px]">
                           Inward Done
-                        </th>
+                        </th> */}
                         {(canAddOutward || canEditOutward) && (
                           <th className="px-4 py-3 font-semibold text-primary-900 text-center min-w-[200px]">
                             Actions
@@ -493,24 +513,26 @@ export default function IssuesPage() {
                           </td>
                           <td className="px-4 py-3 text-center">
                             <span
-                              className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${issue.isActive
-                                ? "bg-green-100 text-green-700 border border-green-200"
-                                : "bg-red-100 text-red-700 border border-red-200"
-                                }`}
+                              className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${
+                                issue.isActive
+                                  ? "bg-green-100 text-green-700 border border-green-200"
+                                  : "bg-red-100 text-red-700 border border-red-200"
+                              }`}
                             >
                               {issue.isActive ? "Active" : "Inactive"}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-center">
+                          {/* <td className="px-4 py-3 text-center">
                             <span
-                              className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${issue.isReturned
-                                ? "bg-green-100 text-green-700 border border-green-200"
-                                : "bg-amber-100 text-amber-700 border border-amber-200"
-                                }`}
+                              className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${
+                                issue.isReturned
+                                  ? "bg-green-100 text-green-700 border border-green-200"
+                                  : "bg-amber-100 text-amber-700 border border-amber-200"
+                              }`}
                             >
                               {issue.isReturned ? "Yes" : "No"}
                             </span>
-                          </td>
+                          </td> */}
                           {(canAddOutward || canEditOutward) && (
                             <td className="px-4 py-3 min-w-[200px]">
                               <div className="flex flex-nowrap items-center justify-center gap-1 whitespace-nowrap">
@@ -529,7 +551,13 @@ export default function IssuesPage() {
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => handleOpenEdit(issue)}
-                                  title={issue.isReturned ? "View only (inward done)" : canEditOutward ? "Edit outward" : "View outward (edit disabled)"}
+                                  title={
+                                    issue.isReturned
+                                      ? "View only (inward done)"
+                                      : canEditOutward
+                                        ? "Edit outward"
+                                        : "View outward (edit disabled)"
+                                  }
                                   className="shrink-0"
                                 >
                                   <Edit2 className="w-4 h-4" />
@@ -649,7 +677,9 @@ export default function IssuesPage() {
                     </Label>
                     <Input
                       id="outward-issue-no"
-                      value={editingIssue ? editingIssue.issueNo : nextIssueCode}
+                      value={
+                        editingIssue ? editingIssue.issueNo : nextIssueCode
+                      }
                       disabled
                       readOnly
                       className="mt-1.5 h-10 bg-secondary-50 border-secondary-200"
@@ -666,9 +696,9 @@ export default function IssuesPage() {
                         </Label>
                         <p className="mt-1.5 h-10 px-3 py-2 rounded-md border border-secondary-200 bg-secondary-50 text-sm text-secondary-700 flex items-center">
                           {editingIssue.item?.categoryId != null
-                            ? categories.find(
-                              (c) => c.id === editingIssue.item?.categoryId
-                            )?.name ?? "—"
+                            ? (categories.find(
+                                (c) => c.id === editingIssue.item?.categoryId,
+                              )?.name ?? "—")
                             : "—"}
                         </p>
                       </div>
@@ -734,8 +764,7 @@ export default function IssuesPage() {
                                 : "Select category first"
                             }
                             disabled={
-                              !selectedCategoryId ||
-                              selectedCategoryId === 0
+                              !selectedCategoryId || selectedCategoryId === 0
                             }
                             searchPlaceholder="Search items..."
                             error={errors.itemId?.message}
@@ -917,29 +946,32 @@ export default function IssuesPage() {
             </p>
 
             <div className="flex-none flex gap-3 px-6 py-4 border-t border-secondary-200 bg-secondary-50/50">
-              {!isViewOnly && (editingIssue ? canEditOutward : canAddOutward) && (
-                <Button
-                  type="submit"
-                  disabled={
-                    createMutation.isPending ||
-                    updateMutation.isPending ||
-                    !hasAllRequired
-                  }
-                  className="flex-1 bg-primary-600 hover:bg-primary-700 text-white"
-                  aria-describedby="outward-form-hint"
-                >
-                  {createMutation.isPending || updateMutation.isPending
-                    ? "Saving…"
-                    : editingIssue
-                      ? "Update"
-                      : "Save"}
-                </Button>
-              )}
+              {!isViewOnly &&
+                (editingIssue ? canEditOutward : canAddOutward) && (
+                  <Button
+                    type="submit"
+                    disabled={
+                      createMutation.isPending ||
+                      updateMutation.isPending ||
+                      !hasAllRequired
+                    }
+                    className="flex-1 bg-primary-600 hover:bg-primary-700 text-white"
+                    aria-describedby="outward-form-hint"
+                  >
+                    {createMutation.isPending || updateMutation.isPending
+                      ? "Saving…"
+                      : editingIssue
+                        ? "Update"
+                        : "Save"}
+                  </Button>
+                )}
               <Button
                 type="button"
                 variant="outline"
                 onClick={handleCloseForm}
-                className={isViewOnly ? "flex-1" : "flex-1 border-secondary-300"}
+                className={
+                  isViewOnly ? "flex-1" : "flex-1 border-secondary-300"
+                }
               >
                 Close
               </Button>

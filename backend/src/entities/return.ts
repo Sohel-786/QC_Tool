@@ -170,6 +170,33 @@ const Return = {
     const andParts: Prisma.ReturnWhereInput[] = [];
     if (filters.status === "active") andParts.push({ isActive: true } as Prisma.ReturnWhereInput);
     if (filters.status === "inactive") andParts.push({ isActive: false } as Prisma.ReturnWhereInput);
+
+    if (filters.hideIssuedItems) {
+      /**
+       * Requirement: If an item is issued again, hide all previous inward history.
+       * Logic: Find the latest Issue ID for each item, and only show Returns 
+       * associated with those Issues (or "Receive Missing Item" returns).
+       */
+      const latestIssues = await prisma.issue.groupBy({
+        by: ["itemId"],
+        _max: { id: true },
+        where: { isActive: true },
+      });
+
+      const latestIssueIds = latestIssues
+        .map((li) => li._max.id)
+        .filter((id): id is number => id !== null);
+
+      if (latestIssueIds.length > 0) {
+        andParts.push({
+          OR: [
+            { issueId: { in: latestIssueIds } },
+            { issueId: null }, // Don't hide returns for missing items or those not linked to issues
+          ],
+        });
+      }
+    }
+
     if (filters.conditions?.length) {
       andParts.push({ condition: { in: filters.conditions } } as Prisma.ReturnWhereInput);
     }

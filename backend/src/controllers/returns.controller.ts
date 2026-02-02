@@ -402,7 +402,41 @@ export const setReturnActive = async (
         new ValidationError("Only Admin is allowed to perform this action")
       );
     }
+
+    const existing = await Return.findById(id);
+    if (!existing) {
+      return next(new NotFoundError(`Return with ID ${id} not found`));
+    }
+
+    // Guard: Requirement 2 - If this return is from an issue, check if the issue is already returned
+    if (existing.issueId != null) {
+      const issue = await Issue.findById(existing.issueId);
+      if (issue && issue.isReturned) {
+        return next(
+          new BadRequestError(
+            "Cannot reactivate this inward. A newer inward already exists for this outward (issue). Please inactivate the current active inward first if you wish to change it."
+          )
+        );
+      }
+    }
+
     const return_ = await Return.setActive(id);
+
+    // Requirement 1: Synchronize status (when activating)
+    if (existing.issueId != null) {
+      await Issue.markAsReturned(existing.issueId);
+      const issue = await Issue.findById(existing.issueId);
+      if (issue) {
+        await Item.update(issue.itemId, {
+          status: conditionToItemStatus(existing.condition),
+        });
+      }
+    } else if (existing.itemId != null) {
+      await Item.update(existing.itemId, {
+        status: conditionToItemStatus(existing.condition),
+      });
+    }
+
     res.json({ success: true, data: return_ });
   } catch (e) {
     next(e);
@@ -424,7 +458,33 @@ export const setReturnInactive = async (
         new ValidationError("Only Admin is allowed to perform this action")
       );
     }
+
+    const existing = await Return.findById(id);
+    if (!existing) {
+      return next(new NotFoundError(`Return with ID ${id} not found`));
+    }
+
     const return_ = await Return.setInactive(id);
+
+    // Requirement 1: Synchronize status (when inactivating)
+    if (existing.issueId != null) {
+      // Re-open the issue
+      await Issue.unmarkAsReturned(existing.issueId);
+
+      const issue = await Issue.findById(existing.issueId);
+      if (issue) {
+        // Mark item as ISSUED again because the inward is now gone
+        await Item.update(issue.itemId, {
+          status: ItemStatus.ISSUED,
+        });
+      }
+    } else if (existing.itemId != null) {
+      // If it was inward from missing, set it back to MISSING status if the inward is deactivated
+      await Item.update(existing.itemId, {
+        status: ItemStatus.MISSING,
+      });
+    }
+
     res.json({ success: true, data: return_ });
   } catch (e) {
     next(e);

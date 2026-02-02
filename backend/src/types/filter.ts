@@ -12,6 +12,10 @@ export interface TransactionListFilters {
   conditions: string[];
   operatorName: string;
   search: string;
+  /** For Issues: show only those where isReturned is false */
+  onlyPendingInward?: boolean;
+  /** For Returns: show only if the associated item's current status is NOT ISSUED */
+  hideIssuedItems?: boolean;
 }
 
 export function parseTransactionFiltersFromQuery(q: {
@@ -24,6 +28,8 @@ export function parseTransactionFiltersFromQuery(q: {
   conditions?: string;
   operatorName?: string;
   search?: string;
+  onlyPendingInward?: string;
+  hideIssuedItems?: string;
 }): TransactionListFilters {
   const parseIds = (s: string | undefined): number[] => {
     if (!s || typeof s !== "string") return [];
@@ -56,6 +62,8 @@ export function parseTransactionFiltersFromQuery(q: {
     conditions: parseConditions(q.conditions),
     operatorName: typeof q.operatorName === "string" ? q.operatorName.trim() : "",
     search,
+    onlyPendingInward: q.onlyPendingInward === "true",
+    hideIssuedItems: q.hideIssuedItems === "true",
   };
 }
 
@@ -69,6 +77,8 @@ export function hasActiveFilters(f: TransactionListFilters): boolean {
     f.itemIds.length > 0 ||
     f.conditions.length > 0 ||
     f.operatorName.length > 0 ||
-    f.search.length > 0
+    f.search.length > 0 ||
+    !!f.onlyPendingInward ||
+    !!f.hideIssuedItems
   );
 }

@@ -74,7 +74,7 @@ export function Dialog({
               if (closeOnBackdropClick) onClose();
             }}
             className={cn(
-              "fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-start justify-center p-4 pt-20",
+              "fixed inset-0 bg-black/50 backdrop-blur-sm z-[1000] flex items-start justify-center p-4 pt-20",
               overlayClassName,
             )}
           >

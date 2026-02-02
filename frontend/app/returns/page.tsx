@@ -96,7 +96,10 @@ export default function ReturnsPage() {
       queryKey: ["returns", filterKey],
       queryFn: async () => {
         const res = await api.get("/returns", {
-          params: buildFilterParams(filtersForApi),
+          params: {
+            ...buildFilterParams(filtersForApi),
+            hideIssuedItems: "true",
+          },
         });
         return res.data?.data ?? [];
       },
@@ -345,6 +348,8 @@ export default function ReturnsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["returns"] });
+      queryClient.invalidateQueries({ queryKey: ["issues"] });
+      queryClient.invalidateQueries({ queryKey: ["active-issues"] });
       setInactiveTarget(null);
       toast.success("Inward marked inactive");
     },
@@ -363,6 +368,8 @@ export default function ReturnsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["returns"] });
+      queryClient.invalidateQueries({ queryKey: ["issues"] });
+      queryClient.invalidateQueries({ queryKey: ["active-issues"] });
       toast.success("Inward marked active");
     },
     onError: (e: unknown) => {
@@ -595,7 +602,7 @@ export default function ReturnsPage() {
                           Received by
                         </th>
                         <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[80px]">
-                          Active
+                          Status
                         </th>
                         <th className="px-4 py-3 font-semibold text-primary-900 text-center w-[60px] min-w-[60px]">
                           Image
@@ -633,14 +640,14 @@ export default function ReturnsPage() {
                           <td className="px-4 py-3 text-center">
                             <span
                               className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium border ${r.condition === "OK"
-                                ? "bg-green-100 text-green-700 border-green-200"
-                                : r.condition === "Damaged"
-                                  ? "bg-amber-100 text-amber-700 border-amber-200"
-                                  : r.condition === "Calibration Required"
-                                    ? "bg-blue-100 text-blue-700 border-blue-200"
-                                    : r.condition === "Missing"
-                                      ? "bg-red-100 text-red-700 border-red-200"
-                                      : "bg-secondary-100 text-secondary-700 border-secondary-200"
+                                  ? "bg-green-100 text-green-700 border-green-200"
+                                  : r.condition === "Damaged"
+                                    ? "bg-amber-100 text-amber-700 border-amber-200"
+                                    : r.condition === "Calibration Required"
+                                      ? "bg-blue-100 text-blue-700 border-blue-200"
+                                      : r.condition === "Missing"
+                                        ? "bg-red-100 text-red-700 border-red-200"
+                                        : "bg-secondary-100 text-secondary-700 border-secondary-200"
                                 }`}
                             >
                               {r.condition ?? "—"}
@@ -675,8 +682,8 @@ export default function ReturnsPage() {
                           <td className="px-4 py-3 text-center">
                             <span
                               className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${r.isActive
-                                ? "bg-green-100 text-green-700 border border-green-200"
-                                : "bg-red-100 text-red-700 border border-red-200"
+                                  ? "bg-green-100 text-green-700 border border-green-200"
+                                  : "bg-red-100 text-red-700 border border-red-200"
                                 }`}
                             >
                               {r.isActive ? "Active" : "Inactive"}
@@ -860,6 +867,10 @@ export default function ReturnsPage() {
                           <span>
                             {editingReturn.issue.item?.itemName ?? "—"}
                           </span>
+                          <span>Serial No.</span>
+                          <span>
+                            {editingReturn.issue?.item?.serialNumber ?? "—"}
+                          </span>
                           <span>Company</span>
                           <span>
                             {editingReturn.issue.company?.name ?? "—"}
@@ -871,6 +882,10 @@ export default function ReturnsPage() {
                           <span>Machine</span>
                           <span>
                             {editingReturn.issue.machine?.name ?? "—"}
+                          </span>
+                          <span>Location</span>
+                          <span>
+                            {editingReturn.issue?.location?.name ?? "—"}
                           </span>
                         </div>
                       </div>
@@ -885,7 +900,7 @@ export default function ReturnsPage() {
                           <span>{editingReturn.sourceInwardCode ?? "—"}</span>
                           <span>Item</span>
                           <span>{editingReturn.item.itemName}</span>
-                          <span>Serial</span>
+                          <span>Serial No.</span>
                           <span>{editingReturn.item.serialNumber ?? "—"}</span>
                           <span>Company</span>
                           <span>{editingReturn.company?.name ?? "—"}</span>
@@ -1309,9 +1324,6 @@ export default function ReturnsPage() {
                         className="text-sm font-medium text-secondary-700"
                       >
                         Status{" "}
-                        <span className="text-secondary-400 font-normal">
-                          (optional)
-                        </span>
                       </Label>
                       <select
                         id="inward-status-id"
@@ -1458,6 +1470,7 @@ export default function ReturnsPage() {
                       createMutation.isPending ||
                       (imageRequired && !imageFile) ||
                       !watch("condition") ||
+                      !watch("statusId") ||
                       (isFromOutwardMode && !hasValidIssue) ||
                       (isMissingItemMode && !hasValidMissingItem)
                     }

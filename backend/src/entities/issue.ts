@@ -129,6 +129,7 @@ const Issue = {
     if (filters.contractorIds.length) conditions.push({ contractorId: { in: filters.contractorIds } });
     if (filters.machineIds.length) conditions.push({ machineId: { in: filters.machineIds } });
     if (filters.locationIds.length) conditions.push({ locationId: { in: filters.locationIds } });
+    if (filters.onlyPendingInward) conditions.push({ isReturned: false });
     if (filters.itemIds.length) conditions.push({ itemId: { in: filters.itemIds } });
     if (filters.operatorName.length) {
       conditions.push({
@@ -198,6 +199,13 @@ const Issue = {
     return prisma.issue.update({
       where: { id },
       data: { isReturned: true },
+    });
+  },
+
+  unmarkAsReturned: async (id: number) => {
+    return prisma.issue.update({
+      where: { id },
+      data: { isReturned: false },
     });
   },
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useCallback, useState } from "react";
+import { createPortal } from "react-dom";
 import { X, ZoomIn, ZoomOut } from "lucide-react";
 import { Button } from "./button";
 import { cn } from "@/lib/utils";
@@ -57,7 +58,7 @@ export function FullScreenImageViewer({
 
   if (!isOpen) return null;
 
-  return (
+  const viewerContent = (
     <div
       className="fixed inset-0 z-[9999] flex flex-col bg-black/95"
       role="dialog"
@@ -126,4 +127,10 @@ export function FullScreenImageViewer({
       </div>
     </div>
   );
+
+  if (typeof document !== "undefined") {
+    return createPortal(viewerContent, document.body);
+  }
+
+  return viewerContent;
 }
