@@ -37,13 +37,19 @@ export function Dialog({
   // Lock body scroll when dialog is open
   useEffect(() => {
     if (isOpen) {
+      // Save original styles
+      const originalBodyOverflow = document.body.style.overflow;
+      const originalHtmlOverflow = document.documentElement.style.overflow;
+
+      // Lock scroll
       document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "unset";
+      document.documentElement.style.overflow = "hidden";
+
+      return () => {
+        document.body.style.overflow = originalBodyOverflow;
+        document.documentElement.style.overflow = originalHtmlOverflow;
+      };
     }
-    return () => {
-      document.body.style.overflow = "unset";
-    };
   }, [isOpen]);
 
   const sizeClasses: Record<NonNullable<DialogProps["size"]>, string> = {
