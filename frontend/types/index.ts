@@ -194,6 +194,7 @@ export interface RolePermission {
   editMaster: boolean;
   manageUsers: boolean;
   accessSettings: boolean;
+  navigationLayout: 'VERTICAL' | 'HORIZONTAL';
   createdAt?: string;
   updatedAt?: string;
 }

@@ -10,6 +10,7 @@ import { SoftwareProfileDraftProvider } from '@/contexts/software-profile-draft-
 import { useCurrentUserPermissions } from '@/hooks/use-settings';
 import { ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { HorizontalNav } from '@/components/layout/horizontal-nav';
 
 const SIDEBAR_WIDTH_EXPANDED = 256;
 const SIDEBAR_WIDTH_COLLAPSED = 64;
@@ -145,18 +146,21 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
     return (
       <SoftwareProfileDraftProvider>
         <div className="min-h-screen bg-secondary-50">
-          <Sidebar
-            userRole={user.role}
-            currentUser={user}
-            expanded={sidebarExpanded}
-            onExpandChange={setSidebarExpanded}
-            sidebarWidth={sidebarWidth}
-          />
+          {permissions?.navigationLayout !== 'HORIZONTAL' && (
+            <Sidebar
+              userRole={user.role}
+              currentUser={user}
+              expanded={sidebarExpanded}
+              onExpandChange={setSidebarExpanded}
+              sidebarWidth={sidebarWidth}
+            />
+          )}
           <div
             className="transition-[margin] duration-200 ease-in-out relative z-0"
-            style={{ marginLeft: sidebarWidth }}
+            style={{ marginLeft: permissions?.navigationLayout === 'HORIZONTAL' ? 0 : sidebarWidth }}
           >
             <Header user={user} />
+            {permissions?.navigationLayout === 'HORIZONTAL' && <HorizontalNav />}
             <main className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-6">
               <div className="text-center max-w-md mx-auto bg-white p-8 rounded-2xl shadow-lg border border-red-100">
                 <div className="bg-red-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -180,18 +184,21 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <SoftwareProfileDraftProvider>
       <div className="min-h-screen bg-secondary-50">
-        <Sidebar
-          userRole={user.role}
-          currentUser={user}
-          expanded={sidebarExpanded}
-          onExpandChange={setSidebarExpanded}
-          sidebarWidth={sidebarWidth}
-        />
+        {permissions?.navigationLayout !== 'HORIZONTAL' && (
+          <Sidebar
+            userRole={user.role}
+            currentUser={user}
+            expanded={sidebarExpanded}
+            onExpandChange={setSidebarExpanded}
+            sidebarWidth={sidebarWidth}
+          />
+        )}
         <div
           className="transition-[margin] duration-200 ease-in-out relative z-0"
-          style={{ marginLeft: sidebarWidth }}
+          style={{ marginLeft: permissions?.navigationLayout === 'HORIZONTAL' ? 0 : sidebarWidth }}
         >
           <Header user={user} />
+          {permissions?.navigationLayout === 'HORIZONTAL' && <HorizontalNav />}
           <main className="min-h-[calc(100vh-4rem)]">{children}</main>
         </div>
       </div>

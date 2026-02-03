@@ -16,6 +16,7 @@ export type PermissionRow = {
   editMaster: boolean;
   manageUsers: boolean;
   accessSettings: boolean;
+  navigationLayout: string;
 };
 
 const RolePermissionEntity = {
@@ -39,6 +40,7 @@ const RolePermissionEntity = {
         editMaster: true,
         manageUsers: true,
         accessSettings: true,
+        navigationLayout: true,
       },
     });
     return rows as PermissionRow[];
@@ -64,6 +66,7 @@ const RolePermissionEntity = {
         editMaster: true,
         manageUsers: true,
         accessSettings: true,
+        navigationLayout: true,
       },
     });
     return row as PermissionRow | null;
@@ -88,6 +91,7 @@ const RolePermissionEntity = {
         editMaster: data.editMaster ?? true,
         manageUsers: data.manageUsers ?? false,
         accessSettings: data.accessSettings ?? false,
+        navigationLayout: data.navigationLayout ?? "VERTICAL",
       },
       update: {
         ...(data.viewDashboard !== undefined && { viewDashboard: data.viewDashboard }),
@@ -104,6 +108,7 @@ const RolePermissionEntity = {
         ...(data.editMaster !== undefined && { editMaster: data.editMaster }),
         ...(data.manageUsers !== undefined && { manageUsers: data.manageUsers }),
         ...(data.accessSettings !== undefined && { accessSettings: data.accessSettings }),
+        ...(data.navigationLayout !== undefined && { navigationLayout: data.navigationLayout }),
       },
     });
   },

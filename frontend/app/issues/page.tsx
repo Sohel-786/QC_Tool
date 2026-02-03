@@ -46,6 +46,8 @@ import {
 } from "@/components/filters/transaction-filters";
 import { buildFilterParams, hasActiveFilters } from "@/lib/filters";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { ItemSelectionDialog } from "@/components/dialogs/item-selection-dialog";
+import { cn } from "@/lib/utils";
 
 const issueSchema = z.object({
   categoryId: z.number().min(1, "Item category is required"),
@@ -62,6 +64,7 @@ type IssueForm = z.infer<typeof issueSchema>;
 
 export default function IssuesPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isItemDialogOpen, setIsItemDialogOpen] = useState(false);
   const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
   const [inactiveTarget, setInactiveTarget] = useState<Issue | null>(null);
   const [nextIssueCode, setNextIssueCode] = useState<string>("");
@@ -347,6 +350,7 @@ export default function IssuesPage() {
     setEditingIssue(null);
     reset();
     setNextIssueCode("");
+    setIsItemDialogOpen(false);
     createMutation.reset();
     updateMutation.reset();
   };
@@ -549,11 +553,10 @@ export default function IssuesPage() {
                           </td>
                           <td className="px-4 py-3 text-center">
                             <span
-                              className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${
-                                issue.isActive
-                                  ? "bg-green-100 text-green-700 border border-green-200"
-                                  : "bg-red-100 text-red-700 border border-red-200"
-                              }`}
+                              className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${issue.isActive
+                                ? "bg-green-100 text-green-700 border border-green-200"
+                                : "bg-red-100 text-red-700 border border-red-200"
+                                }`}
                             >
                               {issue.isActive ? "Active" : "Inactive"}
                             </span>
@@ -735,8 +738,8 @@ export default function IssuesPage() {
                           <p className="mt-1.5 h-10 px-3 py-2 rounded-md border border-secondary-200 bg-secondary-50 text-sm text-secondary-700 flex items-center">
                             {editingIssue.item?.categoryId != null
                               ? (categories.find(
-                                  (c) => c.id === editingIssue.item?.categoryId,
-                                )?.name ?? "—")
+                                (c) => c.id === editingIssue.item?.categoryId,
+                              )?.name ?? "—")
                               : "—"}
                           </p>
                         </div>
@@ -768,6 +771,9 @@ export default function IssuesPage() {
                                 const n = v ? Number(v) : 0;
                                 setValue("categoryId", n);
                                 setValue("itemId", 0);
+                                if (n !== 0) {
+                                  setIsItemDialogOpen(true);
+                                }
                               }}
                               placeholder="Select category"
                               searchPlaceholder="Search categories..."
@@ -783,22 +789,35 @@ export default function IssuesPage() {
                             Item <span className="text-red-500">*</span>
                           </Label>
                           <div className="mt-1.5">
-                            <SearchableSelect
-                              id="outward-item-id"
-                              options={itemSelectOptions}
-                              value={selectedItemId ?? ""}
-                              onChange={(v) => setValue("itemId", Number(v))}
-                              placeholder={
-                                selectedCategoryId
-                                  ? "Select item"
-                                  : "Select category first"
-                              }
-                              disabled={
+                            <div
+                              onClick={() => {
+                                if (selectedCategoryId && selectedCategoryId !== 0) {
+                                  setIsItemDialogOpen(true);
+                                }
+                              }}
+                              className={cn(
+                                "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
                                 !selectedCategoryId || selectedCategoryId === 0
-                              }
-                              searchPlaceholder="Search items..."
-                              error={errors.itemId?.message}
-                            />
+                                  ? "cursor-not-allowed opacity-50 bg-secondary-100/50"
+                                  : "cursor-pointer hover:bg-secondary-50"
+                              )}
+                            >
+                              <span className={cn(
+                                "truncate",
+                                !selectedItemId && "text-muted-foreground"
+                              )}>
+                                {selectedItemId
+                                  ? filterItems.find((i) => i.id === selectedItemId)?.itemName || "Select item"
+                                  : selectedCategoryId
+                                    ? "Select item"
+                                    : "Select category first"}
+                              </span>
+                            </div>
+                            {errors.itemId?.message && (
+                              <p className="mt-1 text-xs text-red-500 font-medium">
+                                {errors.itemId.message}
+                              </p>
+                            )}
                           </div>
                         </div>
                       </>
@@ -938,7 +957,7 @@ export default function IssuesPage() {
                   <div className="rounded-xl border border-secondary-200 bg-secondary-50/50 overflow-hidden h-full min-h-[250px] flex flex-col items-center justify-center p-4">
                     {selectedItem || (editingIssue && editingIssue.item) ? (
                       (selectedItem as any)?.latestImage ||
-                      (editingIssue?.item as any)?.latestImage ? (
+                        (editingIssue?.item as any)?.latestImage ? (
                         <div className="relative group cursor-pointer w-full h-full flex items-center justify-center">
                           <img
                             src={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/storage/${(selectedItem as any)?.latestImage || (editingIssue?.item as any)?.latestImage}`}
@@ -1032,6 +1051,15 @@ export default function IssuesPage() {
           isOpen={!!fullScreenImageSrc}
           imageSrc={fullScreenImageSrc}
           onClose={() => setFullScreenImageSrc(null)}
+        />
+
+        <ItemSelectionDialog
+          isOpen={isItemDialogOpen}
+          onClose={() => setIsItemDialogOpen(false)}
+          items={filterItems}
+          categories={categories}
+          selectedCategoryId={selectedCategoryId ?? null}
+          onSelectItem={(item) => setValue("itemId", item.id)}
         />
       </motion.div>
     </div>
