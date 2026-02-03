@@ -197,6 +197,7 @@ type LedgerRow = {
   remarks?: string | null;
   returnCode?: string | null;
   condition?: string | null;
+  inwardNo?: string | null;
 };
 
 function parseLedgerFilters(
@@ -228,6 +229,39 @@ function buildLedgerIssueWhere(
         { issuedTo: { contains: searchTerm } },
         { remarks: { contains: searchTerm } },
         { location: { name: { contains: searchTerm } } },
+      ],
+    });
+  }
+  return { AND: conditions };
+}
+
+function buildLedgerReturnWhere(
+  itemId: number,
+  filters: TransactionListFilters
+): Prisma.ReturnWhereInput {
+  const conditions: Prisma.ReturnWhereInput[] = [{ itemId, isActive: true, issueId: null }];
+  if (filters.companyIds?.length) conditions.push({ companyId: { in: filters.companyIds } });
+  if (filters.contractorIds?.length) conditions.push({ contractorId: { in: filters.contractorIds } });
+  if (filters.machineIds?.length) conditions.push({ machineId: { in: filters.machineIds } });
+  if (filters.locationIds?.length) conditions.push({ locationId: { in: filters.locationIds } });
+  if (filters.operatorName?.trim()) {
+    conditions.push({
+      returnedByUser: {
+        OR: [
+          { firstName: { contains: filters.operatorName.trim() } },
+          { lastName: { contains: filters.operatorName.trim() } },
+        ],
+      },
+    });
+  }
+  const searchTerm = filters.search?.trim() ?? "";
+  if (searchTerm.length > 0) {
+    conditions.push({
+      OR: [
+        { returnCode: { contains: searchTerm } },
+        { remarks: { contains: searchTerm } },
+        { location: { name: { contains: searchTerm } } },
+        { condition: { contains: searchTerm } },
       ],
     });
   }
@@ -286,6 +320,7 @@ function buildLedgerRows(
       location: locationName,
       user: issueUser || undefined,
       remarks: issue.remarks ?? undefined,
+      condition: "OK",
     });
     for (const r of issue.returns) {
       const cond = (r as { condition?: string | null }).condition;
@@ -305,6 +340,7 @@ function buildLedgerRows(
         remarks: r.remarks ?? undefined,
         returnCode: r.returnCode ?? undefined,
         condition: cond ?? undefined,
+        inwardNo: r.returnCode ?? undefined,
       });
     }
   }
@@ -330,6 +366,7 @@ function buildLedgerRows(
       remarks: r.remarks ?? undefined,
       returnCode: r.returnCode ?? undefined,
       condition: cond ?? undefined,
+      inwardNo: r.returnCode ?? undefined,
     });
   }
   return rows;
@@ -405,7 +442,7 @@ export const getItemHistoryLedger = async (
         orderBy: { issuedAt: "desc" },
       }),
       prisma.return.findMany({
-        where: { itemId, issueId: null, isActive: true },
+        where: buildLedgerReturnWhere(itemId, filters),
         include: {
           returnedByUser: {
             select: {
@@ -430,6 +467,10 @@ export const getItemHistoryLedger = async (
       standaloneReturns as unknown as Parameters<typeof buildLedgerRows>[2]
     );
 
+    if (filters.conditions?.length) {
+      rows = rows.filter((r) => r.condition && filters.conditions.includes(r.condition));
+    }
+
     if (filters.search?.trim()) {
       const term = filters.search.trim().toLowerCase();
       rows = rows.filter(
@@ -443,7 +484,8 @@ export const getItemHistoryLedger = async (
           (r.user && r.user.toLowerCase().includes(term)) ||
           (r.remarks && r.remarks.toLowerCase().includes(term)) ||
           (r.returnCode && r.returnCode.toLowerCase().includes(term)) ||
-          (r.condition && r.condition.toLowerCase().includes(term))
+          (r.condition && r.condition.toLowerCase().includes(term)) ||
+          (r.inwardNo && r.inwardNo.toLowerCase().includes(term))
       );
     }
 
@@ -646,7 +688,7 @@ export const exportItemHistoryReport = async (
           orderBy: { issuedAt: "desc" },
         }),
         prisma.return.findMany({
-          where: { itemId, issueId: null, isActive: true },
+          where: buildLedgerReturnWhere(itemId, filters),
           include: {
             returnedByUser: {
               select: { firstName: true, lastName: true },
@@ -665,6 +707,11 @@ export const exportItemHistoryReport = async (
         issues as Parameters<typeof buildLedgerRows>[1],
         standaloneReturns as unknown as Parameters<typeof buildLedgerRows>[2]
       );
+
+      if (filters.conditions?.length) {
+        rows = rows.filter((r) => r.condition && filters.conditions.includes(r.condition));
+      }
+
       if (filters.search?.trim()) {
         const term = filters.search.trim().toLowerCase();
         rows = rows.filter(
@@ -678,7 +725,8 @@ export const exportItemHistoryReport = async (
             (r.user && r.user.toLowerCase().includes(term)) ||
             (r.remarks && r.remarks.toLowerCase().includes(term)) ||
             (r.returnCode && r.returnCode.toLowerCase().includes(term)) ||
-            (r.condition && r.condition.toLowerCase().includes(term))
+            (r.condition && r.condition.toLowerCase().includes(term)) ||
+            (r.inwardNo && r.inwardNo.toLowerCase().includes(term))
         );
       }
       rows = filterLedgerRowsByDate(rows, filters.dateFrom, filters.dateTo);
@@ -698,6 +746,7 @@ export const exportItemHistoryReport = async (
         Description: r.description,
         By: r.user ?? "N/A",
         Condition: r.condition ?? "N/A",
+        "Inward No": r.inwardNo ?? "N/A",
         "Return Code": r.returnCode ?? "N/A",
         Remarks: r.remarks ?? "N/A",
       }));

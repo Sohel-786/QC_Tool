@@ -53,6 +53,8 @@ export interface TransactionFiltersProps {
   showConditionFilter?: boolean;
   /** Options for Condition filter; use RETURN_CONDITIONS mapped to { value, label } */
   conditionOptions?: MultiSelectSearchOption[];
+  /** When true, hide the Item multi-select filter */
+  hideItemFilter?: boolean;
 }
 
 export function TransactionFilters({
@@ -68,6 +70,7 @@ export function TransactionFilters({
   className,
   showConditionFilter,
   conditionOptions = [],
+  hideItemFilter,
 }: TransactionFiltersProps) {
   const hasActiveFilters =
     filters.status !== "all" ||
@@ -190,16 +193,18 @@ export function TransactionFilters({
               />
             </div>
 
-            <div className="min-w-0 flex flex-col">
-              <MultiSelectSearch
-                label="Item"
-                options={itemOptions}
-                value={filters.itemIds}
-                onChange={(v) => update({ itemIds: v as number[] })}
-                placeholder="All items"
-                searchPlaceholder="Search item…"
-              />
-            </div>
+            {!hideItemFilter && (
+              <div className="min-w-0 flex flex-col">
+                <MultiSelectSearch
+                  label="Item"
+                  options={itemOptions}
+                  value={filters.itemIds}
+                  onChange={(v) => update({ itemIds: v as number[] })}
+                  placeholder="All items"
+                  searchPlaceholder="Search item…"
+                />
+              </div>
+            )}
 
             {showConditionFilter && conditionOptions.length > 0 && (
               <div className="min-w-0 flex flex-col">

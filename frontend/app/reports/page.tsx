@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "@/lib/api";
-import { Issue, Item, ItemCategory } from "@/types";
+import { Issue, Item, ItemCategory, RETURN_CONDITIONS } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,6 +64,7 @@ interface LedgerRow {
   remarks?: string | null;
   returnCode?: string | null;
   condition?: string | null;
+  inwardNo?: string | null;
 }
 
 interface LedgerItemPayload {
@@ -840,14 +841,16 @@ function ReportsContent() {
                 onFiltersChange={(f) => {
                   setLedgerFilters(f);
                   const itemId = f.itemIds?.[0] ?? null;
-                  setLedgerSelectedItemId(itemId);
-                  if (itemId != null) {
-                    const item = filterItems.find(
-                      (i: { id: number; categoryId?: number | null }) =>
-                        i.id === itemId,
-                    );
-                    if (item?.categoryId != null)
-                      setLedgerCategoryId(item.categoryId);
+                  if (itemId !== ledgerSelectedItemId) {
+                    setLedgerSelectedItemId(itemId);
+                    if (itemId != null) {
+                      const item = filterItems.find(
+                        (i: { id: number; categoryId?: number | null }) =>
+                          i.id === itemId,
+                      );
+                      if (item?.categoryId != null)
+                        setLedgerCategoryId(item.categoryId);
+                    }
                   }
                   resetPagination();
                 }}
@@ -864,6 +867,9 @@ function ReportsContent() {
                   setLedgerSelectedItemId(null);
                   resetPagination();
                 }}
+                hideItemFilter={true}
+                showConditionFilter={true}
+                conditionOptions={RETURN_CONDITIONS.map(c => ({ value: c, label: c }))}
                 searchPlaceholder="Search by issue no., description, company, contractor, machine, location, by, remarks, condition…"
                 className="shadow-sm"
               />
@@ -982,6 +988,9 @@ function ReportsContent() {
                               <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[100px] w-[100px]">
                                 Issue No
                               </th>
+                              <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[100px] w-[100px]">
+                                Inward No
+                              </th>
                               <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[120px]">
                                 Company
                               </th>
@@ -1033,6 +1042,9 @@ function ReportsContent() {
                                 </td>
                                 <td className="px-4 py-3 font-mono text-secondary-700 text-center">
                                   {row.issueNo}
+                                </td>
+                                <td className="px-4 py-3 font-mono text-secondary-700 text-center">
+                                  {row.inwardNo ?? "—"}
                                 </td>
                                 <td className="px-4 py-3 text-secondary-600 text-center">
                                   {row.company ?? "—"}
