@@ -31,6 +31,10 @@ export interface Item {
   categoryId?: number | null;
   status: ItemStatus;
   isActive: boolean;
+  latestImage?: string | null;
+  _count?: {
+    issues: number;
+  };
   createdAt: string;
   updatedAt: string;
   /** Inward number that recorded this item as Missing (from GET /items/missing) */

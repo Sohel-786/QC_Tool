@@ -19,7 +19,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 const loginSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  password: z.string().min(1, "Password is required"),
 });
 
 type LoginForm = z.infer<typeof loginSchema>;
@@ -221,11 +221,11 @@ export default function LoginPage() {
                 )?.response?.status === 401
                   ? "Invalid username or password. Please verify your credentials and try again."
                   : (
-                      loginMutation.error as {
-                        response?: { data?: { message?: string } };
-                      }
-                    )?.response?.data?.message ||
-                    "Unable to sign you in at the moment. Please try again."}
+                    loginMutation.error as {
+                      response?: { data?: { message?: string } };
+                    }
+                  )?.response?.data?.message ||
+                  "Unable to sign you in at the moment. Please try again."}
               </p>
             )}
           </form>

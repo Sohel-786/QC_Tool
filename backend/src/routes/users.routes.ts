@@ -22,7 +22,7 @@ router.post(
   '/',
   [
     body('username').notEmpty().withMessage('Username is required').isLength({ min: 3 }).withMessage('Username must be at least 3 characters'),
-    body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+    body('password').notEmpty().withMessage('Password is required'),
     body('firstName').notEmpty().withMessage('First name is required'),
     body('lastName').notEmpty().withMessage('Last name is required'),
     body('role').isIn(['QC_USER', 'QC_MANAGER', 'QC_ADMIN']).withMessage('Valid role is required'),

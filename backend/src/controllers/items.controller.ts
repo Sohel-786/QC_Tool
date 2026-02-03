@@ -278,6 +278,15 @@ export const updateItem = async (
     }
 
     if (file) {
+      const issuesCount = await Item.countIssuesByItemId(id);
+      if (issuesCount > 0) {
+        return next(
+          new ValidationError(
+            "This item has already been issued at least once. Manual image updates in Item Master are locked. Use Inward (Inward) to update condition photos."
+          )
+        );
+      }
+
       const prev = item as typeof item & { image?: string | null };
       if (prev.image) {
         const oldPath = path.join(

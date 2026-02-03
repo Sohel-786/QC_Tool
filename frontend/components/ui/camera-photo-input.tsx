@@ -101,7 +101,7 @@ export function CameraPhotoInput({
         }
         streamRef.current = stream;
         video.srcObject = stream;
-        video.play().catch(() => {});
+        video.play().catch(() => { });
         setIsLoading(false);
       })
       .catch((err) => {
@@ -240,7 +240,7 @@ export function CameraPhotoInput({
         onClose={handleCloseRequest}
         title="Take Photo"
         size="xl"
-        overlayClassName="z-[110]"
+        overlayClassName="z-[1100]"
         closeOnBackdropClick={false}
         closeButtonDisabled={isLoading}
       >
@@ -276,7 +276,7 @@ export function CameraPhotoInput({
                         streamRef.current = stream;
                         if (videoRef.current) {
                           videoRef.current.srcObject = stream;
-                          videoRef.current.play().catch(() => {});
+                          videoRef.current.play().catch(() => { });
                         }
                         setIsLoading(false);
                       })

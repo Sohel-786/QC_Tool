@@ -738,34 +738,65 @@ export default function ItemsPage() {
                 <div className="lg:min-h-[320px]">
                   <div className="rounded-xl border border-secondary-200 bg-secondary-50/50 overflow-hidden h-full min-h-[260px] flex flex-col">
                     <div className="flex-1 p-4 flex flex-col">
-                      <CameraPhotoInput
-                        label="Item Image"
-                        required={!editingItem}
-                        hint="Use your camera to capture the item photo"
-                        previewUrl={
-                          imagePreview ??
-                          (!imageRemovedByUser &&
-                            editingItem?.image &&
-                            !imageFile
-                            ? `${API_BASE}/storage/${editingItem.image}`
-                            : null)
-                        }
-                        onCapture={handleImageCapture}
-                        hasExistingImage={
-                          !!editingItem?.image &&
-                          !imageFile &&
-                          !imageRemovedByUser
-                        }
-                        aspectRatio="square"
-                        onPreviewClick={(url) => setFullScreenImageSrc(url)}
-                      />
-                      {imageError && (
-                        <p
-                          className="mt-2 text-xs text-red-600"
-                          role="alert"
-                        >
-                          {imageError}
-                        </p>
+                      {editingItem && (editingItem._count?.issues ?? 0) > 0 ? (
+                        <div className="space-y-4">
+                          <Label className="text-sm font-medium text-secondary-700">Item Image</Label>
+                          <div className="relative group cursor-pointer aspect-square rounded-lg overflow-hidden border border-secondary-200">
+                            <img
+                              src={`${API_BASE}/storage/${editingItem.image}`}
+                              alt={editingItem.itemName}
+                              className="w-full h-full object-contain bg-white group-hover:opacity-90 transition-opacity"
+                            />
+                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                size="sm"
+                                className="bg-white/90 backdrop-blur-sm shadow-sm"
+                                onClick={() => setFullScreenImageSrc(`${API_BASE}/storage/${editingItem.image}`)}
+                              >
+                                View full screen
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="p-3 bg-amber-50 border border-amber-100 rounded-lg">
+                            <p className="text-xs text-amber-700 leading-relaxed font-medium">
+                              This item has already been issued. The Master image is locked to preserve the initial condition.
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <CameraPhotoInput
+                            label="Item Image"
+                            required={!editingItem}
+                            hint="Use your camera to capture the item photo"
+                            previewUrl={
+                              imagePreview ??
+                              (!imageRemovedByUser &&
+                                editingItem?.image &&
+                                !imageFile
+                                ? `${API_BASE}/storage/${editingItem.image}`
+                                : null)
+                            }
+                            onCapture={handleImageCapture}
+                            hasExistingImage={
+                              !!editingItem?.image &&
+                              !imageFile &&
+                              !imageRemovedByUser
+                            }
+                            aspectRatio="square"
+                            onPreviewClick={(url) => setFullScreenImageSrc(url)}
+                          />
+                          {imageError && (
+                            <p
+                              className="mt-2 text-xs text-red-600"
+                              role="alert"
+                            >
+                              {imageError}
+                            </p>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>

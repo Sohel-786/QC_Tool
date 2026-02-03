@@ -54,8 +54,8 @@ const userSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
   password: z
     .string()
-    .refine((val) => !val || val.length === 0 || val.length >= 6, {
-      message: "Password must be at least 6 characters",
+    .refine((val) => !val || val.length === 0 || val.length >= 1, {
+      message: "Password cannot be empty",
     })
     .optional(),
   firstName: z.string().min(1, "First name is required"),
@@ -421,17 +421,18 @@ export default function SettingsPage() {
       const updateData: any = {
         firstName: data.firstName,
         lastName: data.lastName,
+        username: data.username,
         role: data.role,
         isActive: data.isActive,
         avatar: data.avatar ?? null,
       };
-      if (data.password?.trim()) updateData.password = data.password;
+      if (data.password) updateData.password = data.password;
       updateUser.mutate(
         { id: editingUser.id, data: updateData },
         { onSuccess: handleCloseUserForm },
       );
     } else {
-      if (!data.password?.trim() || data.password.length < 6) return;
+      if (!data.password) return;
       createUser.mutate(
         {
           username: data.username,
@@ -491,10 +492,11 @@ export default function SettingsPage() {
                     key={tab.id}
                     type="button"
                     onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition-colors ${isActive
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition-colors ${
+                      isActive
                         ? "bg-white text-primary-600 shadow-sm"
                         : "text-secondary-700 hover:text-black"
-                      }`}
+                    }`}
                   >
                     <Icon className="w-4 h-4 shrink-0" />
                     {tab.label}
@@ -724,13 +726,14 @@ export default function SettingsPage() {
                                               key === "editInward" ||
                                               key === "editOutward")
                                           }
-                                          className={`w-4 h-4 rounded border-secondary-300 text-primary-600 focus:ring-primary-500 ${role !== Role.QC_ADMIN &&
-                                              (key === "editMaster" ||
-                                                key === "editInward" ||
-                                                key === "editOutward")
+                                          className={`w-4 h-4 rounded border-secondary-300 text-primary-600 focus:ring-primary-500 ${
+                                            role !== Role.QC_ADMIN &&
+                                            (key === "editMaster" ||
+                                              key === "editInward" ||
+                                              key === "editOutward")
                                               ? "opacity-50 cursor-not-allowed"
                                               : "cursor-pointer"
-                                            }`}
+                                          }`}
                                         />
                                       </td>
                                     );
@@ -851,12 +854,13 @@ export default function SettingsPage() {
                               </td>
                               <td className="py-3 px-4">
                                 <span
-                                  className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${u.role === Role.QC_ADMIN
+                                  className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${
+                                    u.role === Role.QC_ADMIN
                                       ? "bg-amber-100 text-amber-800"
                                       : u.role === Role.QC_MANAGER
                                         ? "bg-purple-100 text-purple-700"
                                         : "bg-blue-100 text-blue-700"
-                                    }`}
+                                  }`}
                                 >
                                   {u.role === Role.QC_ADMIN
                                     ? "Admin"
@@ -880,10 +884,11 @@ export default function SettingsPage() {
                                       })
                                     }
                                     disabled={updateUser.isPending}
-                                    className={`inline-flex px-2 py-0.5 rounded text-xs font-medium transition-colors ${u.isActive
+                                    className={`inline-flex px-2 py-0.5 rounded text-xs font-medium transition-colors ${
+                                      u.isActive
                                         ? "bg-green-100 text-green-700 hover:bg-green-200"
                                         : "bg-red-100 text-red-700 hover:bg-red-200"
-                                      }`}
+                                    }`}
                                   >
                                     {u.isActive ? "Active" : "Inactive"} — click
                                     to toggle
@@ -971,7 +976,6 @@ export default function SettingsPage() {
             <Input
               {...register("username")}
               className="mt-1"
-              disabled={!!editingUser}
               placeholder="Enter username"
             />
             {errors.username && (
@@ -981,18 +985,14 @@ export default function SettingsPage() {
             )}
           </div>
           <div>
-            <Label>
-              Password {editingUser ? "(leave empty to keep)" : "*"}
-            </Label>
+            <Label>Password *</Label>
             <div className="relative mt-1">
               <Input
                 type={showPassword ? "text" : "password"}
                 {...register("password")}
                 className="pr-10"
                 placeholder={
-                  editingUser
-                    ? "Leave empty to keep current"
-                    : "Min 6 characters"
+                  editingUser ? "Leave empty to keep current" : "Enter password"
                 }
               />
               <button
@@ -1042,10 +1042,11 @@ export default function SettingsPage() {
                 onClick={() =>
                   setValue("avatar", null, { shouldValidate: true })
                 }
-                className={`relative w-[30px] h-[30px] rounded-full overflow-hidden flex-shrink-0 cursor-pointer transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${!watch("avatar")
+                className={`relative w-[30px] h-[30px] rounded-full overflow-hidden flex-shrink-0 cursor-pointer transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
+                  !watch("avatar")
                     ? "scale-[1.05] ring-2 ring-primary-500 ring-offset-2 ring-offset-white shadow-sm"
                     : "border border-secondary-200 hover:border-primary-300"
-                  }`}
+                }`}
                 title="Default avatar"
               >
                 <img
@@ -1063,10 +1064,11 @@ export default function SettingsPage() {
                     onClick={() =>
                       setValue("avatar", filename, { shouldValidate: true })
                     }
-                    className={`relative w-[30px] h-[30px] rounded-full overflow-hidden flex-shrink-0 cursor-pointer transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${isSelected
+                    className={`relative w-[30px] h-[30px] rounded-full overflow-hidden flex-shrink-0 cursor-pointer transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
+                      isSelected
                         ? "scale-[1.05] ring-2 ring-primary-500 ring-offset-2 ring-offset-white shadow-sm"
                         : "border border-secondary-200 hover:border-primary-300"
-                      }`}
+                    }`}
                     title={filename}
                   >
                     <img

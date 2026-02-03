@@ -35,43 +35,138 @@ const Item = {
   },
 
   findById: async (id: number) => {
-    return prisma.item.findUnique({
+    const item = await prisma.item.findUnique({
       where: { id },
-      include: { issues: true },
+      include: {
+        _count: { select: { issues: true } },
+      },
     });
+    if (!item) return null;
+    const latestReturn = await prisma.return.findFirst({
+      where: {
+        OR: [{ itemId: item.id }, { issue: { itemId: item.id } }],
+        isActive: true,
+        returnImage: { not: null },
+      },
+      orderBy: { returnedAt: "desc" },
+    });
+    return {
+      ...item,
+      latestImage: latestReturn?.returnImage || item.image,
+    };
   },
 
   findAll: async (status?: ItemStatus, isActive?: boolean) => {
     const where: { status?: ItemStatus; isActive?: boolean } = {};
     if (status != null) where.status = status;
     if (isActive !== undefined) where.isActive = isActive;
-    return prisma.item.findMany({
+    const items = await prisma.item.findMany({
       where: Object.keys(where).length ? where : undefined,
+      include: {
+        _count: { select: { issues: true } },
+      },
       orderBy: { createdAt: "desc" },
     });
+
+    return Promise.all(
+      items.map(async (item) => {
+        const latestReturn = await prisma.return.findFirst({
+          where: {
+            OR: [{ itemId: item.id }, { issue: { itemId: item.id } }],
+            isActive: true,
+            returnImage: { not: null },
+          },
+          orderBy: { returnedAt: "desc" },
+        });
+        return {
+          ...item,
+          latestImage: latestReturn?.returnImage || item.image,
+        };
+      })
+    );
   },
 
   findActive: async (status?: ItemStatus) => {
     const where: { isActive: boolean; status?: ItemStatus } = { isActive: true };
     if (status != null) where.status = status;
-    return prisma.item.findMany({
+    const items = await prisma.item.findMany({
       where,
+      include: {
+        _count: { select: { issues: true } },
+      },
       orderBy: { itemName: "asc" },
     });
+
+    return Promise.all(
+      items.map(async (item) => {
+        const latestReturn = await prisma.return.findFirst({
+          where: {
+            OR: [{ itemId: item.id }, { issue: { itemId: item.id } }],
+            isActive: true,
+            returnImage: { not: null },
+          },
+          orderBy: { returnedAt: "desc" },
+        });
+        return {
+          ...item,
+          latestImage: latestReturn?.returnImage || item.image,
+        };
+      })
+    );
   },
 
   findAvailable: async () => {
-    return prisma.item.findMany({
+    const items = await prisma.item.findMany({
       where: { status: ItemStatus.AVAILABLE, isActive: true },
+      include: {
+        _count: { select: { issues: true } },
+      },
       orderBy: { itemName: "asc" },
     });
+
+    return Promise.all(
+      items.map(async (item) => {
+        const latestReturn = await prisma.return.findFirst({
+          where: {
+            OR: [{ itemId: item.id }, { issue: { itemId: item.id } }],
+            isActive: true,
+            returnImage: { not: null },
+          },
+          orderBy: { returnedAt: "desc" },
+        });
+        return {
+          ...item,
+          latestImage: latestReturn?.returnImage || item.image,
+        };
+      })
+    );
   },
 
   findActiveByCategory: async (categoryId: number) => {
-    return prisma.item.findMany({
+    const items = await prisma.item.findMany({
       where: { categoryId, isActive: true },
+      include: {
+        _count: { select: { issues: true } },
+      },
       orderBy: { itemName: "asc" },
     });
+
+    return Promise.all(
+      items.map(async (item) => {
+        const latestReturn = await prisma.return.findFirst({
+          where: {
+            OR: [{ itemId: item.id }, { issue: { itemId: item.id } }],
+            isActive: true,
+            returnImage: { not: null },
+          },
+          orderBy: { returnedAt: "desc" },
+        });
+        return {
+          ...item,
+          latestImage: latestReturn?.returnImage || item.image,
+        };
+      })
+    );
   },
 
   update: async (id: number, data: UpdateItemInput) => {

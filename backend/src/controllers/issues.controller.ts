@@ -48,12 +48,20 @@ export const createIssue = async (
       return next(new ValidationError("Location is required"));
     }
 
-    const item = await Item.findById(itemId);
+    const item = (await Item.findById(itemId)) as any;
     if (!item) {
       return next(new NotFoundError("Item not found"));
     }
     if (item.status !== ItemStatus.AVAILABLE) {
       return next(new BadRequestError("Item is not available for issue"));
+    }
+
+    if (!item.image && !item.latestImage) {
+      return next(
+        new BadRequestError(
+          "This item does not have an image in Item Master. Items without images cannot be issued."
+        )
+      );
     }
 
     if (

@@ -26,7 +26,15 @@ import { Dialog } from "@/components/ui/dialog";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Plus, Edit2, Ban, CheckCircle, LogIn } from "lucide-react";
+import {
+  Plus,
+  Edit2,
+  Ban,
+  CheckCircle,
+  LogIn,
+  Image as ImageIcon,
+} from "lucide-react";
+import { FullScreenImageViewer } from "@/components/ui/full-screen-image-viewer";
 import { formatDate } from "@/lib/utils";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { useCurrentUserPermissions } from "@/hooks/use-settings";
@@ -59,6 +67,9 @@ export default function IssuesPage() {
   const [nextIssueCode, setNextIssueCode] = useState<string>("");
   const [filters, setFilters] =
     useState<TransactionFiltersState>(defaultFilters);
+  const [fullScreenImageSrc, setFullScreenImageSrc] = useState<string | null>(
+    null,
+  );
   const queryClient = useQueryClient();
   const router = useRouter();
   const { user: currentUser } = useCurrentUser();
@@ -189,6 +200,11 @@ export default function IssuesPage() {
     },
     enabled: !!selectedCategoryId && selectedCategoryId !== 0,
   });
+
+  const selectedItem = useMemo(() => {
+    if (!selectedItemId) return null;
+    return itemsByCategory.find((i) => i.id === selectedItemId) ?? null;
+  }, [selectedItemId, itemsByCategory]);
 
   const createMutation = useMutation({
     mutationFn: async (data: IssueForm) => {
@@ -377,6 +393,26 @@ export default function IssuesPage() {
     }),
     [companies, contractors, machines, locations, filterItems],
   );
+
+  const categorySelectOptions = useMemo(() => {
+    return categories.map((c) => ({ value: c.id, label: c.name }));
+  }, [categories]);
+
+  const companySelectOptions = useMemo(() => {
+    return companies.map((c) => ({ value: c.id, label: c.name }));
+  }, [companies]);
+
+  const contractorSelectOptions = useMemo(() => {
+    return contractors.map((c) => ({ value: c.id, label: c.name }));
+  }, [contractors]);
+
+  const machineSelectOptions = useMemo(() => {
+    return machines.map((m) => ({ value: m.id, label: m.name }));
+  }, [machines]);
+
+  const locationSelectOptions = useMemo(() => {
+    return locations.map((l) => ({ value: l.id, label: l.name }));
+  }, [locations]);
 
   const itemSelectOptions = useMemo(() => {
     return itemsByCategory.map((item) => ({
@@ -657,7 +693,7 @@ export default function IssuesPage() {
                 : "Edit Outward"
               : "Outward Entry"
           }
-          size="2xl"
+          size="3xl"
           contentScroll={false}
         >
           <form
@@ -666,277 +702,290 @@ export default function IssuesPage() {
             aria-label="Outward entry form"
           >
             <div className="flex-1 min-h-0 overflow-y-auto px-6 pt-6 pb-4">
-              <div className="space-y-5">
-                {(nextIssueCode || editingIssue) && (
-                  <div>
-                    <Label
-                      htmlFor="outward-issue-no"
-                      className="text-sm font-medium text-secondary-700"
-                    >
-                      Issue No
-                    </Label>
-                    <Input
-                      id="outward-issue-no"
-                      value={
-                        editingIssue ? editingIssue.issueNo : nextIssueCode
-                      }
-                      disabled
-                      readOnly
-                      className="mt-1.5 h-10 bg-secondary-50 border-secondary-200"
-                    />
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {editingIssue ? (
-                    <>
-                      <div>
-                        <Label className="text-sm font-medium text-secondary-700">
-                          Item Category
-                        </Label>
-                        <p className="mt-1.5 h-10 px-3 py-2 rounded-md border border-secondary-200 bg-secondary-50 text-sm text-secondary-700 flex items-center">
-                          {editingIssue.item?.categoryId != null
-                            ? (categories.find(
-                                (c) => c.id === editingIssue.item?.categoryId,
-                              )?.name ?? "—")
-                            : "—"}
-                        </p>
-                      </div>
-                      <div>
-                        <Label className="text-sm font-medium text-secondary-700">
-                          Item
-                        </Label>
-                        <p className="mt-1.5 h-10 px-3 py-2 rounded-md border border-secondary-200 bg-secondary-50 text-sm text-secondary-700 flex items-center">
-                          {editingIssue.item?.itemName ?? "—"}
-                        </p>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div>
-                        <Label
-                          htmlFor="outward-category-id"
-                          className="text-sm font-medium text-secondary-700"
-                        >
-                          Item Category <span className="text-red-500">*</span>
-                        </Label>
-                        <select
-                          id="outward-category-id"
-                          value={selectedCategoryId ?? ""}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            const n = v ? Number(v) : 0;
-                            setValue("categoryId", n);
-                            setValue("itemId", 0);
-                          }}
-                          className="mt-1.5 flex h-10 w-full rounded-md border border-secondary-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
-                          aria-required="true"
-                        >
-                          <option value="">Select category</option>
-                          {categories.map((c) => (
-                            <option key={c.id} value={c.id}>
-                              {c.name}
-                            </option>
-                          ))}
-                        </select>
-                        {errors.categoryId && (
-                          <p className="text-sm text-red-600 mt-1" role="alert">
-                            {errors.categoryId.message}
-                          </p>
-                        )}
-                      </div>
-                      <div>
-                        <Label
-                          htmlFor="outward-item-id"
-                          className="text-sm font-medium text-secondary-700"
-                        >
-                          Item <span className="text-red-500">*</span>
-                        </Label>
-                        <div className="mt-1.5">
-                          <SearchableSelect
-                            id="outward-item-id"
-                            options={itemSelectOptions}
-                            value={selectedItemId ?? ""}
-                            onChange={(v) => setValue("itemId", Number(v))}
-                            placeholder={
-                              selectedCategoryId
-                                ? "Select item"
-                                : "Select category first"
-                            }
-                            disabled={
-                              !selectedCategoryId || selectedCategoryId === 0
-                            }
-                            searchPlaceholder="Search items..."
-                            error={errors.itemId?.message}
-                          />
-                        </div>
-                      </div>
-                    </>
+              <div className="grid grid-cols-1 lg:grid-cols-[70%_1fr] gap-6 lg:gap-8">
+                {/* Left Column: Form Fields */}
+                <div className="space-y-5">
+                  {(nextIssueCode || editingIssue) && (
+                    <div>
+                      <Label
+                        htmlFor="outward-issue-no"
+                        className="text-sm font-medium text-secondary-700"
+                      >
+                        Issue No
+                      </Label>
+                      <Input
+                        id="outward-issue-no"
+                        value={
+                          editingIssue ? editingIssue.issueNo : nextIssueCode
+                        }
+                        disabled
+                        readOnly
+                        className="mt-1.5 h-10 bg-secondary-50 border-secondary-200"
+                      />
+                    </div>
                   )}
-                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div>
-                    <Label
-                      htmlFor="outward-company-id"
-                      className="text-sm font-medium text-secondary-700"
-                    >
-                      Company <span className="text-red-500">*</span>
-                    </Label>
-                    <select
-                      id="outward-company-id"
-                      {...register("companyId", {
-                        setValueAs: (v) =>
-                          v === "" || v == null ? undefined : Number(v),
-                      })}
-                      disabled={isViewOnly}
-                      className="mt-1.5 flex h-10 w-full rounded-md border border-secondary-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 disabled:opacity-60 disabled:cursor-not-allowed"
-                      aria-required="true"
-                    >
-                      <option value="">Select company</option>
-                      {companies.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                    {errors.companyId && (
-                      <p className="mt-1 text-sm text-red-600" role="alert">
-                        {errors.companyId.message}
-                      </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {editingIssue ? (
+                      <>
+                        <div>
+                          <Label className="text-sm font-medium text-secondary-700">
+                            Item Category
+                          </Label>
+                          <p className="mt-1.5 h-10 px-3 py-2 rounded-md border border-secondary-200 bg-secondary-50 text-sm text-secondary-700 flex items-center">
+                            {editingIssue.item?.categoryId != null
+                              ? (categories.find(
+                                  (c) => c.id === editingIssue.item?.categoryId,
+                                )?.name ?? "—")
+                              : "—"}
+                          </p>
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium text-secondary-700">
+                            Item
+                          </Label>
+                          <p className="mt-1.5 h-10 px-3 py-2 rounded-md border border-secondary-200 bg-secondary-50 text-sm text-secondary-700 flex items-center">
+                            {editingIssue.item?.itemName ?? "—"}
+                          </p>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div>
+                          <Label
+                            htmlFor="outward-category-id"
+                            className="text-sm font-medium text-secondary-700"
+                          >
+                            Item Category{" "}
+                            <span className="text-red-500">*</span>
+                          </Label>
+                          <div className="mt-1.5">
+                            <SearchableSelect
+                              id="outward-category-id"
+                              options={categorySelectOptions}
+                              value={selectedCategoryId ?? ""}
+                              onChange={(v) => {
+                                const n = v ? Number(v) : 0;
+                                setValue("categoryId", n);
+                                setValue("itemId", 0);
+                              }}
+                              placeholder="Select category"
+                              searchPlaceholder="Search categories..."
+                              error={errors.categoryId?.message}
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label
+                            htmlFor="outward-item-id"
+                            className="text-sm font-medium text-secondary-700"
+                          >
+                            Item <span className="text-red-500">*</span>
+                          </Label>
+                          <div className="mt-1.5">
+                            <SearchableSelect
+                              id="outward-item-id"
+                              options={itemSelectOptions}
+                              value={selectedItemId ?? ""}
+                              onChange={(v) => setValue("itemId", Number(v))}
+                              placeholder={
+                                selectedCategoryId
+                                  ? "Select item"
+                                  : "Select category first"
+                              }
+                              disabled={
+                                !selectedCategoryId || selectedCategoryId === 0
+                              }
+                              searchPlaceholder="Search items..."
+                              error={errors.itemId?.message}
+                            />
+                          </div>
+                        </div>
+                      </>
                     )}
                   </div>
-                  <div>
-                    <Label
-                      htmlFor="outward-contractor-id"
-                      className="text-sm font-medium text-secondary-700"
-                    >
-                      Contractor <span className="text-red-500">*</span>
-                    </Label>
-                    <select
-                      id="outward-contractor-id"
-                      {...register("contractorId", {
-                        setValueAs: (v) =>
-                          v === "" || v == null ? undefined : Number(v),
-                      })}
-                      disabled={isViewOnly}
-                      className="mt-1.5 flex h-10 w-full rounded-md border border-secondary-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 disabled:opacity-60 disabled:cursor-not-allowed"
-                      aria-required="true"
-                    >
-                      <option value="">Select contractor</option>
-                      {contractors.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                    {errors.contractorId && (
-                      <p className="mt-1 text-sm text-red-600" role="alert">
-                        {errors.contractorId.message}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label
-                      htmlFor="outward-machine-id"
-                      className="text-sm font-medium text-secondary-700"
-                    >
-                      Machine <span className="text-red-500">*</span>
-                    </Label>
-                    <select
-                      id="outward-machine-id"
-                      {...register("machineId", {
-                        setValueAs: (v) =>
-                          v === "" || v == null ? undefined : Number(v),
-                      })}
-                      disabled={isViewOnly}
-                      className="mt-1.5 flex h-10 w-full rounded-md border border-secondary-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 disabled:opacity-60 disabled:cursor-not-allowed"
-                      aria-required="true"
-                    >
-                      <option value="">Select machine</option>
-                      {machines.map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.name}
-                        </option>
-                      ))}
-                    </select>
-                    {errors.machineId && (
-                      <p className="mt-1 text-sm text-red-600" role="alert">
-                        {errors.machineId.message}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label
-                      htmlFor="outward-location-id"
-                      className="text-sm font-medium text-secondary-700"
-                    >
-                      Location <span className="text-red-500">*</span>
-                    </Label>
-                    <select
-                      id="outward-location-id"
-                      {...register("locationId", {
-                        setValueAs: (v) =>
-                          v === "" || v == null ? undefined : Number(v),
-                      })}
-                      disabled={isViewOnly}
-                      className="mt-1.5 flex h-10 w-full rounded-md border border-secondary-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 disabled:opacity-60 disabled:cursor-not-allowed"
-                      aria-required="true"
-                    >
-                      <option value="">Select location</option>
-                      {locations.map((l) => (
-                        <option key={l.id} value={l.id}>
-                          {l.name}
-                        </option>
-                      ))}
-                    </select>
-                    {errors.locationId && (
-                      <p className="mt-1 text-sm text-red-600" role="alert">
-                        {errors.locationId.message}
-                      </p>
-                    )}
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div>
+                      <Label
+                        htmlFor="outward-company-id"
+                        className="text-sm font-medium text-secondary-700"
+                      >
+                        Company <span className="text-red-500">*</span>
+                      </Label>
+                      <div className="mt-1.5">
+                        <SearchableSelect
+                          id="outward-company-id"
+                          options={companySelectOptions}
+                          value={watchedCompanyId ?? ""}
+                          onChange={(v) => setValue("companyId", Number(v))}
+                          disabled={isViewOnly}
+                          placeholder="Select company"
+                          searchPlaceholder="Search companies..."
+                          error={errors.companyId?.message}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label
+                        htmlFor="outward-contractor-id"
+                        className="text-sm font-medium text-secondary-700"
+                      >
+                        Contractor <span className="text-red-500">*</span>
+                      </Label>
+                      <div className="mt-1.5">
+                        <SearchableSelect
+                          id="outward-contractor-id"
+                          options={contractorSelectOptions}
+                          value={watchedContractorId ?? ""}
+                          onChange={(v) => setValue("contractorId", Number(v))}
+                          disabled={isViewOnly}
+                          placeholder="Select contractor"
+                          searchPlaceholder="Search contractors..."
+                          error={errors.contractorId?.message}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label
+                        htmlFor="outward-machine-id"
+                        className="text-sm font-medium text-secondary-700"
+                      >
+                        Machine <span className="text-red-500">*</span>
+                      </Label>
+                      <div className="mt-1.5">
+                        <SearchableSelect
+                          id="outward-machine-id"
+                          options={machineSelectOptions}
+                          value={watchedMachineId ?? ""}
+                          onChange={(v) => setValue("machineId", Number(v))}
+                          disabled={isViewOnly}
+                          placeholder="Select machine"
+                          searchPlaceholder="Search machines..."
+                          error={errors.machineId?.message}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label
+                        htmlFor="outward-location-id"
+                        className="text-sm font-medium text-secondary-700"
+                      >
+                        Location <span className="text-red-500">*</span>
+                      </Label>
+                      <div className="mt-1.5">
+                        <SearchableSelect
+                          id="outward-location-id"
+                          options={locationSelectOptions}
+                          value={watchedLocationId ?? ""}
+                          onChange={(v) => setValue("locationId", Number(v))}
+                          disabled={isViewOnly}
+                          placeholder="Select location"
+                          searchPlaceholder="Search locations..."
+                          error={errors.locationId?.message}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <Label
+                        htmlFor="outward-operator"
+                        className="text-sm font-medium text-secondary-700"
+                      >
+                        Operator Name{" "}
+                        <span className="text-secondary-400 font-normal">
+                          (optional)
+                        </span>
+                      </Label>
+                      <Input
+                        id="outward-operator"
+                        {...register("issuedTo")}
+                        placeholder="Operator name"
+                        disabled={isViewOnly}
+                        className="mt-1.5 h-10 border-secondary-300 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 disabled:opacity-60 disabled:cursor-not-allowed"
+                      />
+                    </div>
+                  </div>
+
                   <div>
                     <Label
-                      htmlFor="outward-operator"
+                      htmlFor="outward-remarks"
                       className="text-sm font-medium text-secondary-700"
                     >
-                      Operator Name{" "}
+                      Remarks{" "}
                       <span className="text-secondary-400 font-normal">
                         (optional)
                       </span>
                     </Label>
-                    <Input
-                      id="outward-operator"
-                      {...register("issuedTo")}
-                      placeholder="Operator name"
+                    <Textarea
+                      id="outward-remarks"
+                      {...register("remarks")}
+                      placeholder="Optional remarks..."
+                      rows={3}
                       disabled={isViewOnly}
-                      className="mt-1.5 h-10 border-secondary-300 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 disabled:opacity-60 disabled:cursor-not-allowed"
+                      className="mt-1.5 border-secondary-300 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 resize-y disabled:opacity-60 disabled:cursor-not-allowed"
                     />
                   </div>
                 </div>
 
-                <div>
-                  <Label
-                    htmlFor="outward-remarks"
-                    className="text-sm font-medium text-secondary-700"
-                  >
-                    Remarks{" "}
-                    <span className="text-secondary-400 font-normal">
-                      (optional)
-                    </span>
+                {/* Right Column: Item Image Preview */}
+                <div className="lg:min-h-[360px]">
+                  <Label className="text-sm font-medium text-secondary-700 mb-1.5 block">
+                    Latest Condition Photo
                   </Label>
-                  <Textarea
-                    id="outward-remarks"
-                    {...register("remarks")}
-                    placeholder="Optional remarks..."
-                    rows={3}
-                    disabled={isViewOnly}
-                    className="mt-1.5 border-secondary-300 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 resize-y disabled:opacity-60 disabled:cursor-not-allowed"
-                  />
+                  <div className="rounded-xl border border-secondary-200 bg-secondary-50/50 overflow-hidden h-full min-h-[250px] flex flex-col items-center justify-center p-4">
+                    {selectedItem || (editingIssue && editingIssue.item) ? (
+                      (selectedItem as any)?.latestImage ||
+                      (editingIssue?.item as any)?.latestImage ? (
+                        <div className="relative group cursor-pointer w-full h-full flex items-center justify-center">
+                          <img
+                            src={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/storage/${(selectedItem as any)?.latestImage || (editingIssue?.item as any)?.latestImage}`}
+                            alt="Latest condition"
+                            className="max-w-full max-h-full object-contain rounded-lg shadow-sm group-hover:opacity-90 transition-opacity"
+                          />
+                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              className="bg-white/90 backdrop-blur-sm"
+                              onClick={() => {
+                                const src =
+                                  (selectedItem as any)?.latestImage ||
+                                  (editingIssue?.item as any)?.latestImage;
+                                if (src)
+                                  setFullScreenImageSrc(
+                                    `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/storage/${src}`,
+                                  );
+                              }}
+                            >
+                              View full screen
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center space-y-2">
+                          <div className="w-16 h-16 rounded-full bg-secondary-100 flex items-center justify-center mx-auto">
+                            <ImageIcon className="w-8 h-8 text-secondary-400" />
+                          </div>
+                          <p className="text-sm text-secondary-500">
+                            No image available
+                          </p>
+                        </div>
+                      )
+                    ) : (
+                      <div className="text-center space-y-2">
+                        <div className="w-16 h-16 rounded-full bg-secondary-100 flex items-center justify-center mx-auto">
+                          <ImageIcon className="w-8 h-8 text-secondary-400" />
+                        </div>
+                        <p className="text-sm text-secondary-500">
+                          Select an item to view its latest condition
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -978,6 +1027,12 @@ export default function IssuesPage() {
             </div>
           </form>
         </Dialog>
+
+        <FullScreenImageViewer
+          isOpen={!!fullScreenImageSrc}
+          imageSrc={fullScreenImageSrc}
+          onClose={() => setFullScreenImageSrc(null)}
+        />
       </motion.div>
     </div>
   );
