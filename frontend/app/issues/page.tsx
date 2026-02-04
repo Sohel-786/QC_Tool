@@ -49,6 +49,8 @@ import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { ItemSelectionDialog } from "@/components/dialogs/item-selection-dialog";
 import { cn } from "@/lib/utils";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
 const issueSchema = z.object({
   categoryId: z.number().min(1, "Item category is required"),
   itemId: z.number().min(1, "Item is required"),
@@ -956,11 +958,14 @@ export default function IssuesPage() {
                   </Label>
                   <div className="rounded-xl border border-secondary-200 bg-secondary-50/50 overflow-hidden h-full min-h-[250px] flex flex-col items-center justify-center p-4">
                     {selectedItem || (editingIssue && editingIssue.item) ? (
-                      (selectedItem as any)?.latestImage ||
-                        (editingIssue?.item as any)?.latestImage ? (
+                      (selectedItem as any)?.image ||
+                        (editingIssue?.item as any)?.image ? (
                         <div className="relative group cursor-pointer w-full h-full flex items-center justify-center">
                           <img
-                            src={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/storage/${(selectedItem as any)?.latestImage || (editingIssue?.item as any)?.latestImage}`}
+                            src={((selectedItem as any)?.image ||
+                              (editingIssue?.item as any)?.image)?.startsWith("/")
+                              ? `${API_BASE}${(selectedItem as any)?.image || (editingIssue?.item as any)?.image}`
+                              : `${API_BASE}/storage/${(selectedItem as any)?.image || (editingIssue?.item as any)?.image}`}
                             alt="Latest condition"
                             className="max-w-full max-h-full object-contain rounded-lg shadow-sm group-hover:opacity-90 transition-opacity"
                           />
@@ -971,12 +976,10 @@ export default function IssuesPage() {
                               size="sm"
                               className="bg-white/90 backdrop-blur-sm"
                               onClick={() => {
-                                const src =
-                                  (selectedItem as any)?.latestImage ||
-                                  (editingIssue?.item as any)?.latestImage;
+                                const src = (selectedItem as any)?.image || (editingIssue?.item as any)?.image;
                                 if (src)
                                   setFullScreenImageSrc(
-                                    `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/storage/${src}`,
+                                    src.startsWith("/") ? `${API_BASE}${src}` : `${API_BASE}/storage/${src}`
                                   );
                               }}
                             >

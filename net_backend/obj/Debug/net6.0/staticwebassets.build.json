@@ -1,0 +1,54 @@
+{
+  "Version": 1,
+  "Hash": "xtFxac20sXRo2UiWO3a9ky7mGnl9FbiqOf2ZgO55+7U=",
+  "Source": "net_backend",
+  "BasePath": "_content/net_backend",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [
+    {
+      "Name": "net_backend\\wwwroot",
+      "Source": "net_backend",
+      "ContentRoot": "D:\\AiraEuro\\QC_Tool\\net_backend\\wwwroot\\",
+      "BasePath": "_content/net_backend",
+      "Pattern": "**"
+    }
+  ],
+  "Assets": [
+    {
+      "Identity": "D:\\AiraEuro\\QC_Tool\\net_backend\\wwwroot\\storage\\items\\GV0001\\04accb77-3a03-49c6-af53-d1187c179018.jpg",
+      "SourceId": "net_backend",
+      "SourceType": "Discovered",
+      "ContentRoot": "D:\\AiraEuro\\QC_Tool\\net_backend\\wwwroot\\",
+      "BasePath": "_content/net_backend",
+      "RelativePath": "storage/items/GV0001/04accb77-3a03-49c6-af53-d1187c179018.jpg",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\storage\\items\\GV0001\\04accb77-3a03-49c6-af53-d1187c179018.jpg"
+    },
+    {
+      "Identity": "D:\\AiraEuro\\QC_Tool\\net_backend\\wwwroot\\storage\\items\\GV0001\\12a40462-ad1a-4a61-91e3-1341b31c7475.jpg",
+      "SourceId": "net_backend",
+      "SourceType": "Discovered",
+      "ContentRoot": "D:\\AiraEuro\\QC_Tool\\net_backend\\wwwroot\\",
+      "BasePath": "_content/net_backend",
+      "RelativePath": "storage/items/GV0001/12a40462-ad1a-4a61-91e3-1341b31c7475.jpg",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\storage\\items\\GV0001\\12a40462-ad1a-4a61-91e3-1341b31c7475.jpg"
+    }
+  ]
+}

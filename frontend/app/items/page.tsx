@@ -167,7 +167,11 @@ export default function ItemsPage() {
 
   const toggleActiveMutation = useMutation({
     mutationFn: async ({ id, isActive }: { id: number; isActive: boolean }) => {
-      const res = await api.patch(`/items/${id}`, { isActive });
+      const fd = new FormData();
+      fd.append("isActive", String(isActive));
+      const res = await api.patch(`/items/${id}`, fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
       return res.data;
     },
     onSuccess: (_, { isActive }) => {
@@ -192,7 +196,7 @@ export default function ItemsPage() {
       setValue("categoryId", item.categoryId ?? categories[0]?.id ?? 0);
       setValue("status", item.status);
       setValue("isActive", item.isActive);
-      setImagePreview(item.image ? `${API_BASE}/storage/${item.image}` : null);
+      setImagePreview(item.image ? (item.image.startsWith("/") ? `${API_BASE}${item.image}` : `${API_BASE}/storage/${item.image}`) : null);
       setImageRemovedByUser(false);
     } else {
       setEditingItem(null);
@@ -480,13 +484,13 @@ export default function ItemsPage() {
                               className="w-[30px] h-[30px] rounded overflow-hidden border border-secondary-200 bg-secondary-50 shrink-0 cursor-pointer hover:ring-2 hover:ring-primary-500 transition-shadow"
                               role="button"
                               tabIndex={0}
-                              onClick={() => i.image && setFullScreenImageSrc(`${API_BASE}/storage/${i.image}`)}
-                              onKeyDown={(e) => i.image && e.key === "Enter" && setFullScreenImageSrc(`${API_BASE}/storage/${i.image}`)}
+                              onClick={() => i.image && setFullScreenImageSrc(i.image.startsWith("/") ? `${API_BASE}${i.image}` : `${API_BASE}/storage/${i.image}`)}
+                              onKeyDown={(e) => i.image && e.key === "Enter" && setFullScreenImageSrc(i.image.startsWith("/") ? `${API_BASE}${i.image}` : `${API_BASE}/storage/${i.image}`)}
                               title={i.image ? "View full screen" : undefined}
                             >
                               {i.image ? (
                                 <img
-                                  src={`${API_BASE}/storage/${i.image}`}
+                                  src={i.image.startsWith("/") ? `${API_BASE}${i.image}` : `${API_BASE}/storage/${i.image}`}
                                   alt=""
                                   className="w-full h-full object-cover"
                                   width={30}
@@ -776,7 +780,7 @@ export default function ItemsPage() {
                               (!imageRemovedByUser &&
                                 editingItem?.image &&
                                 !imageFile
-                                ? `${API_BASE}/storage/${editingItem.image}`
+                                ? (editingItem.image.startsWith("/") ? `${API_BASE}${editingItem.image}` : `${API_BASE}/storage/${editingItem.image}`)
                                 : null)
                             }
                             onCapture={handleImageCapture}

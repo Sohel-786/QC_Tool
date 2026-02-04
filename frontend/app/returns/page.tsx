@@ -640,14 +640,14 @@ export default function ReturnsPage() {
                           <td className="px-4 py-3 text-center">
                             <span
                               className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium border ${r.condition === "OK"
-                                  ? "bg-green-100 text-green-700 border-green-200"
-                                  : r.condition === "Damaged"
-                                    ? "bg-amber-100 text-amber-700 border-amber-200"
-                                    : r.condition === "Calibration Required"
-                                      ? "bg-blue-100 text-blue-700 border-blue-200"
-                                      : r.condition === "Missing"
-                                        ? "bg-red-100 text-red-700 border-red-200"
-                                        : "bg-secondary-100 text-secondary-700 border-secondary-200"
+                                ? "bg-green-100 text-green-700 border-green-200"
+                                : r.condition === "Damaged"
+                                  ? "bg-amber-100 text-amber-700 border-amber-200"
+                                  : r.condition === "Calibration Required"
+                                    ? "bg-blue-100 text-blue-700 border-blue-200"
+                                    : r.condition === "Missing"
+                                      ? "bg-red-100 text-red-700 border-red-200"
+                                      : "bg-secondary-100 text-secondary-700 border-secondary-200"
                                 }`}
                             >
                               {r.condition ?? "—"}
@@ -682,8 +682,8 @@ export default function ReturnsPage() {
                           <td className="px-4 py-3 text-center">
                             <span
                               className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${r.isActive
-                                  ? "bg-green-100 text-green-700 border border-green-200"
-                                  : "bg-red-100 text-red-700 border border-red-200"
+                                ? "bg-green-100 text-green-700 border border-green-200"
+                                : "bg-red-100 text-red-700 border border-red-200"
                                 }`}
                             >
                               {r.isActive ? "Active" : "Inactive"}
@@ -695,14 +695,14 @@ export default function ReturnsPage() {
                                 type="button"
                                 onClick={() =>
                                   setFullScreenImageSrc(
-                                    `${API_BASE}/storage/${r.returnImage}`,
+                                    r.returnImage?.startsWith("/") ? `${API_BASE}${r.returnImage}` : `${API_BASE}/storage/${r.returnImage}`,
                                   )
                                 }
                                 className="w-[30px] h-[30px] rounded border border-secondary-200 inline-block overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary-500 transition-shadow focus:outline-none focus:ring-2 focus:ring-primary-500"
                                 title="View full screen"
                               >
                                 <img
-                                  src={`${API_BASE}/storage/${r.returnImage}`}
+                                  src={r.returnImage?.startsWith("/") ? `${API_BASE}${r.returnImage}` : `${API_BASE}/storage/${r.returnImage}`}
                                   alt="Inward"
                                   className="w-full h-full object-cover"
                                 />

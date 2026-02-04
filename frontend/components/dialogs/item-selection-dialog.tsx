@@ -164,11 +164,10 @@ export function ItemSelectionDialog({
                 <tbody className="divide-y divide-secondary-200">
                   {filteredItems.map((item) => {
                     const isAvailable = item.status === "AVAILABLE";
-                    const imageUrl = item.latestImage
-                      ? `${API_BASE}/storage/${item.latestImage}`
-                      : item.image
-                        ? `${API_BASE}/storage/${item.image}`
-                        : null;
+                    const baseImage = item.latestImage || item.image;
+                    const imageUrl = baseImage
+                      ? (baseImage.startsWith("/") ? `${API_BASE}${baseImage}` : `${API_BASE}/storage/${baseImage}`)
+                      : null;
 
                     return (
                       <tr

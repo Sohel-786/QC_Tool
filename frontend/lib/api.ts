@@ -25,9 +25,14 @@ api.interceptors.response.use(
 
       // For login itself, just bubble the error (no full page reload)
       const isLoginRequest =
-        requestUrl?.includes("/auth/login") || requestUrl?.endsWith("/auth/login");
+        requestUrl?.includes("/auth/login") ||
+        requestUrl?.endsWith("/auth/login");
 
-      if (!isLoginRequest && typeof window !== "undefined" && window.location.pathname !== "/login") {
+      if (
+        !isLoginRequest &&
+        typeof window !== "undefined" &&
+        window.location.pathname !== "/login"
+      ) {
         // Redirect to login on unauthorized for protected API calls
         window.location.href = "/login";
       }
