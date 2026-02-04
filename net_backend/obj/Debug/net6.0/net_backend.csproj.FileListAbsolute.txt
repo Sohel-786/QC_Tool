@@ -68,3 +68,11 @@ D:\AiraEuro\QC_Tool\net_backend\obj\Debug\net6.0\net_backend.pdb
 D:\AiraEuro\QC_Tool\net_backend\obj\Debug\net6.0\net_backend.genruntimeconfig.cache
 D:\AiraEuro\QC_Tool\net_backend\obj\Debug\net6.0\ref\net_backend.dll
 D:\AiraEuro\QC_Tool\net_backend\bin\Debug\net6.0\net_backend.staticwebassets.runtime.json
+D:\AiraEuro\QC_Tool\net_backend\bin\Debug\net6.0\ClosedXML.dll
+D:\AiraEuro\QC_Tool\net_backend\bin\Debug\net6.0\ClosedXML.Parser.dll
+D:\AiraEuro\QC_Tool\net_backend\bin\Debug\net6.0\DocumentFormat.OpenXml.dll
+D:\AiraEuro\QC_Tool\net_backend\bin\Debug\net6.0\DocumentFormat.OpenXml.Framework.dll
+D:\AiraEuro\QC_Tool\net_backend\bin\Debug\net6.0\ExcelNumberFormat.dll
+D:\AiraEuro\QC_Tool\net_backend\bin\Debug\net6.0\RBush.dll
+D:\AiraEuro\QC_Tool\net_backend\bin\Debug\net6.0\SixLabors.Fonts.dll
+D:\AiraEuro\QC_Tool\net_backend\bin\Debug\net6.0\System.IO.Packaging.dll

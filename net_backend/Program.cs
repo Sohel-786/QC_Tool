@@ -17,8 +17,9 @@ builder.Services.AddControllers()
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Configure Code Generator
+// Configure Services
 builder.Services.AddScoped<ICodeGeneratorService, CodeGeneratorService>();
+builder.Services.AddScoped<IExcelService, ExcelService>();
 
 // Configure Database
 builder.Services.AddDbContext<ApplicationDbContext>(options =>

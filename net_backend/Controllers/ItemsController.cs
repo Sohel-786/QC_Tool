@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using net_backend.Data;
 using net_backend.DTOs;
 using net_backend.Models;
+using net_backend.Services;
 
 namespace net_backend.Controllers
 {
@@ -11,10 +12,101 @@ namespace net_backend.Controllers
     public class ItemsController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IExcelService _excelService;
 
-        public ItemsController(ApplicationDbContext context)
+        public ItemsController(ApplicationDbContext context, IExcelService excelService)
         {
             _context = context;
+            _excelService = excelService;
+        }
+
+        [HttpGet("export")]
+        public async Task<IActionResult> Export()
+        {
+            var items = await _context.Items.Include(i => i.Category).ToListAsync();
+            var data = items.Select(i => new {
+                Id = i.Id,
+                ItemName = i.ItemName,
+                SerialNumber = i.SerialNumber,
+                Category = i.Category?.Name,
+                Status = i.Status.ToString(),
+                IsActive = i.IsActive ? "Yes" : "No",
+                CreatedAt = i.CreatedAt.ToString("yyyy-MM-dd HH:mm")
+            });
+
+            var file = _excelService.GenerateExcel(data, "Items");
+            return File(file, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "items.xlsx");
+        }
+
+        [HttpPost("import")]
+        public async Task<ActionResult<ApiResponse<object>>> Import(IFormFile file)
+        {
+            if (file == null || file.Length == 0) return Ok(new ApiResponse<object> { Success = false, Message = "No file" });
+            try
+            {
+                using var stream = file.OpenReadStream();
+                var result = _excelService.ImportExcel<ItemImportDto>(stream);
+                
+                var categories = await _context.ItemCategories.ToDictionaryAsync(c => c.Name.ToLower(), c => c.Id);
+                var existingSerials = await _context.Items.Select(i => i.SerialNumber.ToLower()).ToListAsync();
+                var processedInFile = new HashSet<string>();
+                var newItems = new List<Item>();
+
+                foreach (var row in result.Data)
+                {
+                    var item = row.Data;
+                    if (string.IsNullOrEmpty(item.ItemName) || string.IsNullOrEmpty(item.SerialNumber))
+                    {
+                        result.Errors.Add(new RowError { Row = row.RowNumber, Message = "Name and Serial Number are mandatory" });
+                        continue;
+                    }
+
+                    var serialLower = item.SerialNumber.Trim().ToLower();
+
+                    if (processedInFile.Contains(serialLower))
+                    {
+                        result.Errors.Add(new RowError { Row = row.RowNumber, Message = $"Duplicate Serial Number in file: {item.SerialNumber}" });
+                        continue;
+                    }
+
+                    if (existingSerials.Contains(serialLower))
+                    {
+                        result.Errors.Add(new RowError { Row = row.RowNumber, Message = $"Serial Number already exists: {item.SerialNumber}" });
+                        processedInFile.Add(serialLower);
+                        continue;
+                    }
+
+                    int? categoryId = null;
+                    if (!string.IsNullOrEmpty(item.Category) && categories.TryGetValue(item.Category.Trim().ToLower(), out var catId))
+                    {
+                        categoryId = catId;
+                    }
+
+                    newItems.Add(new Item
+                    {
+                        ItemName = item.ItemName.Trim(),
+                        SerialNumber = item.SerialNumber.Trim(),
+                        Description = item.Description?.Trim(),
+                        CategoryId = categoryId,
+                        Status = ItemStatus.AVAILABLE,
+                        IsActive = true,
+                        CreatedAt = DateTime.Now,
+                        UpdatedAt = DateTime.Now
+                    });
+
+                    processedInFile.Add(serialLower);
+                }
+
+                if (newItems.Any())
+                {
+                    _context.Items.AddRange(newItems);
+                    await _context.SaveChangesAsync();
+                }
+
+                var finalResult = new { imported = newItems.Count, totalRows = result.TotalRows, errors = result.Errors.OrderBy(e => e.Row).ToList() };
+                return Ok(new ApiResponse<object> { Data = finalResult, Message = $"{newItems.Count} items imported successfully" });
+            }
+            catch (Exception ex) { return Ok(new ApiResponse<object> { Success = false, Message = ex.Message }); }
         }
 
         [HttpGet]

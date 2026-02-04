@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using net_backend.Data;
 using net_backend.DTOs;
 using net_backend.Models;
+using net_backend.Services;
 
 namespace net_backend.Controllers
 {
@@ -11,23 +12,25 @@ namespace net_backend.Controllers
     public class ReportsController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IExcelService _excelService;
 
-        public ReportsController(ApplicationDbContext context)
+        public ReportsController(ApplicationDbContext context, IExcelService excelService)
         {
             _context = context;
+            _excelService = excelService;
         }
 
         [HttpGet("issued-items")]
         public async Task<ActionResult<ApiResponse<object>>> GetIssuedItemsReport(
-            [FromQuery] int page = 1, 
-            [FromQuery] int limit = 25,
             [FromQuery] string? search = null,
             [FromQuery] string? companyIds = null,
             [FromQuery] string? contractorIds = null,
             [FromQuery] string? machineIds = null,
             [FromQuery] string? locationIds = null,
             [FromQuery] string? itemIds = null,
-            [FromQuery] string? operatorName = null)
+            [FromQuery] string? operatorName = null,
+            [FromQuery] int page = 1,
+            [FromQuery] int limit = 25)
         {
             var query = _context.Issues.Where(i => !i.IsReturned).AsQueryable();
 
@@ -94,7 +97,7 @@ namespace net_backend.Controllers
             var query = _context.Items.Where(i => i.Status == ItemStatus.MISSING).AsQueryable();
 
             if (!string.IsNullOrEmpty(search))
-                query = query.Where(i => i.ItemName.Contains(search) || i.SerialNumber.Contains(search));
+                query = query.Where(i => i.ItemName.Contains(search) || (i.SerialNumber != null && i.SerialNumber.Contains(search)));
 
             var total = await query.CountAsync();
             var items = await query
@@ -121,70 +124,81 @@ namespace net_backend.Controllers
             [FromQuery] int page = 1,
             [FromQuery] int limit = 25)
         {
-            var item = await _context.Items.Include(i => i.Category).FirstOrDefaultAsync(i => i.Id == itemId);
+            var item = await _context.Items
+                .Include(i => i.Category)
+                .FirstOrDefaultAsync(i => i.Id == itemId);
+            
             if (item == null) return NotFound(new ApiResponse<object> { Success = false, Message = "Item not found" });
 
-            // Node.js implementation returns issues and returns as rows
-            var issues = await _context.Issues
+            var issuesQuery = _context.Issues
                 .Where(i => i.ItemId == itemId)
                 .Include(i => i.Company)
                 .Include(i => i.Contractor)
                 .Include(i => i.Machine)
                 .Include(i => i.Location)
                 .Include(i => i.IssuedByUser)
-                .Include(i => i.Returns).ThenInclude(r => r.ReturnedByUser)
-                .OrderByDescending(i => i.IssuedAt)
-                .ToListAsync();
+                .AsQueryable();
 
-            var rows = new List<object>();
-            foreach (var issue in issues)
+            var returnsQuery = _context.Returns
+                .Where(r => r.ItemId == itemId)
+                .Include(r => r.Company)
+                .Include(r => r.Contractor)
+                .Include(r => r.Machine)
+                .Include(r => r.Location)
+                .Include(r => r.Status)
+                .Include(r => r.ReturnedByUser)
+                .AsQueryable();
+
+            var issueEvents = await issuesQuery.ToListAsync();
+            var returnEvents = await returnsQuery.ToListAsync();
+
+            var events = new List<object>();
+            foreach (var issue in issueEvents)
             {
-                rows.Add(new
+                events.Add(new
                 {
-                    type = "issue",
-                    date = issue.IssuedAt,
-                    issueNo = issue.IssueNo,
-                    description = "Item Issued",
-                    company = issue.Company?.Name,
-                    contractor = issue.Contractor?.Name,
-                    machine = issue.Machine?.Name,
-                    location = issue.Location?.Name,
-                    user = issue.IssuedByUser != null ? $"{issue.IssuedByUser.FirstName} {issue.IssuedByUser.LastName}" : "System",
-                    remarks = issue.Remarks
+                    Type = "issue",
+                    Date = issue.IssuedAt,
+                    No = issue.IssueNo,
+                    User = $"{issue.IssuedByUser?.FirstName} {issue.IssuedByUser?.LastName}",
+                    Company = issue.Company?.Name,
+                    Contractor = issue.Contractor?.Name,
+                    Machine = issue.Machine?.Name,
+                    Location = issue.Location?.Name,
+                    Remarks = issue.Remarks,
+                    IssuedTo = issue.IssuedTo
                 });
-
-                foreach (var ret in issue.Returns)
-                {
-                    rows.Add(new
-                    {
-                        type = "return",
-                        date = ret.ReturnedAt,
-                        issueNo = issue.IssueNo,
-                        description = "Item Returned",
-                        company = issue.Company?.Name,
-                        contractor = issue.Contractor?.Name,
-                        machine = issue.Machine?.Name,
-                        location = issue.Location?.Name,
-                        user = ret.ReturnedByUser != null ? $"{ret.ReturnedByUser.FirstName} {ret.ReturnedByUser.LastName}" : "System",
-                        remarks = ret.Remarks,
-                        returnCode = ret.ReturnCode,
-                        condition = ret.Condition
-                    });
-                }
             }
 
-            var sortedRows = rows.OrderByDescending(r => (DateTime)((dynamic)r).date).ToList();
-            var total = sortedRows.Count();
-            var pagedRows = sortedRows.Skip((page - 1) * limit).Take(limit).ToList();
-
-            return Ok(new ApiResponse<object>
+            foreach (var ret in returnEvents)
             {
-                Data = new
+                events.Add(new
                 {
-                    item,
-                    rows = pagedRows,
-                    total = total
-                }
+                    Type = "return",
+                    Date = ret.ReturnedAt,
+                    No = ret.Issue != null ? ret.Issue.IssueNo : "N/A",
+                    User = $"{ret.ReturnedByUser?.FirstName} {ret.ReturnedByUser?.LastName}",
+                    Company = ret.Company?.Name,
+                    Contractor = ret.Contractor?.Name,
+                    Machine = ret.Machine?.Name,
+                    Location = ret.Location?.Name,
+                    Remarks = ret.Remarks,
+                    Status = ret.Status?.Name
+                });
+            }
+
+            var sortedEvents = events.OrderByDescending(e => ((dynamic)e).Date).ToList();
+            var total = sortedEvents.Count;
+            var data = sortedEvents.Skip((page - 1) * limit).Take(limit).ToList();
+
+            return Ok(new 
+            {
+                Success = true,
+                Data = data,
+                Total = total,
+                Page = page,
+                Limit = limit,
+                Item = item
             });
         }
         [HttpGet("export/issued-items")]
@@ -218,10 +232,21 @@ namespace net_backend.Controllers
                 .OrderByDescending(i => i.IssuedAt)
                 .ToListAsync();
 
-            var csv = "Issue No,Item Name,Issued To,Company,Contractor,Machine,Location,Issued At\n" +
-                      string.Join("\n", issues.Select(i => $"\"{i.IssueNo}\",\"{i.Item?.ItemName}\",\"{i.IssuedTo}\",\"{i.Company?.Name}\",\"{i.Contractor?.Name}\",\"{i.Machine?.Name}\",\"{i.Location?.Name}\",\"{i.IssuedAt:yyyy-MM-dd HH:mm}\""));
+            var data = issues.Select(i => new {
+                IssueNo = i.IssueNo,
+                ItemName = i.Item?.ItemName,
+                SerialNumber = i.Item?.SerialNumber,
+                IssuedTo = i.IssuedTo,
+                Company = i.Company?.Name,
+                Contractor = i.Contractor?.Name,
+                Machine = i.Machine?.Name,
+                Location = i.Location?.Name,
+                IssuedAt = i.IssuedAt.ToString("yyyy-MM-dd HH:mm"),
+                IssuedBy = $"{i.IssuedByUser?.FirstName} {i.IssuedByUser?.LastName}"
+            });
 
-            return File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv", "issued_items.csv");
+            var file = _excelService.GenerateExcel(data, "Issued Items");
+            return File(file, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "issued_items.xlsx");
         }
 
         [HttpGet("export/missing-items")]
@@ -229,19 +254,25 @@ namespace net_backend.Controllers
         {
             var query = _context.Items.Where(i => i.Status == ItemStatus.MISSING).AsQueryable();
             if (!string.IsNullOrEmpty(search))
-                query = query.Where(i => i.ItemName.Contains(search) || i.SerialNumber.Contains(search));
+                query = query.Where(i => i.ItemName.Contains(search) || (i.SerialNumber != null && i.SerialNumber.Contains(search)));
 
             var items = await query.Include(i => i.Category).OrderBy(i => i.ItemName).ToListAsync();
-            var csv = "Item Name,Serial Number,Category,Description\n" +
-                      string.Join("\n", items.Select(i => $"\"{i.ItemName}\",\"{i.SerialNumber}\",\"{i.Category?.Name}\",\"{i.Description}\""));
+            var data = items.Select(i => new {
+                ItemName = i.ItemName,
+                SerialNumber = i.SerialNumber,
+                Category = i.Category?.Name,
+                Description = i.Description,
+                CreatedAt = i.CreatedAt.ToString("yyyy-MM-dd HH:mm")
+            });
 
-            return File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv", "missing_items.csv");
+            var file = _excelService.GenerateExcel(data, "Missing Items");
+            return File(file, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "missing_items.xlsx");
         }
 
         [HttpGet("export/item-history")]
         public async Task<IActionResult> ExportItemHistory([FromQuery] int itemId)
         {
-            var item = await _context.Items.FindAsync(itemId);
+            var item = await _context.Items.Include(i => i.Category).FirstOrDefaultAsync(i => i.Id == itemId);
             if (item == null) return NotFound();
 
             var issues = await _context.Issues
@@ -255,17 +286,42 @@ namespace net_backend.Controllers
                 .OrderByDescending(i => i.IssuedAt)
                 .ToListAsync();
 
-            var csv = "Type,Date,Issue No,Description,Company,Contractor,Machine,Location,User,Remarks\n";
+            var exportData = new List<object>();
             foreach (var issue in issues)
             {
-                csv += $"\"Issue\",\"{issue.IssuedAt:yyyy-MM-dd HH:mm}\",\"{issue.IssueNo}\",\"Item Issued\",\"{issue.Company?.Name}\",\"{issue.Contractor?.Name}\",\"{issue.Machine?.Name}\",\"{issue.Location?.Name}\",\"{issue.IssuedByUser?.FirstName} {issue.IssuedByUser?.LastName}\",\"{issue.Remarks}\"\n";
+                exportData.Add(new {
+                    Type = "Issue",
+                    Date = issue.IssuedAt.ToString("yyyy-MM-dd HH:mm"),
+                    IssueNo = issue.IssueNo,
+                    Description = "Item Issued",
+                    Company = issue.Company?.Name,
+                    Contractor = issue.Contractor?.Name,
+                    Machine = issue.Machine?.Name,
+                    Location = issue.Location?.Name,
+                    User = $"{issue.IssuedByUser?.FirstName} {issue.IssuedByUser?.LastName}",
+                    Remarks = issue.Remarks
+                });
+
                 foreach (var ret in issue.Returns)
                 {
-                    csv += $"\"Return\",\"{ret.ReturnedAt:yyyy-MM-dd HH:mm}\",\"{issue.IssueNo}\",\"Item Returned\",\"{issue.Company?.Name}\",\"{issue.Contractor?.Name}\",\"{issue.Machine?.Name}\",\"{issue.Location?.Name}\",\"{ret.ReturnedByUser?.FirstName} {ret.ReturnedByUser?.LastName}\",\"{ret.Remarks}\"\n";
+                    exportData.Add(new {
+                        Type = "Return",
+                        Date = ret.ReturnedAt.ToString("yyyy-MM-dd HH:mm"),
+                        IssueNo = issue.IssueNo,
+                        Description = "Item Returned",
+                        Company = issue.Company?.Name,
+                        Contractor = issue.Contractor?.Name,
+                        Machine = issue.Machine?.Name,
+                        Location = issue.Location?.Name,
+                        User = $"{ret.ReturnedByUser?.FirstName} {ret.ReturnedByUser?.LastName}",
+                        Remarks = ret.Remarks
+                    });
                 }
             }
 
-            return File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv", $"item_history_{item.SerialNumber}.csv");
+            var title = $"Ledger for: {item.ItemName} (S/N: {item.SerialNumber})";
+            var file = _excelService.GenerateExcel(exportData, "Item History", title);
+            return File(file, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"item_history_{item.SerialNumber}.xlsx");
         }
     }
 }

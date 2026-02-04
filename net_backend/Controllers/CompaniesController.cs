@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using net_backend.Data;
 using net_backend.DTOs;
 using net_backend.Models;
+using net_backend.Services;
 
 namespace net_backend.Controllers
 {
@@ -11,10 +12,97 @@ namespace net_backend.Controllers
     public class CompaniesController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IExcelService _excelService;
 
-        public CompaniesController(ApplicationDbContext context)
+        public CompaniesController(ApplicationDbContext context, IExcelService excelService)
         {
             _context = context;
+            _excelService = excelService;
+        }
+
+        [HttpGet("export")]
+        public async Task<IActionResult> Export()
+        {
+            var companies = await _context.Companies.ToListAsync();
+            var data = companies.Select(c => new {
+                Id = c.Id,
+                Name = c.Name,
+                IsActive = c.IsActive ? "Yes" : "No",
+                CreatedAt = c.CreatedAt.ToString("yyyy-MM-dd HH:mm")
+            });
+
+            var file = _excelService.GenerateExcel(data, "Companies");
+            return File(file, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "companies.xlsx");
+        }
+
+        [HttpPost("import")]
+        public async Task<ActionResult<ApiResponse<object>>> Import(IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                return Ok(new ApiResponse<object> { Success = false, Message = "No file uploaded" });
+
+            try
+            {
+                using (var stream = file.OpenReadStream())
+                {
+                    var result = _excelService.ImportExcel<CompanyImportDto>(stream);
+                    var newCompanies = new List<Company>();
+                    
+                    var existingNames = await _context.Companies.Select(c => c.Name.ToLower()).ToListAsync();
+                    var processedInFile = new HashSet<string>();
+
+                    foreach (var row in result.Data)
+                    {
+                        var item = row.Data;
+                        if (string.IsNullOrWhiteSpace(item.Name)) 
+                        {
+                            result.Errors.Add(new RowError { Row = row.RowNumber, Message = "Name is mandatory" });
+                            continue;
+                        }
+
+                        var nameLower = item.Name.Trim().ToLower();
+
+                        if (processedInFile.Contains(nameLower))
+                        {
+                            result.Errors.Add(new RowError { Row = row.RowNumber, Message = $"Duplicate Company Name in file: {item.Name}" });
+                            continue;
+                        }
+
+                        if (existingNames.Contains(nameLower))
+                        {
+                            result.Errors.Add(new RowError { Row = row.RowNumber, Message = $"Company '{item.Name}' already exists in database" });
+                            processedInFile.Add(nameLower);
+                            continue;
+                        }
+
+                        newCompanies.Add(new Company {
+                            Name = item.Name.Trim(),
+                            IsActive = true,
+                            CreatedAt = DateTime.Now,
+                            UpdatedAt = DateTime.Now
+                        });
+                        processedInFile.Add(nameLower);
+                    }
+
+                    if (newCompanies.Any())
+                    {
+                        _context.Companies.AddRange(newCompanies);
+                        await _context.SaveChangesAsync();
+                    }
+
+                    var finalResult = new {
+                        imported = newCompanies.Count,
+                        totalRows = result.TotalRows,
+                        errors = result.Errors.OrderBy(e => e.Row).ToList()
+                    };
+
+                    return Ok(new ApiResponse<object> { Data = finalResult, Message = $"{newCompanies.Count} companies imported successfully" });
+                }
+            }
+            catch (Exception ex)
+            {
+                return Ok(new ApiResponse<object> { Success = false, Message = $"Import failed: {ex.Message}" });
+            }
         }
 
         [HttpGet]

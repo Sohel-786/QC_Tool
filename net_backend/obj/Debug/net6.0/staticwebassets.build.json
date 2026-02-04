@@ -1,6 +1,6 @@
 {
   "Version": 1,
-  "Hash": "xtFxac20sXRo2UiWO3a9ky7mGnl9FbiqOf2ZgO55+7U=",
+  "Hash": "5dWiHsjRC7JXu6pW5xfJT1I4OwEv6Ro6+Ji2UJ/olbc=",
   "Source": "net_backend",
   "BasePath": "_content/net_backend",
   "Mode": "Default",
@@ -16,6 +16,23 @@
     }
   ],
   "Assets": [
+    {
+      "Identity": "D:\\AiraEuro\\QC_Tool\\net_backend\\wwwroot\\storage\\items\\ACT0002\\ec345b50-8202-4530-b1b1-123ee378209f.jpg",
+      "SourceId": "net_backend",
+      "SourceType": "Discovered",
+      "ContentRoot": "D:\\AiraEuro\\QC_Tool\\net_backend\\wwwroot\\",
+      "BasePath": "_content/net_backend",
+      "RelativePath": "storage/items/ACT0002/ec345b50-8202-4530-b1b1-123ee378209f.jpg",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\storage\\items\\ACT0002\\ec345b50-8202-4530-b1b1-123ee378209f.jpg"
+    },
     {
       "Identity": "D:\\AiraEuro\\QC_Tool\\net_backend\\wwwroot\\storage\\items\\GV0001\\04accb77-3a03-49c6-af53-d1187c179018.jpg",
       "SourceId": "net_backend",
@@ -49,6 +66,23 @@
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
       "OriginalItemSpec": "wwwroot\\storage\\items\\GV0001\\12a40462-ad1a-4a61-91e3-1341b31c7475.jpg"
+    },
+    {
+      "Identity": "D:\\AiraEuro\\QC_Tool\\net_backend\\wwwroot\\storage\\items\\GV0001\\bda11b55-df2e-44dc-af62-46cd55782e0a.jpg",
+      "SourceId": "net_backend",
+      "SourceType": "Discovered",
+      "ContentRoot": "D:\\AiraEuro\\QC_Tool\\net_backend\\wwwroot\\",
+      "BasePath": "_content/net_backend",
+      "RelativePath": "storage/items/GV0001/bda11b55-df2e-44dc-af62-46cd55782e0a.jpg",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\storage\\items\\GV0001\\bda11b55-df2e-44dc-af62-46cd55782e0a.jpg"
     }
   ]
 }

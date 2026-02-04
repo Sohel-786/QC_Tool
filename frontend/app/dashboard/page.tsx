@@ -1,15 +1,15 @@
-'use client';
+"use client";
 
-import { useEffect, useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { motion } from 'framer-motion';
-import { useRouter } from 'next/navigation';
-import api from '@/lib/api';
-import { DashboardMetrics, Item, ItemCategory } from '@/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { useEffect, useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
+import api from "@/lib/api";
+import { DashboardMetrics, Item, ItemCategory } from "@/types";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Package,
   CheckCircle,
@@ -20,54 +20,54 @@ import {
   ArrowRight,
   Search,
   Download,
-} from 'lucide-react';
-import Link from 'next/link';
-import { useDebouncedValue } from '@/hooks/use-debounced-value';
+} from "lucide-react";
+import Link from "next/link";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
-type TableView = 'available' | 'total' | 'missing' | null;
+type TableView = "available" | "total" | "missing" | null;
 
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [tableView, setTableView] = useState<TableView>(null);
-  const [search, setSearch] = useState('');
-  const [categoryId, setCategoryId] = useState<number | ''>('');
+  const [search, setSearch] = useState("");
+  const [categoryId, setCategoryId] = useState<number | "">("");
 
   const debouncedSearch = useDebouncedValue(search, 400);
 
   useEffect(() => {
     // First check localStorage for optimistic loading
-    const storedUser = localStorage.getItem('user');
+    const storedUser = localStorage.getItem("user");
     if (storedUser) {
       try {
         const parsedUser = JSON.parse(storedUser);
         setUser(parsedUser);
         setLoading(false);
       } catch {
-        router.push('/login');
+        router.push("/login");
         return;
       }
     }
 
     // Validate in background
     api
-      .post('/auth/validate')
+      .post("/auth/validate")
       .then(() => {
         setLoading(false);
       })
       .catch(() => {
-        localStorage.removeItem('user');
-        router.push('/login');
+        localStorage.removeItem("user");
+        router.push("/login");
       });
   }, [router]);
 
   const { data: metrics } = useQuery<DashboardMetrics>({
-    queryKey: ['dashboard-metrics'],
+    queryKey: ["dashboard-metrics"],
     queryFn: async () => {
-      const response = await api.get('/dashboard/metrics');
+      const response = await api.get("/dashboard/metrics");
       return response.data.data;
     },
   });
@@ -75,94 +75,113 @@ export default function DashboardPage() {
   const tableParams = useMemo(
     () => ({
       ...(debouncedSearch && { search: debouncedSearch }),
-      ...(categoryId !== '' && typeof categoryId === 'number' && { categoryIds: String(categoryId) }),
+      ...(categoryId !== "" &&
+        typeof categoryId === "number" && { categoryIds: String(categoryId) }),
     }),
-    [debouncedSearch, categoryId]
+    [debouncedSearch, categoryId],
   );
 
-  const { data: availableItems, isLoading: loadingAvailable } = useQuery<Item[]>({
-    queryKey: ['dashboard', 'available-items', tableParams],
+  const { data: availableItems, isLoading: loadingAvailable } = useQuery<
+    Item[]
+  >({
+    queryKey: ["dashboard", "available-items", tableParams],
     queryFn: async () => {
-      const response = await api.get('/dashboard/available-items', { params: tableParams });
+      const response = await api.get("/dashboard/available-items", {
+        params: tableParams,
+      });
       return response.data?.data || [];
     },
-    enabled: tableView === 'available',
+    enabled: tableView === "available",
   });
 
   const { data: totalItems, isLoading: loadingTotal } = useQuery<Item[]>({
-    queryKey: ['dashboard', 'total-items', tableParams],
+    queryKey: ["dashboard", "total-items", tableParams],
     queryFn: async () => {
-      const response = await api.get('/dashboard/total-items', { params: tableParams });
+      const response = await api.get("/dashboard/total-items", {
+        params: tableParams,
+      });
       return response.data?.data || [];
     },
-    enabled: tableView === 'total',
+    enabled: tableView === "total",
   });
 
   const { data: missingItems, isLoading: loadingMissing } = useQuery<Item[]>({
-    queryKey: ['dashboard', 'missing-items', tableParams],
+    queryKey: ["dashboard", "missing-items", tableParams],
     queryFn: async () => {
-      const response = await api.get('/dashboard/missing-items', { params: tableParams });
+      const response = await api.get("/dashboard/missing-items", {
+        params: tableParams,
+      });
       return response.data?.data || [];
     },
-    enabled: tableView === 'missing',
+    enabled: tableView === "missing",
   });
 
   const { data: categories = [] } = useQuery<ItemCategory[]>({
-    queryKey: ['item-categories', 'active'],
+    queryKey: ["item-categories", "active"],
     queryFn: async () => {
-      const response = await api.get('/item-categories/active');
+      const response = await api.get("/item-categories/active");
       return response.data?.data || [];
     },
-    enabled: tableView === 'available' || tableView === 'total' || tableView === 'missing',
+    enabled:
+      tableView === "available" ||
+      tableView === "total" ||
+      tableView === "missing",
   });
 
-  const categoryMap = (categories || []).reduce<Record<number, string>>((acc, c) => {
-    acc[c.id] = c.name;
-    return acc;
-  }, {});
+  const categoryMap = (categories || []).reduce<Record<number, string>>(
+    (acc, c) => {
+      acc[c.id] = c.name;
+      return acc;
+    },
+    {},
+  );
 
   const tableData =
-    tableView === 'available'
+    tableView === "available"
       ? availableItems || []
-      : tableView === 'missing'
+      : tableView === "missing"
         ? missingItems || []
         : totalItems || [];
   const tableLoading =
-    tableView === 'available' ? loadingAvailable : tableView === 'missing' ? loadingMissing : loadingTotal;
+    tableView === "available"
+      ? loadingAvailable
+      : tableView === "missing"
+        ? loadingMissing
+        : loadingTotal;
 
   const handleExportExcel = async () => {
     if (!tableView) return;
     try {
       const endpoint =
-        tableView === 'available'
-          ? '/dashboard/export/available-items'
-          : tableView === 'missing'
-            ? '/dashboard/export/missing-items'
-            : '/dashboard/export/total-items';
+        tableView === "available"
+          ? "/dashboard/export/available-items"
+          : tableView === "missing"
+            ? "/dashboard/export/missing-items"
+            : "/dashboard/export/total-items";
       const response = await api.get(endpoint, {
-        responseType: 'blob',
+        responseType: "blob",
         params: tableParams,
       });
       const blob = new Blob([response.data], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
       const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
       const filename =
-        tableView === 'available'
-          ? `dashboard-available-items-${new Date().toISOString().split('T')[0]}.xlsx`
-          : tableView === 'missing'
-            ? `dashboard-missing-items-${new Date().toISOString().split('T')[0]}.xlsx`
-            : `dashboard-total-items-${new Date().toISOString().split('T')[0]}.xlsx`;
-      link.setAttribute('download', filename);
+        tableView === "available"
+          ? `dashboard-available-items-${new Date().toISOString().split("T")[0]}.xlsx`
+          : tableView === "missing"
+            ? `dashboard-missing-items-${new Date().toISOString().split("T")[0]}.xlsx`
+            : `dashboard-total-items-${new Date().toISOString().split("T")[0]}.xlsx`;
+      link.setAttribute("download", filename);
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      console.error('Export failed:', err);
-      alert('Failed to export. Please try again.');
+      console.error("Export failed:", err);
+      alert("Failed to export. Please try again.");
     }
   };
 
@@ -178,60 +197,61 @@ export default function DashboardPage() {
   }
 
   const handleCardClick = (title: string) => {
-    if (title === 'Total Items') setTableView('total');
-    else if (title === 'Available') setTableView('available');
-    else if (title === 'Missing') router.push('/reports?section=missing');
-    else if (title === 'Active Issues') router.push('/reports?section=active-issues');
+    if (title === "Total Items") setTableView("total");
+    else if (title === "Available") setTableView("available");
+    else if (title === "Missing") router.push("/reports?section=missing");
+    else if (title === "Active Issues")
+      router.push("/reports?section=active-issues");
   };
 
   const statCards = [
     {
-      title: 'Total Items',
+      title: "Total Items",
       value: metrics?.items.total || 0,
       icon: Package,
-      gradient: 'from-blue-500 to-blue-600',
-      baseBg: 'bg-blue-50/40',
-      shadowColor: 'shadow-blue-500/20',
-      iconColor: 'text-blue-600',
-      iconBg: 'bg-white',
+      gradient: "from-blue-500 to-blue-600",
+      baseBg: "bg-blue-50/40",
+      shadowColor: "shadow-blue-500/20",
+      iconColor: "text-blue-600",
+      iconBg: "bg-white",
       trend: null,
-      onClick: () => handleCardClick('Total Items'),
+      onClick: () => handleCardClick("Total Items"),
     },
     {
-      title: 'Available',
+      title: "Available",
       value: metrics?.items.available || 0,
       icon: CheckCircle,
-      gradient: 'from-emerald-500 to-emerald-600',
-      baseBg: 'bg-emerald-50/40',
-      shadowColor: 'shadow-emerald-500/20',
-      iconColor: 'text-emerald-600',
-      iconBg: 'bg-white',
-      trend: 'up',
-      onClick: () => handleCardClick('Available'),
+      gradient: "from-emerald-500 to-emerald-600",
+      baseBg: "bg-emerald-50/40",
+      shadowColor: "shadow-emerald-500/20",
+      iconColor: "text-emerald-600",
+      iconBg: "bg-white",
+      trend: "up",
+      onClick: () => handleCardClick("Available"),
     },
     {
-      title: 'Missing',
+      title: "Missing",
       value: metrics?.items.missing || 0,
       icon: AlertCircle,
-      gradient: 'from-rose-500 to-rose-600',
-      baseBg: 'bg-rose-50/40',
-      shadowColor: 'shadow-rose-500/20',
-      iconColor: 'text-rose-600',
-      iconBg: 'bg-white',
-      trend: 'down',
-      onClick: () => handleCardClick('Missing'),
+      gradient: "from-rose-500 to-rose-600",
+      baseBg: "bg-rose-50/40",
+      shadowColor: "shadow-rose-500/20",
+      iconColor: "text-rose-600",
+      iconBg: "bg-white",
+      trend: "down",
+      onClick: () => handleCardClick("Missing"),
     },
     {
-      title: 'Active Issues',
+      title: "Active Issues",
       value: metrics?.issues.active || 0,
       icon: ClipboardList,
-      gradient: 'from-amber-500 to-amber-600',
-      baseBg: 'bg-amber-50/40',
-      shadowColor: 'shadow-amber-500/20',
-      iconColor: 'text-amber-600',
-      iconBg: 'bg-white',
+      gradient: "from-amber-500 to-amber-600",
+      baseBg: "bg-amber-50/40",
+      shadowColor: "shadow-amber-500/20",
+      iconColor: "text-amber-600",
+      iconBg: "bg-white",
       trend: null,
-      onClick: () => handleCardClick('Active Issues'),
+      onClick: () => handleCardClick("Active Issues"),
     },
   ];
 
@@ -246,7 +266,9 @@ export default function DashboardPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-text mb-2">Dashboard</h1>
-            <p className="text-secondary-600">Plan, prioritize, and manage your QC items with ease.</p>
+            <p className="text-secondary-600">
+              Plan, prioritize, and manage your QC items with ease.
+            </p>
           </div>
           <div className="flex items-center space-x-3">
             <Link href="/items">
@@ -296,7 +318,7 @@ export default function DashboardPage() {
                             {stat.value}
                           </h3>
                         </div>
-
+                        {/* 
                         {stat.trend && (
                           <div className={`
                             flex items-center space-x-1 text-sm font-medium
@@ -310,18 +332,22 @@ export default function DashboardPage() {
                             )}
                             <span>{stat.trend === 'up' ? '+12.5%' : '-2.4%'}</span>
                           </div>
-                        )}
+                        )} */}
                       </div>
 
-                      <div className={`
+                      <div
+                        className={`
                         p-3 rounded-xl shadow-sm transition-all duration-300
                         bg-secondary-50 group-hover:bg-white/20 group-hover:backdrop-blur-sm
                         group-hover:scale-110 group-hover:rotate-3
-                      `}>
-                        <Icon className={`
+                      `}
+                      >
+                        <Icon
+                          className={`
                           w-6 h-6 transition-colors duration-300
                           ${stat.iconColor} group-hover:text-white
-                        `} />
+                        `}
+                        />
                       </div>
                     </div>
 
@@ -335,16 +361,18 @@ export default function DashboardPage() {
         </div>
 
         {/* Items table (shown when Available, Total, or Missing is clicked) */}
-        {(tableView === 'available' || tableView === 'total' || tableView === 'missing') && (
+        {(tableView === "available" ||
+          tableView === "total" ||
+          tableView === "missing") && (
           <Card className="shadow-lg border-0">
             <CardHeader className="border-b border-secondary-200">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <CardTitle className="text-xl font-bold text-text">
-                  {tableView === 'available'
-                    ? 'Available Items'
-                    : tableView === 'missing'
-                      ? 'Missing Items'
-                      : 'Total Items (Available & Missing)'}
+                  {tableView === "available"
+                    ? "Available Items"
+                    : tableView === "missing"
+                      ? "Missing Items"
+                      : "Total Items (Available & Missing)"}
                 </CardTitle>
                 <div className="flex flex-wrap items-center gap-3">
                   <div className="relative flex-1 min-w-[180px] max-w-xs">
@@ -363,10 +391,10 @@ export default function DashboardPage() {
                     </Label>
                     <select
                       id="dashboard-category"
-                      value={categoryId === '' ? '' : categoryId}
+                      value={categoryId === "" ? "" : categoryId}
                       onChange={(e) => {
                         const v = e.target.value;
-                        setCategoryId(v === '' ? '' : Number(v));
+                        setCategoryId(v === "" ? "" : Number(v));
                       }}
                       className="flex h-10 w-full rounded-lg border border-secondary-300 bg-white px-3 py-2 text-sm text-text"
                     >
@@ -378,7 +406,11 @@ export default function DashboardPage() {
                       ))}
                     </select>
                   </div>
-                  <Button onClick={handleExportExcel} disabled={tableLoading} className="shadow-sm">
+                  <Button
+                    onClick={handleExportExcel}
+                    disabled={tableLoading}
+                    className="shadow-sm"
+                  >
                     <Download className="w-4 h-4 mr-2" />
                     Export Excel
                   </Button>
@@ -429,25 +461,28 @@ export default function DashboardPage() {
                             {index + 1}
                           </td>
                           <td className="py-3 px-4 text-sm text-secondary-600">
-                            {item.categoryId != null ? categoryMap[item.categoryId] ?? '—' : '—'}
+                            {item.categoryId != null
+                              ? (categoryMap[item.categoryId] ?? "—")
+                              : "—"}
                           </td>
                           <td className="py-3 px-4 font-medium text-text">
                             {item.itemName}
                           </td>
                           <td className="py-3 px-4">
                             <span
-                              className={`px-2 py-1 rounded-full text-xs font-medium ${item.status === 'AVAILABLE'
-                                ? 'bg-green-100 text-green-700 border border-green-200'
-                                : item.status === 'MISSING'
-                                  ? 'bg-red-100 text-red-700 border border-red-200'
-                                  : 'bg-secondary-100 text-secondary-700 border border-secondary-200'
-                                }`}
+                              className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                item.status === "AVAILABLE"
+                                  ? "bg-green-100 text-green-700 border border-green-200"
+                                  : item.status === "MISSING"
+                                    ? "bg-red-100 text-red-700 border border-red-200"
+                                    : "bg-secondary-100 text-secondary-700 border border-secondary-200"
+                              }`}
                             >
                               {item.status}
                             </span>
                           </td>
                           <td className="py-3 px-4 text-sm text-secondary-600 font-mono">
-                            {item.serialNumber ?? '—'}
+                            {item.serialNumber ?? "—"}
                           </td>
                           <td className="py-3 px-4">
                             {item.image ? (
@@ -472,11 +507,11 @@ export default function DashboardPage() {
               ) : (
                 <div className="text-center py-12">
                   <p className="text-secondary-500">
-                    {tableView === 'available'
-                      ? 'No available items match your filters.'
-                      : tableView === 'missing'
-                        ? 'No missing items match your filters.'
-                        : 'No items match your filters.'}
+                    {tableView === "available"
+                      ? "No available items match your filters."
+                      : tableView === "missing"
+                        ? "No missing items match your filters."
+                        : "No items match your filters."}
                   </p>
                 </div>
               )}

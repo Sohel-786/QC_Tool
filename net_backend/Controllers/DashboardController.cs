@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using net_backend.Data;
 using net_backend.DTOs;
 using net_backend.Models;
+using net_backend.Services;
 
 namespace net_backend.Controllers
 {
@@ -11,10 +12,12 @@ namespace net_backend.Controllers
     public class DashboardController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IExcelService _excelService;
 
-        public DashboardController(ApplicationDbContext context)
+        public DashboardController(ApplicationDbContext context, IExcelService excelService)
         {
             _context = context;
+            _excelService = excelService;
         }
 
         [HttpGet("metrics")]
@@ -47,7 +50,7 @@ namespace net_backend.Controllers
             
             if (!string.IsNullOrEmpty(search))
             {
-                query = query.Where(i => i.ItemName.Contains(search) || i.SerialNumber.Contains(search) || (i.Description != null && i.Description.Contains(search)));
+                query = query.Where(i => i.ItemName.Contains(search) || (i.SerialNumber != null && i.SerialNumber.Contains(search)) || (i.Description != null && i.Description.Contains(search)));
             }
 
             if (!string.IsNullOrEmpty(categoryIds))
@@ -67,7 +70,7 @@ namespace net_backend.Controllers
             
             if (!string.IsNullOrEmpty(search))
             {
-                query = query.Where(i => i.ItemName.Contains(search) || i.SerialNumber.Contains(search) || (i.Description != null && i.Description.Contains(search)));
+                query = query.Where(i => i.ItemName.Contains(search) || (i.SerialNumber != null && i.SerialNumber.Contains(search)) || (i.Description != null && i.Description.Contains(search)));
             }
 
             if (!string.IsNullOrEmpty(categoryIds))
@@ -87,7 +90,7 @@ namespace net_backend.Controllers
             
             if (!string.IsNullOrEmpty(search))
             {
-                query = query.Where(i => i.ItemName.Contains(search) || i.SerialNumber.Contains(search) || (i.Description != null && i.Description.Contains(search)));
+                query = query.Where(i => i.ItemName.Contains(search) || (i.SerialNumber != null && i.SerialNumber.Contains(search)) || (i.Description != null && i.Description.Contains(search)));
             }
 
             if (!string.IsNullOrEmpty(categoryIds))
@@ -99,12 +102,13 @@ namespace net_backend.Controllers
             var items = await query.Include(i => i.Category).ToListAsync();
             return Ok(new ApiResponse<IEnumerable<Item>> { Data = items });
         }
+
         [HttpGet("export/total-items")]
         public async Task<IActionResult> ExportTotalItems([FromQuery] string? search, [FromQuery] string? categoryIds)
         {
             var query = _context.Items.Include(i => i.Category).AsQueryable();
             if (!string.IsNullOrEmpty(search))
-                query = query.Where(i => i.ItemName.Contains(search) || i.SerialNumber.Contains(search));
+                query = query.Where(i => i.ItemName.Contains(search) || (i.SerialNumber != null && i.SerialNumber.Contains(search)));
             if (!string.IsNullOrEmpty(categoryIds))
             {
                 var ids = categoryIds.Split(',').Select(int.Parse).ToList();
@@ -112,10 +116,16 @@ namespace net_backend.Controllers
             }
 
             var items = await query.ToListAsync();
-            var csv = "Item Name,Serial Number,Category,Status,Purchase Date\n" + 
-                      string.Join("\n", items.Select(i => $"\"{i.ItemName}\",\"{i.SerialNumber}\",\"{i.Category?.Name}\",\"{i.Status}\",\"{i.PurchaseDate:yyyy-MM-dd}\""));
-            
-            return File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv", "total_items.csv");
+            var data = items.Select(i => new {
+                ItemName = i.ItemName,
+                SerialNumber = i.SerialNumber,
+                Category = i.Category?.Name,
+                Status = i.Status.ToString(),
+                CreatedAt = i.CreatedAt.ToString("yyyy-MM-dd HH:mm")
+            });
+
+            var file = _excelService.GenerateExcel(data, "Total Items");
+            return File(file, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "total_items.xlsx");
         }
 
         [HttpGet("export/available-items")]
@@ -123,7 +133,7 @@ namespace net_backend.Controllers
         {
             var query = _context.Items.Include(i => i.Category).Where(i => i.Status == ItemStatus.AVAILABLE && i.IsActive);
             if (!string.IsNullOrEmpty(search))
-                query = query.Where(i => i.ItemName.Contains(search) || i.SerialNumber.Contains(search));
+                query = query.Where(i => i.ItemName.Contains(search) || (i.SerialNumber != null && i.SerialNumber.Contains(search)));
             if (!string.IsNullOrEmpty(categoryIds))
             {
                 var ids = categoryIds.Split(',').Select(int.Parse).ToList();
@@ -131,10 +141,15 @@ namespace net_backend.Controllers
             }
 
             var items = await query.ToListAsync();
-            var csv = "Item Name,Serial Number,Category,Purchase Date\n" + 
-                      string.Join("\n", items.Select(i => $"\"{i.ItemName}\",\"{i.SerialNumber}\",\"{i.Category?.Name}\",\"{i.PurchaseDate:yyyy-MM-dd}\""));
-            
-            return File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv", "available_items.csv");
+            var data = items.Select(i => new {
+                ItemName = i.ItemName,
+                SerialNumber = i.SerialNumber,
+                Category = i.Category?.Name,
+                CreatedAt = i.CreatedAt.ToString("yyyy-MM-dd HH:mm")
+            });
+
+            var file = _excelService.GenerateExcel(data, "Available Items");
+            return File(file, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "available_items.xlsx");
         }
 
         [HttpGet("export/missing-items")]
@@ -142,7 +157,7 @@ namespace net_backend.Controllers
         {
             var query = _context.Items.Include(i => i.Category).Where(i => i.Status == ItemStatus.MISSING);
             if (!string.IsNullOrEmpty(search))
-                query = query.Where(i => i.ItemName.Contains(search) || i.SerialNumber.Contains(search));
+                query = query.Where(i => i.ItemName.Contains(search) || (i.SerialNumber != null && i.SerialNumber.Contains(search)));
             if (!string.IsNullOrEmpty(categoryIds))
             {
                 var ids = categoryIds.Split(',').Select(int.Parse).ToList();
@@ -150,10 +165,15 @@ namespace net_backend.Controllers
             }
 
             var items = await query.ToListAsync();
-            var csv = "Item Name,Serial Number,Category,Purchase Date\n" + 
-                      string.Join("\n", items.Select(i => $"\"{i.ItemName}\",\"{i.SerialNumber}\",\"{i.Category?.Name}\",\"{i.PurchaseDate:yyyy-MM-dd}\""));
-            
-            return File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv", "missing_items.csv");
+            var data = items.Select(i => new {
+                ItemName = i.ItemName,
+                SerialNumber = i.SerialNumber,
+                Category = i.Category?.Name,
+                CreatedAt = i.CreatedAt.ToString("yyyy-MM-dd HH:mm")
+            });
+
+            var file = _excelService.GenerateExcel(data, "Missing Items");
+            return File(file, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "missing_items.xlsx");
         }
     }
 }

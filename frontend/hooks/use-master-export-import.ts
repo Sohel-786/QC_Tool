@@ -52,23 +52,12 @@ export function useMasterExportImport(endpoint: string, queryKey: string[]) {
     },
     onSuccess: (data: ImportResult) => {
       queryClient.invalidateQueries({ queryKey });
-      const { imported, totalRows, errors } = data;
-      if (errors?.length > 0) {
-        const errList = errors.slice(0, 5).map((e) => `Row ${e.row}: ${e.message}`).join("\n");
-        const more = errors.length > 5 ? `\n... and ${errors.length - 5} more` : "";
-        toast.success(`Imported ${imported} of ${totalRows} records.`, {
-          duration: 4000,
-        });
-        toast.error(`Some rows had errors:\n${errList}${more}`, {
-          duration: 8000,
-        });
-      } else {
-        toast.success(
-          imported === totalRows
-            ? `Successfully imported ${imported} record${imported === 1 ? "" : "s"}.`
-            : `Imported ${imported} of ${totalRows} records.`
-        );
-      }
+      const { imported, totalRows } = data;
+      toast.success(
+        imported === totalRows
+          ? `Successfully imported all ${imported} record${imported === 1 ? "" : "s"}.`
+          : `Imported ${imported} from ${totalRows} masters.`
+      );
     },
     onError: (e: unknown) => {
       const msg =
