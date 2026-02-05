@@ -131,54 +131,108 @@ namespace net_backend.Controllers
         }
 
         [HttpGet("available")]
-        public async Task<ActionResult<ApiResponse<IEnumerable<Item>>>> GetAvailable()
+        public async Task<ActionResult<ApiResponse<IEnumerable<object>>>> GetAvailable()
         {
-            var items = await _context.Items.Where(i => i.IsActive && i.Status == ItemStatus.AVAILABLE).Include(i => i.Category).ToListAsync();
-            return Ok(new ApiResponse<IEnumerable<Item>> { Data = items });
-        }
-
-        [HttpGet("missing")]
-        public async Task<ActionResult<ApiResponse<IEnumerable<object>>>> GetMissing()
-        {
-            var items = await _context.Items.Where(i => i.IsActive && i.Status == ItemStatus.MISSING).Include(i => i.Category).ToListAsync();
-            
-            // Replicate sourceInwardCode logic
-            var itemIds = items.Select(i => i.Id).ToList();
-            var sourceReturns = await _context.Returns
-                .Where(r => r.ItemId.HasValue && itemIds.Contains(r.ItemId.Value) && r.Condition == "Missing")
-                .OrderByDescending(r => r.ReturnedAt)
-                .Select(r => new { r.ItemId, r.ReturnCode })
+            var items = await _context.Items
+                .Where(i => i.IsActive && i.Status == ItemStatus.AVAILABLE)
+                .Include(i => i.Category)
+                .Include(i => i.MissingReturns)
                 .ToListAsync();
 
-            var sourceByItemId = sourceReturns
-                .GroupBy(r => r.ItemId)
-                .ToDictionary(g => g.Key!.Value, g => g.First().ReturnCode);
+            // Get latest return images for all items efficiently
+            var itemIds = items.Select(i => i.Id).ToList();
+            var latestReturns = await _context.Returns
+                 .Where(r => r.ItemId.HasValue && itemIds.Contains(r.ItemId.Value) && r.IsActive && !string.IsNullOrEmpty(r.ReturnImage))
+                 .GroupBy(r => r.ItemId)
+                 .Select(g => new { ItemId = g.Key, LatestImage = g.OrderByDescending(r => r.ReturnedAt).First().ReturnImage })
+                 .ToDictionaryAsync(x => x.ItemId!.Value, x => x.LatestImage);
 
-            var result = items.Select(item => new
-            {
-                item.Id,
-                item.ItemName,
-                item.SerialNumber,
-                item.Description,
-                item.Image,
-                item.CategoryId,
-                item.Status,
-                item.IsActive,
-                item.CreatedAt,
-                item.UpdatedAt,
-                Category = item.Category,
-                SourceInwardCode = sourceByItemId.ContainsKey(item.Id) ? sourceByItemId[item.Id] : null
-            });
+            var result = items.Select(i => {
+                var latestImage = latestReturns.ContainsKey(i.Id) ? latestReturns[i.Id] : i.Image;
+                return new {
+                    i.Id,
+                    i.ItemName,
+                    i.SerialNumber,
+                    i.Category,
+                    i.Status,
+                    i.Image,
+                    LatestImage = latestImage,
+                    i.IsActive
+                };
+            })
+            .Where(i => !string.IsNullOrEmpty(i.LatestImage)) // Requirement: Must have an image to be selectable
+            .ToList();
+
+            return Ok(new ApiResponse<IEnumerable<object>> { Data = result });
+        }
+
+        [HttpGet("by-category/{categoryId}")]
+        public async Task<ActionResult<ApiResponse<IEnumerable<object>>>> GetByCategory(int categoryId)
+        {
+            var items = await _context.Items
+                .Where(i => i.IsActive && i.Status == ItemStatus.AVAILABLE && i.CategoryId == categoryId)
+                .Include(i => i.Category)
+                .Include(i => i.MissingReturns)
+                .ToListAsync();
+
+            // Get latest return images for all items efficiently
+            var itemIds = items.Select(i => i.Id).ToList();
+            var latestReturns = await _context.Returns
+                 .Where(r => r.ItemId.HasValue && itemIds.Contains(r.ItemId.Value) && r.IsActive && !string.IsNullOrEmpty(r.ReturnImage))
+                 .GroupBy(r => r.ItemId)
+                 .Select(g => new { ItemId = g.Key, LatestImage = g.OrderByDescending(r => r.ReturnedAt).First().ReturnImage })
+                 .ToDictionaryAsync(x => x.ItemId!.Value, x => x.LatestImage);
+
+            var result = items.Select(i => {
+                var latestImage = latestReturns.ContainsKey(i.Id) ? latestReturns[i.Id] : i.Image;
+                return new {
+                    i.Id,
+                    i.ItemName,
+                    i.SerialNumber,
+                    i.Category,
+                    i.Status, // Should be AVAILABLE due to filter
+                    i.Image,
+                    LatestImage = latestImage,
+                    i.IsActive,
+                    i.Description
+                };
+            })
+            .Where(i => !string.IsNullOrEmpty(i.LatestImage)) // Requirement: Must have an image to be selectable
+            .ToList();
 
             return Ok(new ApiResponse<IEnumerable<object>> { Data = result });
         }
 
         [HttpGet("{id}")]
-        public async Task<ActionResult<ApiResponse<Item>>> GetById(int id)
+        public async Task<ActionResult<ApiResponse<object>>> GetById(int id)
         {
             var item = await _context.Items.Include(i => i.Category).FirstOrDefaultAsync(i => i.Id == id);
-            if (item == null) return NotFound(new ApiResponse<Item> { Success = false, Message = "Item not found" });
-            return Ok(new ApiResponse<Item> { Data = item });
+            if (item == null) return NotFound(new ApiResponse<object> { Success = false, Message = "Item not found" });
+
+            // Get Latest Image for this specific item
+            var latestReturn = await _context.Returns
+                .Where(r => r.ItemId == id && r.IsActive && !string.IsNullOrEmpty(r.ReturnImage))
+                .OrderByDescending(r => r.ReturnedAt)
+                .FirstOrDefaultAsync();
+
+            var latestImage = latestReturn?.ReturnImage ?? item.Image;
+
+            var result = new {
+                item.Id,
+                item.ItemName,
+                item.SerialNumber,
+                item.Description,
+                item.CategoryId,
+                item.Category,
+                item.Status,
+                item.IsActive,
+                item.Image,
+                LatestImage = latestImage,
+                item.CreatedAt,
+                item.UpdatedAt
+            };
+
+            return Ok(new ApiResponse<object> { Data = result });
         }
 
         [HttpPost]

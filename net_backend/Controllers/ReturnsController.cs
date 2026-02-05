@@ -157,13 +157,82 @@ namespace net_backend.Controllers
         }
 
         [HttpPatch("{id}/inactive")]
-        public async Task<ActionResult<ApiResponse<Return>>> ToggleActive(int id)
+        [HttpPost("{id}/inactive")] 
+        public async Task<ActionResult<ApiResponse<Return>>> MarkInactive(int id)
         {
-            var ret = await _context.Returns.FindAsync(id);
+            var ret = await _context.Returns
+                .Include(r => r.Issue)
+                .Include(r => r.Item)
+                .FirstOrDefaultAsync(r => r.Id == id);
+
             if (ret == null) return NotFound(new ApiResponse<Return> { Success = false, Message = "Return record not found" });
 
-            ret.IsActive = !ret.IsActive;
+            // 1. Mark Return as Inactive
+            ret.IsActive = false;
             ret.UpdatedAt = DateTime.Now;
+
+            // 2. Revert associated Issue to "Not Returned"
+            if (ret.Issue != null)
+            {
+                // Check if there are any OTHER active returns for this issue? 
+                // Usually 1 issue = 1 return. If we inactive this return, the issue is effectively open.
+                ret.Issue.IsReturned = false;
+            }
+
+            // 3. Revert associated Item to "ISSUED"
+            if (ret.Item != null)
+            {
+                // If the return is voided, the item is theoretically back with the user (ISSUED)
+                ret.Item.Status = ItemStatus.ISSUED;
+            }
+            else if (ret.Issue != null)
+            {
+                 // Try to fetch item via issue if direct navigation failed (unlikely with EF Include)
+                 var item = await _context.Items.FindAsync(ret.Issue.ItemId);
+                 if (item != null) item.Status = ItemStatus.ISSUED;
+            }
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new ApiResponse<Return> { Data = ret });
+        }
+
+        [HttpPatch("{id}/active")]
+        [HttpPost("{id}/active")]
+        public async Task<ActionResult<ApiResponse<Return>>> MarkActive(int id)
+        {
+            var ret = await _context.Returns
+                .Include(r => r.Issue)
+                .Include(r => r.Item)
+                .FirstOrDefaultAsync(r => r.Id == id);
+
+            if (ret == null) return NotFound(new ApiResponse<Return> { Success = false, Message = "Return record not found" });
+
+            // 1. Mark Return as Active
+            ret.IsActive = true;
+            ret.UpdatedAt = DateTime.Now;
+
+            // 2. Mark associated Issue as "Returned"
+            if (ret.Issue != null)
+            {
+                ret.Issue.IsReturned = true;
+            }
+
+            // 3. Set Item Status based on Condition
+            // Logic mirrored from Create: Missing -> MISSING, else -> AVAILABLE
+            if (ret.Item != null)
+            {
+                 ret.Item.Status = ret.Condition == "Missing" ? ItemStatus.MISSING : ItemStatus.AVAILABLE;
+            }
+             else if (ret.Issue != null)
+            {
+                 var item = await _context.Items.FindAsync(ret.Issue.ItemId);
+                 if (item != null) 
+                 {
+                    item.Status = ret.Condition == "Missing" ? ItemStatus.MISSING : ItemStatus.AVAILABLE;
+                 }
+            }
+
             await _context.SaveChangesAsync();
 
             return Ok(new ApiResponse<Return> { Data = ret });

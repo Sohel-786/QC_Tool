@@ -140,7 +140,7 @@ export function ItemSelectionDialog({
               </div>
             ) : (
               <table className="w-full">
-                <thead className="sticky top-[-13px] bg-white border-b-2 border-secondary-200 z-10">
+                <thead className="sticky top-[-17px] bg-white border-b-2 border-secondary-200 z-10">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-secondary-700 uppercase tracking-wider">
                       Serial Number
@@ -166,7 +166,9 @@ export function ItemSelectionDialog({
                     const isAvailable = item.status === "AVAILABLE";
                     const baseImage = item.latestImage || item.image;
                     const imageUrl = baseImage
-                      ? (baseImage.startsWith("/") ? `${API_BASE}${baseImage}` : `${API_BASE}/storage/${baseImage}`)
+                      ? baseImage.startsWith("/")
+                        ? `${API_BASE}${baseImage}`
+                        : `${API_BASE}/storage/${baseImage}`
                       : null;
 
                     return (

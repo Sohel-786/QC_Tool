@@ -1,6 +1,6 @@
 {
   "Version": 1,
-  "Hash": "5dWiHsjRC7JXu6pW5xfJT1I4OwEv6Ro6+Ji2UJ/olbc=",
+  "Hash": "cqeG8116XxRm0R5bwQiEXB0XgKghXAq1UmbPyoRcxM4=",
   "Source": "net_backend",
   "BasePath": "_content/net_backend",
   "Mode": "Default",
@@ -16,6 +16,23 @@
     }
   ],
   "Assets": [
+    {
+      "Identity": "D:\\AiraEuro\\QC_Tool\\net_backend\\wwwroot\\storage\\inwards\\inward-cc688711-ba05-44bc-bb53-80582bba0541.jpg",
+      "SourceId": "net_backend",
+      "SourceType": "Discovered",
+      "ContentRoot": "D:\\AiraEuro\\QC_Tool\\net_backend\\wwwroot\\",
+      "BasePath": "_content/net_backend",
+      "RelativePath": "storage/inwards/inward-cc688711-ba05-44bc-bb53-80582bba0541.jpg",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\storage\\inwards\\inward-cc688711-ba05-44bc-bb53-80582bba0541.jpg"
+    },
     {
       "Identity": "D:\\AiraEuro\\QC_Tool\\net_backend\\wwwroot\\storage\\items\\ACT0002\\ec345b50-8202-4530-b1b1-123ee378209f.jpg",
       "SourceId": "net_backend",

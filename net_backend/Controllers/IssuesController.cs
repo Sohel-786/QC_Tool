@@ -21,17 +21,25 @@ namespace net_backend.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<ApiResponse<IEnumerable<Issue>>>> GetAll()
+        public async Task<ActionResult<ApiResponse<IEnumerable<Issue>>>> GetAll([FromQuery] bool? onlyPendingInward)
         {
-            var issues = await _context.Issues
+            var query = _context.Issues
                 .Include(i => i.Item)
                 .Include(i => i.IssuedByUser)
                 .Include(i => i.Company)
                 .Include(i => i.Contractor)
                 .Include(i => i.Machine)
                 .Include(i => i.Location)
-                .OrderByDescending(i => i.IssuedAt)
-                .ToListAsync();
+                .Include(i => i.Returns) // Include Returns for filtering
+                .AsQueryable();
+
+            if (onlyPendingInward.HasValue && onlyPendingInward.Value)
+            {
+                // Filter out issues that have ANY active return (meaning Inward is done/active)
+                query = query.Where(i => i.IsActive && !i.Returns.Any(r => r.IsActive));
+            }
+
+            var issues = await query.OrderByDescending(i => i.IssuedAt).ToListAsync();
             return Ok(new ApiResponse<IEnumerable<Issue>> { Data = issues });
         }
 
@@ -39,8 +47,14 @@ namespace net_backend.Controllers
         public async Task<ActionResult<ApiResponse<IEnumerable<Issue>>>> GetActive()
         {
             var issues = await _context.Issues
-                .Where(i => i.IsActive && !i.IsReturned)
+                .Include(i => i.Returns) // Include returns to check status
+                .Where(i => i.IsActive && !i.Returns.Any(r => r.IsActive)) // Only show if no active return exists
                 .Include(i => i.Item)
+                .Include(i => i.IssuedByUser)
+                .Include(i => i.Company)
+                .Include(i => i.Contractor)
+                .Include(i => i.Machine)
+                .Include(i => i.Location)
                 .ToListAsync();
             return Ok(new ApiResponse<IEnumerable<Issue>> { Data = issues });
         }
@@ -87,6 +101,13 @@ namespace net_backend.Controllers
             var item = await _context.Items.FindAsync(request.ItemId);
             if (item == null) return NotFound(new ApiResponse<Issue> { Success = false, Message = "Item not found" });
             if (item.Status != ItemStatus.AVAILABLE) return BadRequest(new ApiResponse<Issue> { Success = false, Message = "Item is not available" });
+
+            // Image Validation
+            var hasReturnImage = await _context.Returns.AnyAsync(r => r.ItemId == item.Id && r.IsActive && !string.IsNullOrEmpty(r.ReturnImage));
+            if (string.IsNullOrEmpty(item.Image) && !hasReturnImage)
+            {
+                 return BadRequest(new ApiResponse<Issue> { Success = false, Message = "This item does not have an image. Items without images cannot be issued." });
+            }
 
             var count = await _context.Issues.CountAsync();
             var issueNo = _codeGenerator.GenerateNextCode("OUTWARD", count);
