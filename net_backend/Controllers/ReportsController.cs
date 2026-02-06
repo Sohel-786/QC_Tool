@@ -31,10 +31,16 @@ namespace net_backend.Controllers
             [FromQuery] string? operatorName = null,
             [FromQuery] string? dateFrom = null,
             [FromQuery] string? dateTo = null,
+            [FromQuery] string? status = null,
+            [FromQuery] string? conditions = null,
             [FromQuery] int page = 1,
             [FromQuery] int limit = 25)
         {
-            var query = _context.Issues.Where(i => !i.IsReturned && i.IsActive).AsQueryable();
+            var query = _context.Issues.Where(i => !i.IsReturned).AsQueryable();
+
+            if (status == "active") query = query.Where(i => i.IsActive);
+            else if (status == "inactive") query = query.Where(i => !i.IsActive);
+            else if (status != "all") query = query.Where(i => i.IsActive);
 
             if (!string.IsNullOrEmpty(search))
             {
@@ -114,10 +120,16 @@ namespace net_backend.Controllers
             [FromQuery] string? itemIds = null,
             [FromQuery] string? operatorName = null,
             [FromQuery] string? search = null,
+            [FromQuery] string? status = null,
+            [FromQuery] string? conditions = null,
             [FromQuery] int page = 1, 
             [FromQuery] int limit = 25)
         {
-            var query = _context.Items.Where(i => i.Status == ItemStatus.MISSING && i.IsActive).AsQueryable();
+            var query = _context.Items.Where(i => i.Status == ItemStatus.MISSING).AsQueryable();
+
+            if (status == "active") query = query.Where(i => i.IsActive);
+            else if (status == "inactive") query = query.Where(i => !i.IsActive);
+            else if (status != "all") query = query.Where(i => i.IsActive);
 
             if (!string.IsNullOrEmpty(companyIds))
             {
@@ -189,6 +201,8 @@ namespace net_backend.Controllers
             [FromQuery] string? locationIds = null,
             [FromQuery] string? operatorName = null,
             [FromQuery] string? search = null,
+            [FromQuery] string? status = null,
+            [FromQuery] string? conditions = null,
             [FromQuery] string? dateFrom = null,
             [FromQuery] string? dateTo = null,
             [FromQuery] int page = 1,
@@ -206,26 +220,39 @@ namespace net_backend.Controllers
             var ctIds = !string.IsNullOrEmpty(contractorIds) ? contractorIds.Split(',').Select(int.Parse).ToList() : null;
             var mIds = !string.IsNullOrEmpty(machineIds) ? machineIds.Split(',').Select(int.Parse).ToList() : null;
             var lIds = !string.IsNullOrEmpty(locationIds) ? locationIds.Split(',').Select(int.Parse).ToList() : null;
+            var condList = !string.IsNullOrEmpty(conditions) ? conditions.Split(',').Select(c => c.Trim().ToLower()).ToList() : null;
 
             // 2. Fetch Source Data
-            var issues = await _context.Issues
-                .Where(i => i.ItemId == itemId && i.IsActive)
+            var issuesQuery = _context.Issues
+                .Where(i => i.ItemId == itemId)
                 .Include(i => i.Company)
                 .Include(i => i.Contractor)
                 .Include(i => i.Machine)
                 .Include(i => i.Location)
                 .Include(i => i.IssuedByUser)
                 .Include(i => i.Returns.Where(r => r.IsActive)).ThenInclude(r => r.ReturnedByUser)
-                .ToListAsync();
+                .AsQueryable();
 
-            var standaloneReturns = await _context.Returns
-                .Where(r => r.ItemId == itemId && r.IsActive && r.IssueId == null)
+            if (status == "active") issuesQuery = issuesQuery.Where(i => i.IsActive);
+            else if (status == "inactive") issuesQuery = issuesQuery.Where(i => !i.IsActive);
+            // Default assumes we want all history unless specified? Usually ledger shows all.
+            // But if user selected "Active" in UI, we filter by isActive.
+
+            var issues = await issuesQuery.ToListAsync();
+
+            var standaloneReturnsQuery = _context.Returns
+                .Where(r => r.ItemId == itemId && r.IssueId == null)
                 .Include(r => r.Company)
                 .Include(r => r.Contractor)
                 .Include(r => r.Machine)
                 .Include(r => r.Location)
                 .Include(r => r.ReturnedByUser)
-                .ToListAsync();
+                .AsQueryable();
+
+            if (status == "active") standaloneReturnsQuery = standaloneReturnsQuery.Where(r => r.IsActive);
+            else if (status == "inactive") standaloneReturnsQuery = standaloneReturnsQuery.Where(r => !r.IsActive);
+
+            var standaloneReturns = await standaloneReturnsQuery.ToListAsync();
 
             // 3. Construct and Filter Rows
             var finalEvents = new List<dynamic>();
@@ -240,41 +267,47 @@ namespace net_backend.Controllers
                 if (!string.IsNullOrEmpty(operatorName) && (issue.IssuedTo == null || !issue.IssuedTo.Contains(operatorName))) issueMatches = false;
                 
                 if (issueMatches) {
-                    finalEvents.Add(new {
-                        type = "issue",
-                        date = issue.IssuedAt,
-                        issueNo = issue.IssueNo,
-                        description = $"Issued to {issue.IssuedTo ?? "—"}",
-                        user = $"{issue.IssuedByUser?.FirstName} {issue.IssuedByUser?.LastName}",
-                        company = issue.Company?.Name,
-                        contractor = issue.Contractor?.Name,
-                        machine = issue.Machine?.Name,
-                        location = issue.Location?.Name,
-                        remarks = issue.Remarks,
-                        condition = "OK",
-                        inwardNo = (string?)null
-                    });
+                    bool conditionMatches = condList == null || condList.Contains("ok");
+                    if (conditionMatches) {
+                        finalEvents.Add(new {
+                            type = "issue",
+                            date = issue.IssuedAt,
+                            issueNo = issue.IssueNo,
+                            description = $"Issued to {issue.IssuedTo ?? "—"}",
+                            user = $"{issue.IssuedByUser?.FirstName} {issue.IssuedByUser?.LastName}",
+                            company = issue.Company?.Name,
+                            contractor = issue.Contractor?.Name,
+                            machine = issue.Machine?.Name,
+                            location = issue.Location?.Name,
+                            remarks = issue.Remarks,
+                            condition = "OK",
+                            inwardNo = (string?)null
+                        });
+                    }
                 }
 
                 foreach (var ret in issue.Returns) {
                     // Returns associated with issues follow the issue's filter match in most ledger contexts,
                     // but we can apply filters to returns too if desired.
                     if (issueMatches) {
-                        finalEvents.Add(new {
-                            type = "return",
-                            date = ret.ReturnedAt,
-                            issueNo = issue.IssueNo,
-                            description = string.IsNullOrEmpty(ret.Condition) ? "Returned" : $"Returned ({ret.Condition})",
-                            user = $"{ret.ReturnedByUser?.FirstName} {ret.ReturnedByUser?.LastName}",
-                            company = issue.Company?.Name,
-                            contractor = issue.Contractor?.Name,
-                            machine = issue.Machine?.Name,
-                            location = issue.Location?.Name,
-                            remarks = ret.Remarks,
-                            condition = ret.Condition,
-                            returnCode = ret.ReturnCode,
-                            inwardNo = ret.ReturnCode
-                        });
+                        bool conditionMatches = condList == null || (ret.Condition != null && condList.Contains(ret.Condition.Trim().ToLower()));
+                        if (conditionMatches) {
+                            finalEvents.Add(new {
+                                type = "return",
+                                date = ret.ReturnedAt,
+                                issueNo = issue.IssueNo,
+                                description = string.IsNullOrEmpty(ret.Condition) ? "Returned" : $"Returned ({ret.Condition})",
+                                user = $"{ret.ReturnedByUser?.FirstName} {ret.ReturnedByUser?.LastName}",
+                                company = issue.Company?.Name,
+                                contractor = issue.Contractor?.Name,
+                                machine = issue.Machine?.Name,
+                                location = issue.Location?.Name,
+                                remarks = ret.Remarks,
+                                condition = ret.Condition,
+                                returnCode = ret.ReturnCode,
+                                inwardNo = ret.ReturnCode
+                            });
+                        }
                     }
                 }
             }
@@ -286,6 +319,7 @@ namespace net_backend.Controllers
                 if (ctIds != null && (ret.ContractorId == null || !ctIds.Contains(ret.ContractorId.Value))) returnMatches = false;
                 if (mIds != null && (ret.MachineId == null || !mIds.Contains(ret.MachineId.Value))) returnMatches = false;
                 if (lIds != null && (ret.LocationId == null || !lIds.Contains(ret.LocationId.Value))) returnMatches = false;
+                if (condList != null && (ret.Condition == null || !condList.Contains(ret.Condition.Trim().ToLower()))) returnMatches = false;
 
                 if (returnMatches) {
                     finalEvents.Add(new {
@@ -357,10 +391,16 @@ namespace net_backend.Controllers
             [FromQuery] string? locationIds = null,
             [FromQuery] string? itemIds = null,
             [FromQuery] string? operatorName = null,
+            [FromQuery] string? status = null,
+            [FromQuery] string? conditions = null,
             [FromQuery] string? dateFrom = null,
             [FromQuery] string? dateTo = null)
         {
-            var query = _context.Issues.Where(i => !i.IsReturned && i.IsActive).AsQueryable();
+            var query = _context.Issues.Where(i => !i.IsReturned).AsQueryable();
+
+            if (status == "active") query = query.Where(i => i.IsActive);
+            else if (status == "inactive") query = query.Where(i => !i.IsActive);
+            else if (status != "all") query = query.Where(i => i.IsActive);
 
             if (!string.IsNullOrEmpty(search))
             {
@@ -442,9 +482,15 @@ namespace net_backend.Controllers
             [FromQuery] string? locationIds = null,
             [FromQuery] string? itemIds = null,
             [FromQuery] string? operatorName = null,
-            [FromQuery] string? search = null)
+            [FromQuery] string? search = null,
+            [FromQuery] string? status = null,
+            [FromQuery] string? conditions = null)
         {
-            var query = _context.Items.Where(i => i.Status == ItemStatus.MISSING && i.IsActive).AsQueryable();
+            var query = _context.Items.Where(i => i.Status == ItemStatus.MISSING).AsQueryable();
+
+            if (status == "active") query = query.Where(i => i.IsActive);
+            else if (status == "inactive") query = query.Where(i => !i.IsActive);
+            else if (status != "all") query = query.Where(i => i.IsActive);
 
             if (!string.IsNullOrEmpty(companyIds))
             {
@@ -510,35 +556,48 @@ namespace net_backend.Controllers
             [FromQuery] string? locationIds = null,
             [FromQuery] string? operatorName = null,
             [FromQuery] string? search = null,
+            [FromQuery] string? status = null,
+            [FromQuery] string? conditions = null,
             [FromQuery] string? dateFrom = null,
             [FromQuery] string? dateTo = null)
         {
             var item = await _context.Items.Include(i => i.Category).FirstOrDefaultAsync(i => i.Id == itemId);
             if (item == null) return NotFound();
 
-            var issues = await _context.Issues
-                .Where(i => i.ItemId == itemId && i.IsActive)
+            var issuesQuery = _context.Issues
+                .Where(i => i.ItemId == itemId)
                 .Include(i => i.Company)
                 .Include(i => i.Contractor)
                 .Include(i => i.Machine)
                 .Include(i => i.Location)
                 .Include(i => i.IssuedByUser)
                 .Include(i => i.Returns.Where(r => r.IsActive)).ThenInclude(r => r.ReturnedByUser)
-                .ToListAsync();
+                .AsQueryable();
 
-            var standaloneReturns = await _context.Returns
-                .Where(r => r.ItemId == itemId && r.IsActive && r.IssueId == null)
+            if (status == "active") issuesQuery = issuesQuery.Where(i => i.IsActive);
+            else if (status == "inactive") issuesQuery = issuesQuery.Where(i => !i.IsActive);
+
+            var issues = await issuesQuery.ToListAsync();
+
+            var standaloneReturnsQuery = _context.Returns
+                .Where(r => r.ItemId == itemId && r.IssueId == null)
                 .Include(r => r.Company)
                 .Include(r => r.Contractor)
                 .Include(r => r.Machine)
                 .Include(r => r.Location)
                 .Include(r => r.ReturnedByUser)
-                .ToListAsync();
+                .AsQueryable();
+
+            if (status == "active") standaloneReturnsQuery = standaloneReturnsQuery.Where(r => r.IsActive);
+            else if (status == "inactive") standaloneReturnsQuery = standaloneReturnsQuery.Where(r => !r.IsActive);
+
+            var standaloneReturns = await standaloneReturnsQuery.ToListAsync();
 
             var cIds = !string.IsNullOrEmpty(companyIds) ? companyIds.Split(',').Select(int.Parse).ToList() : null;
             var ctIds = !string.IsNullOrEmpty(contractorIds) ? contractorIds.Split(',').Select(int.Parse).ToList() : null;
             var mIds = !string.IsNullOrEmpty(machineIds) ? machineIds.Split(',').Select(int.Parse).ToList() : null;
             var lIds = !string.IsNullOrEmpty(locationIds) ? locationIds.Split(',').Select(int.Parse).ToList() : null;
+            var condList = !string.IsNullOrEmpty(conditions) ? conditions.Split(',').Select(c => c.Trim().ToLower()).ToList() : null;
 
             var exportRows = new List<dynamic>();
 
@@ -551,34 +610,42 @@ namespace net_backend.Controllers
                 if (!string.IsNullOrEmpty(operatorName) && (issue.IssuedTo == null || !issue.IssuedTo.Contains(operatorName))) issueMatches = false;
                 
                 if (issueMatches) {
-                    exportRows.Add(new {
-                        Type = "Issue",
-                        Date = issue.IssuedAt.ToString("yyyy-MM-dd HH:mm"),
-                        IssueNo = issue.IssueNo,
-                        Description = $"Issued to {issue.IssuedTo ?? "—"}",
-                        Company = issue.Company?.Name,
-                        Contractor = issue.Contractor?.Name,
-                        Machine = issue.Machine?.Name,
-                        Location = issue.Location?.Name,
-                        User = $"{issue.IssuedByUser?.FirstName} {issue.IssuedByUser?.LastName}",
-                        Remarks = issue.Remarks
-                    });
-                }
-
-                foreach (var ret in issue.Returns) {
-                    if (issueMatches) {
+                    bool conditionMatches = condList == null || condList.Contains("ok");
+                    if (conditionMatches) {
                         exportRows.Add(new {
-                            Type = "Return",
-                            Date = ret.ReturnedAt.ToString("yyyy-MM-dd HH:mm"),
+                            Type = "Issue",
+                            Date = issue.IssuedAt.ToString("yyyy-MM-dd HH:mm"),
                             IssueNo = issue.IssueNo,
-                            Description = string.IsNullOrEmpty(ret.Condition) ? "Returned" : $"Returned ({ret.Condition})",
+                            Description = $"Issued to {issue.IssuedTo ?? "—"}",
                             Company = issue.Company?.Name,
                             Contractor = issue.Contractor?.Name,
                             Machine = issue.Machine?.Name,
                             Location = issue.Location?.Name,
-                            User = $"{ret.ReturnedByUser?.FirstName} {ret.ReturnedByUser?.LastName}",
-                            Remarks = ret.Remarks
+                            User = $"{issue.IssuedByUser?.FirstName} {issue.IssuedByUser?.LastName}",
+                            Remarks = issue.Remarks,
+                            Condition = "OK"
                         });
+                    }
+                }
+
+                foreach (var ret in issue.Returns) {
+                    if (issueMatches) {
+                        bool conditionMatches = condList == null || (ret.Condition != null && condList.Contains(ret.Condition.Trim().ToLower()));
+                        if (conditionMatches) {
+                            exportRows.Add(new {
+                                Type = "Return",
+                                Date = ret.ReturnedAt.ToString("yyyy-MM-dd HH:mm"),
+                                IssueNo = issue.IssueNo,
+                                Description = string.IsNullOrEmpty(ret.Condition) ? "Returned" : $"Returned ({ret.Condition})",
+                                Company = issue.Company?.Name,
+                                Contractor = issue.Contractor?.Name,
+                                Machine = issue.Machine?.Name,
+                                Location = issue.Location?.Name,
+                                User = $"{ret.ReturnedByUser?.FirstName} {ret.ReturnedByUser?.LastName}",
+                                Remarks = ret.Remarks,
+                                Condition = ret.Condition
+                            });
+                        }
                     }
                 }
             }
@@ -589,6 +656,7 @@ namespace net_backend.Controllers
                 if (ctIds != null && (ret.ContractorId == null || !ctIds.Contains(ret.ContractorId.Value))) returnMatches = false;
                 if (mIds != null && (ret.MachineId == null || !mIds.Contains(ret.MachineId.Value))) returnMatches = false;
                 if (lIds != null && (ret.LocationId == null || !lIds.Contains(ret.LocationId.Value))) returnMatches = false;
+                if (condList != null && (ret.Condition == null || !condList.Contains(ret.Condition.Trim().ToLower()))) returnMatches = false;
 
                 if (returnMatches) {
                     exportRows.Add(new {
@@ -601,7 +669,8 @@ namespace net_backend.Controllers
                         Machine = ret.Machine?.Name,
                         Location = ret.Location?.Name,
                         User = $"{ret.ReturnedByUser?.FirstName} {ret.ReturnedByUser?.LastName}",
-                        Remarks = ret.Remarks
+                        Remarks = ret.Remarks,
+                        Condition = ret.Condition
                     });
                 }
             }
