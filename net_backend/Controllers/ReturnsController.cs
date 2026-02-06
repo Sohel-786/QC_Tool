@@ -208,6 +208,16 @@ namespace net_backend.Controllers
         [HttpPost]
         public async Task<ActionResult<ApiResponse<Return>>> Create([FromForm] CreateReturnRequest request, IFormFile? image)
         {
+            if (request.IssueId.HasValue && request.ItemId.HasValue)
+            {
+                return BadRequest(new ApiResponse<Return> { Success = false, Message = "Choose either Outward (Issue) or Missing item, not both" });
+            }
+
+            if (!request.IssueId.HasValue && !request.ItemId.HasValue)
+            {
+                return BadRequest(new ApiResponse<Return> { Success = false, Message = "Either Issue No (Outward) or Missing item is required" });
+            }
+
             if (request.IssueId.HasValue)
             {
                 var existingActiveReturn = await _context.Returns
@@ -216,6 +226,19 @@ namespace net_backend.Controllers
                 if (existingActiveReturn)
                 {
                     return BadRequest(new ApiResponse<Return> { Success = false, Message = "An active inward entry already exists for this outward entry. Please inactivate the existing inward entry first." });
+                }
+            }
+            else if (request.ItemId.HasValue)
+            {
+                var item = await _context.Items.FindAsync(request.ItemId);
+                if (item == null)
+                {
+                    return NotFound(new ApiResponse<Return> { Success = false, Message = "Item not found" });
+                }
+
+                if (item.Status != ItemStatus.MISSING)
+                {
+                    return BadRequest(new ApiResponse<Return> { Success = false, Message = "Selected item is not in Missing status. Use Outward return for issued items." });
                 }
             }
 
@@ -293,7 +316,7 @@ namespace net_backend.Controllers
                     var item = await _context.Items.FindAsync(issue.ItemId);
                     if (item != null)
                     {
-                        item.Status = request.Condition == "Missing" ? ItemStatus.MISSING : ItemStatus.AVAILABLE;
+                        item.Status = request.Condition.Equals("Missing", StringComparison.OrdinalIgnoreCase) ? ItemStatus.MISSING : ItemStatus.AVAILABLE;
                     }
                 }
             }
@@ -302,7 +325,7 @@ namespace net_backend.Controllers
                 var item = await _context.Items.FindAsync(request.ItemId);
                 if (item != null)
                 {
-                    item.Status = request.Condition == "Missing" ? ItemStatus.MISSING : ItemStatus.AVAILABLE;
+                    item.Status = request.Condition.Equals("Missing", StringComparison.OrdinalIgnoreCase) ? ItemStatus.MISSING : ItemStatus.AVAILABLE;
                 }
             }
 
@@ -329,6 +352,32 @@ namespace net_backend.Controllers
 
             ret.UpdatedAt = DateTime.Now;
             await _context.SaveChangesAsync();
+
+            // Sync item status if condition changed
+            if (request.Condition != null)
+            {
+                if (ret.IssueId.HasValue)
+                {
+                    var issue = await _context.Issues.FindAsync(ret.IssueId);
+                    if (issue != null)
+                    {
+                        var item = await _context.Items.FindAsync(issue.ItemId);
+                        if (item != null)
+                        {
+                            item.Status = request.Condition.Equals("Missing", StringComparison.OrdinalIgnoreCase) ? ItemStatus.MISSING : ItemStatus.AVAILABLE;
+                        }
+                    }
+                }
+                else if (ret.ItemId.HasValue)
+                {
+                    var item = await _context.Items.FindAsync(ret.ItemId);
+                    if (item != null)
+                    {
+                        item.Status = request.Condition.Equals("Missing", StringComparison.OrdinalIgnoreCase) ? ItemStatus.MISSING : ItemStatus.AVAILABLE;
+                    }
+                }
+                await _context.SaveChangesAsync();
+            }
 
             return Ok(new ApiResponse<Return> { Data = ret });
         }
@@ -419,14 +468,14 @@ namespace net_backend.Controllers
             // Logic mirrored from Create: Missing -> MISSING, else -> AVAILABLE
             if (ret.Item != null)
             {
-                 ret.Item.Status = ret.Condition == "Missing" ? ItemStatus.MISSING : ItemStatus.AVAILABLE;
+                 ret.Item.Status = ret.Condition.Equals("Missing", StringComparison.OrdinalIgnoreCase) ? ItemStatus.MISSING : ItemStatus.AVAILABLE;
             }
              else if (ret.Issue != null)
             {
                  var item = await _context.Items.FindAsync(ret.Issue.ItemId);
                  if (item != null) 
                  {
-                    item.Status = ret.Condition == "Missing" ? ItemStatus.MISSING : ItemStatus.AVAILABLE;
+                    item.Status = ret.Condition.Equals("Missing", StringComparison.OrdinalIgnoreCase) ? ItemStatus.MISSING : ItemStatus.AVAILABLE;
                  }
             }
 

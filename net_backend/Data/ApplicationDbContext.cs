@@ -66,6 +66,9 @@ namespace net_backend.Data
             modelBuilder.Entity<Operator>()
                 .Property(o => o.FingerprintTemplate)
                 .HasColumnType("nvarchar(max)");
+
+            modelBuilder.Entity<Item>()
+                .Property(i => i.Status);
         }
     }
 }

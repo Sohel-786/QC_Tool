@@ -442,6 +442,7 @@ export default function ReturnsPage() {
     setValue("statusId", r.statusId ?? 0);
     setValue("remarks", r.remarks ?? "");
     setValue("receivedBy", r.receivedBy ?? "");
+    setValue("condition", r.condition as any);
     setIsFormOpen(true);
   };
 

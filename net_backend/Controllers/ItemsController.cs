@@ -217,6 +217,56 @@ namespace net_backend.Controllers
             return Ok(new ApiResponse<IEnumerable<object>> { Data = result });
         }
 
+        [HttpGet("missing")]
+        public async Task<ActionResult<ApiResponse<IEnumerable<object>>>> GetMissing()
+        {
+            var items = await _context.Items
+                .Where(i => i.IsActive && i.Status == ItemStatus.MISSING)
+                .Include(i => i.Category)
+                .ToListAsync();
+
+            // For missing items, we might want to see them even if they don't have an image? 
+            // But let's keep consistent with other endpoints and fetch latest image if available.
+            
+            var itemIds = items.Select(i => i.Id).ToList();
+            
+            var returnsData = await _context.Returns
+                 .Where(r => r.IsActive && !string.IsNullOrEmpty(r.ReturnImage) && 
+                            (r.ItemId != null && itemIds.Contains(r.ItemId.Value) || 
+                             r.Issue != null && itemIds.Contains(r.Issue.ItemId)))
+                 .Select(r => new {
+                     ItemId = r.ItemId ?? r.Issue!.ItemId,
+                     r.ReturnImage,
+                     r.ReturnedAt
+                 })
+                 .ToListAsync();
+
+             var latestReturns = returnsData
+                 .GroupBy(x => x.ItemId)
+                 .Select(g => new { ItemId = g.Key, LatestImage = g.OrderByDescending(r => r.ReturnedAt).First().ReturnImage })
+                 .ToDictionary(x => x.ItemId, x => x.LatestImage);
+
+            var result = items.Select(i => {
+                var latestImage = latestReturns.ContainsKey(i.Id) ? latestReturns[i.Id] : i.Image;
+                return new {
+                    i.Id,
+                    i.ItemName,
+                    i.SerialNumber,
+                    i.Description,
+                    i.CategoryId,
+                    i.Category,
+                    i.Status,
+                    i.IsActive,
+                    i.Image,
+                    LatestImage = latestImage,
+                    i.CreatedAt,
+                    i.UpdatedAt
+                };
+            }).ToList();
+
+            return Ok(new ApiResponse<IEnumerable<object>> { Data = result });
+        }
+
         [HttpGet("by-category/{categoryId}")]
         public async Task<ActionResult<ApiResponse<IEnumerable<object>>>> GetByCategory(int categoryId)
         {
