@@ -23,15 +23,15 @@ namespace net_backend.Controllers
         [HttpGet("metrics")]
         public async Task<ActionResult<ApiResponse<object>>> GetMetrics()
         {
-            var totalItems = await _context.Items.CountAsync();
-            var itemsIssued = await _context.Items.CountAsync(i => i.Status == ItemStatus.ISSUED);
-            var itemsAvailable = await _context.Items.CountAsync(i => i.Status == ItemStatus.AVAILABLE);
-            var itemsMissing = await _context.Items.CountAsync(i => i.Status == ItemStatus.MISSING);
+            var totalItems = await _context.Items.CountAsync(i => i.IsActive);
+            var itemsIssued = await _context.Items.CountAsync(i => i.Status == ItemStatus.ISSUED && i.IsActive);
+            var itemsAvailable = await _context.Items.CountAsync(i => i.Status == ItemStatus.AVAILABLE && i.IsActive);
+            var itemsMissing = await _context.Items.CountAsync(i => i.Status == ItemStatus.MISSING && i.IsActive);
 
-            var totalIssues = await _context.Issues.CountAsync();
-            var activeIssues = await _context.Issues.CountAsync(i => !i.IsReturned);
+            var totalIssues = await _context.Issues.CountAsync(i => i.IsActive);
+            var activeIssues = await _context.Issues.CountAsync(i => !i.IsReturned && i.IsActive);
 
-            var totalReturns = await _context.Returns.CountAsync();
+            var totalReturns = await _context.Returns.CountAsync(r => r.IsActive);
 
             var result = new
             {
@@ -66,7 +66,7 @@ namespace net_backend.Controllers
         [HttpGet("total-items")]
         public async Task<ActionResult<ApiResponse<IEnumerable<Item>>>> GetTotalItems([FromQuery] string? search, [FromQuery] string? categoryIds)
         {
-            var query = _context.Items.AsQueryable();
+            var query = _context.Items.Where(i => i.IsActive).AsQueryable();
             
             if (!string.IsNullOrEmpty(search))
             {
@@ -86,7 +86,7 @@ namespace net_backend.Controllers
         [HttpGet("missing-items")]
         public async Task<ActionResult<ApiResponse<IEnumerable<Item>>>> GetMissingItems([FromQuery] string? search, [FromQuery] string? categoryIds)
         {
-            var query = _context.Items.Where(i => i.Status == ItemStatus.MISSING);
+            var query = _context.Items.Where(i => i.Status == ItemStatus.MISSING && i.IsActive);
             
             if (!string.IsNullOrEmpty(search))
             {
@@ -106,7 +106,7 @@ namespace net_backend.Controllers
         [HttpGet("export/total-items")]
         public async Task<IActionResult> ExportTotalItems([FromQuery] string? search, [FromQuery] string? categoryIds)
         {
-            var query = _context.Items.Include(i => i.Category).AsQueryable();
+            var query = _context.Items.Include(i => i.Category).Where(i => i.IsActive).AsQueryable();
             if (!string.IsNullOrEmpty(search))
                 query = query.Where(i => i.ItemName.Contains(search) || (i.SerialNumber != null && i.SerialNumber.Contains(search)));
             if (!string.IsNullOrEmpty(categoryIds))
@@ -155,7 +155,7 @@ namespace net_backend.Controllers
         [HttpGet("export/missing-items")]
         public async Task<IActionResult> ExportMissingItems([FromQuery] string? search, [FromQuery] string? categoryIds)
         {
-            var query = _context.Items.Include(i => i.Category).Where(i => i.Status == ItemStatus.MISSING);
+            var query = _context.Items.Include(i => i.Category).Where(i => i.Status == ItemStatus.MISSING && i.IsActive);
             if (!string.IsNullOrEmpty(search))
                 query = query.Where(i => i.ItemName.Contains(search) || (i.SerialNumber != null && i.SerialNumber.Contains(search)));
             if (!string.IsNullOrEmpty(categoryIds))
