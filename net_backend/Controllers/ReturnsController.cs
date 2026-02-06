@@ -22,9 +22,9 @@ namespace net_backend.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<ApiResponse<IEnumerable<Return>>>> GetAll()
+        public async Task<ActionResult<ApiResponse<IEnumerable<Return>>>> GetAll([FromQuery] bool? hideIssuedItems)
         {
-            var returns = await _context.Returns
+            var query = _context.Returns
                 .Include(r => r.Issue).ThenInclude(i => i.Item)
                 .Include(r => r.Issue).ThenInclude(i => i.Company)
                 .Include(r => r.Issue).ThenInclude(i => i.Contractor)
@@ -37,8 +37,22 @@ namespace net_backend.Controllers
                 .Include(r => r.Machine)
                 .Include(r => r.Location)
                 .Include(r => r.Status)
-                .OrderByDescending(r => r.ReturnedAt)
-                .ToListAsync();
+                .AsQueryable();
+
+            if (hideIssuedItems.HasValue && hideIssuedItems.Value)
+            {
+                // Find the latest active issue ID for each item
+                var latestIssueIds = await _context.Issues
+                    .Where(i => i.IsActive)
+                    .GroupBy(i => i.ItemId)
+                    .Select(g => g.OrderByDescending(i => i.Id).First().Id)
+                    .ToListAsync();
+
+                // Only show returns associated with the latest issues or returns not linked to issues (missing items)
+                query = query.Where(r => r.IssueId == null || latestIssueIds.Contains(r.IssueId.Value));
+            }
+
+            var returns = await query.OrderByDescending(r => r.ReturnedAt).ToListAsync();
             return Ok(new ApiResponse<IEnumerable<Return>> { Data = returns });
         }
 
