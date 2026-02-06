@@ -54,7 +54,9 @@ export function ItemSelectionDialog({
   }, [items, selectedCategoryId, searchQuery]);
 
   const handleSelectItem = (item: Item) => {
-    if (item.status === "AVAILABLE") {
+    const isAvailable = item.status === "AVAILABLE";
+    const hasImage = !!(item.latestImage || item.image);
+    if (isAvailable && hasImage) {
       onSelectItem(item);
       onClose();
       setSearchQuery(""); // Reset search on close
@@ -164,6 +166,9 @@ export function ItemSelectionDialog({
                 <tbody className="divide-y divide-secondary-200">
                   {filteredItems.map((item) => {
                     const isAvailable = item.status === "AVAILABLE";
+                    const hasImage = !!(item.latestImage || item.image);
+                    const isSelectable = isAvailable && hasImage;
+
                     const baseImage = item.latestImage || item.image;
                     const imageUrl = baseImage
                       ? baseImage.startsWith("/")
@@ -174,10 +179,10 @@ export function ItemSelectionDialog({
                     return (
                       <tr
                         key={item.id}
-                        onClick={() => handleSelectItem(item)}
+                        onClick={() => isSelectable && handleSelectItem(item)}
                         className={cn(
                           "transition-colors",
-                          isAvailable
+                          isSelectable
                             ? "hover:bg-primary-50 cursor-pointer"
                             : "bg-secondary-50 opacity-60 cursor-not-allowed",
                         )}
@@ -186,7 +191,7 @@ export function ItemSelectionDialog({
                           <span
                             className={cn(
                               "text-sm font-medium",
-                              isAvailable
+                              isSelectable
                                 ? "text-secondary-900"
                                 : "text-secondary-500",
                             )}
@@ -199,7 +204,7 @@ export function ItemSelectionDialog({
                             <span
                               className={cn(
                                 "text-sm font-semibold",
-                                isAvailable
+                                isSelectable
                                   ? "text-secondary-900"
                                   : "text-secondary-500",
                               )}
@@ -217,7 +222,7 @@ export function ItemSelectionDialog({
                           <span
                             className={cn(
                               "text-sm",
-                              isAvailable
+                              isSelectable
                                 ? "text-secondary-700"
                                 : "text-secondary-500",
                             )}

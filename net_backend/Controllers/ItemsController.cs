@@ -4,6 +4,7 @@ using net_backend.Data;
 using net_backend.DTOs;
 using net_backend.Models;
 using net_backend.Services;
+using net_backend.Utils;
 
 namespace net_backend.Controllers
 {
@@ -124,10 +125,47 @@ namespace net_backend.Controllers
         }
 
         [HttpGet("active")]
-        public async Task<ActionResult<ApiResponse<IEnumerable<Item>>>> GetActive()
+        public async Task<ActionResult<ApiResponse<IEnumerable<object>>>> GetActive()
         {
-            var items = await _context.Items.Where(i => i.IsActive).Include(i => i.Category).ToListAsync();
-            return Ok(new ApiResponse<IEnumerable<Item>> { Data = items });
+            var items = await _context.Items
+                .Where(i => i.IsActive)
+                .Include(i => i.Category)
+                .ToListAsync();
+
+            var itemIds = items.Select(i => i.Id).ToList();
+            
+            var returnsData = await _context.Returns
+                 .Where(r => r.IsActive && !string.IsNullOrEmpty(r.ReturnImage) && 
+                            (r.ItemId != null && itemIds.Contains(r.ItemId.Value) || 
+                             r.Issue != null && itemIds.Contains(r.Issue.ItemId)))
+                 .Select(r => new {
+                     ItemId = r.ItemId ?? r.Issue!.ItemId,
+                     r.ReturnImage,
+                     r.ReturnedAt
+                 })
+                 .ToListAsync();
+
+             var latestReturns = returnsData
+                 .GroupBy(x => x.ItemId)
+                 .Select(g => new { ItemId = g.Key, LatestImage = g.OrderByDescending(r => r.ReturnedAt).First().ReturnImage })
+                 .ToDictionary(x => x.ItemId, x => x.LatestImage);
+
+            var result = items.Select(i => new {
+                i.Id,
+                i.ItemName,
+                i.SerialNumber,
+                i.Description,
+                i.CategoryId,
+                i.Category,
+                i.Status,
+                i.IsActive,
+                i.Image,
+                LatestImage = latestReturns.ContainsKey(i.Id) ? latestReturns[i.Id] : i.Image,
+                i.CreatedAt,
+                i.UpdatedAt
+            }).ToList();
+
+            return Ok(new ApiResponse<IEnumerable<object>> { Data = result });
         }
 
         [HttpGet("available")]
@@ -136,16 +174,25 @@ namespace net_backend.Controllers
             var items = await _context.Items
                 .Where(i => i.IsActive && i.Status == ItemStatus.AVAILABLE)
                 .Include(i => i.Category)
-                .Include(i => i.MissingReturns)
                 .ToListAsync();
 
-            // Get latest return images for all items efficiently
             var itemIds = items.Select(i => i.Id).ToList();
-            var latestReturns = await _context.Returns
-                 .Where(r => r.ItemId.HasValue && itemIds.Contains(r.ItemId.Value) && r.IsActive && !string.IsNullOrEmpty(r.ReturnImage))
-                 .GroupBy(r => r.ItemId)
+            
+            var returnsData = await _context.Returns
+                 .Where(r => r.IsActive && !string.IsNullOrEmpty(r.ReturnImage) && 
+                            (r.ItemId != null && itemIds.Contains(r.ItemId.Value) || 
+                             r.Issue != null && itemIds.Contains(r.Issue.ItemId)))
+                 .Select(r => new {
+                     ItemId = r.ItemId ?? r.Issue!.ItemId,
+                     r.ReturnImage,
+                     r.ReturnedAt
+                 })
+                 .ToListAsync();
+
+             var latestReturns = returnsData
+                 .GroupBy(x => x.ItemId)
                  .Select(g => new { ItemId = g.Key, LatestImage = g.OrderByDescending(r => r.ReturnedAt).First().ReturnImage })
-                 .ToDictionaryAsync(x => x.ItemId!.Value, x => x.LatestImage);
+                 .ToDictionary(x => x.ItemId, x => x.LatestImage);
 
             var result = items.Select(i => {
                 var latestImage = latestReturns.ContainsKey(i.Id) ? latestReturns[i.Id] : i.Image;
@@ -153,11 +200,15 @@ namespace net_backend.Controllers
                     i.Id,
                     i.ItemName,
                     i.SerialNumber,
+                    i.Description,
+                    i.CategoryId,
                     i.Category,
                     i.Status,
+                    i.IsActive,
                     i.Image,
                     LatestImage = latestImage,
-                    i.IsActive
+                    i.CreatedAt,
+                    i.UpdatedAt
                 };
             })
             .Where(i => !string.IsNullOrEmpty(i.LatestImage)) // Requirement: Must have an image to be selectable
@@ -170,18 +221,27 @@ namespace net_backend.Controllers
         public async Task<ActionResult<ApiResponse<IEnumerable<object>>>> GetByCategory(int categoryId)
         {
             var items = await _context.Items
-                .Where(i => i.IsActive && i.Status == ItemStatus.AVAILABLE && i.CategoryId == categoryId)
+                .Where(i => i.IsActive && i.CategoryId == categoryId)
                 .Include(i => i.Category)
-                .Include(i => i.MissingReturns)
                 .ToListAsync();
 
-            // Get latest return images for all items efficiently
             var itemIds = items.Select(i => i.Id).ToList();
-            var latestReturns = await _context.Returns
-                 .Where(r => r.ItemId.HasValue && itemIds.Contains(r.ItemId.Value) && r.IsActive && !string.IsNullOrEmpty(r.ReturnImage))
-                 .GroupBy(r => r.ItemId)
+            
+            var returnsData = await _context.Returns
+                 .Where(r => r.IsActive && !string.IsNullOrEmpty(r.ReturnImage) && 
+                            (r.ItemId != null && itemIds.Contains(r.ItemId.Value) || 
+                             r.Issue != null && itemIds.Contains(r.Issue.ItemId)))
+                 .Select(r => new {
+                     ItemId = r.ItemId ?? r.Issue!.ItemId,
+                     r.ReturnImage,
+                     r.ReturnedAt
+                 })
+                 .ToListAsync();
+
+             var latestReturns = returnsData
+                 .GroupBy(x => x.ItemId)
                  .Select(g => new { ItemId = g.Key, LatestImage = g.OrderByDescending(r => r.ReturnedAt).First().ReturnImage })
-                 .ToDictionaryAsync(x => x.ItemId!.Value, x => x.LatestImage);
+                 .ToDictionary(x => x.ItemId, x => x.LatestImage);
 
             var result = items.Select(i => {
                 var latestImage = latestReturns.ContainsKey(i.Id) ? latestReturns[i.Id] : i.Image;
@@ -189,16 +249,17 @@ namespace net_backend.Controllers
                     i.Id,
                     i.ItemName,
                     i.SerialNumber,
+                    i.Description,
+                    i.CategoryId,
                     i.Category,
-                    i.Status, // Should be AVAILABLE due to filter
+                    i.Status,
+                    i.IsActive,
                     i.Image,
                     LatestImage = latestImage,
-                    i.IsActive,
-                    i.Description
+                    i.CreatedAt,
+                    i.UpdatedAt
                 };
-            })
-            .Where(i => !string.IsNullOrEmpty(i.LatestImage)) // Requirement: Must have an image to be selectable
-            .ToList();
+            }).ToList();
 
             return Ok(new ApiResponse<IEnumerable<object>> { Data = result });
         }
@@ -209,9 +270,9 @@ namespace net_backend.Controllers
             var item = await _context.Items.Include(i => i.Category).FirstOrDefaultAsync(i => i.Id == id);
             if (item == null) return NotFound(new ApiResponse<object> { Success = false, Message = "Item not found" });
 
-            // Get Latest Image for this specific item
             var latestReturn = await _context.Returns
-                .Where(r => r.ItemId == id && r.IsActive && !string.IsNullOrEmpty(r.ReturnImage))
+                .Include(r => r.Issue)
+                .Where(r => (r.ItemId == id || (r.IssueId.HasValue && r.Issue!.ItemId == id)) && r.IsActive && !string.IsNullOrEmpty(r.ReturnImage))
                 .OrderByDescending(r => r.ReturnedAt)
                 .FirstOrDefaultAsync();
 
@@ -251,16 +312,19 @@ namespace net_backend.Controllers
             string? imagePath = null;
             if (image != null)
             {
-                // Simple file saving logic (should be improved in a real app)
-                var fileName = $"{Guid.NewGuid()}{Path.GetExtension(image.FileName)}";
-                var uploads = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "storage", "items", request.SerialNumber);
+                var safeSerial = PathUtils.SanitizeSerialForPath(request.SerialNumber);
+                var fileName = $"master-{safeSerial}-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}{Path.GetExtension(image.FileName)}";
+                
+                var uploads = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "storage", "items", safeSerial);
                 Directory.CreateDirectory(uploads);
+                
                 var filePath = Path.Combine(uploads, fileName);
                 using (var fileStream = new FileStream(filePath, FileMode.Create))
                 {
                     await image.CopyToAsync(fileStream);
                 }
-                imagePath = $"items/{request.SerialNumber}/{fileName}";
+                
+                imagePath = $"items/{safeSerial}/{fileName}";
             }
 
             var item = new Item
@@ -301,15 +365,25 @@ namespace net_backend.Controllers
 
             if (image != null)
             {
-                var fileName = $"{Guid.NewGuid()}{Path.GetExtension(image.FileName)}";
-                var uploads = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "storage", "items", item.SerialNumber ?? "unknown");
+               var issueCount = await _context.Issues.CountAsync(i => i.ItemId == id);
+               if (issueCount > 0)
+               {
+                   return BadRequest(new ApiResponse<Item> { Success = false, Message = "This item has already been issued at least once. Manual image updates in Item Master are locked. Use Inward (Inward) to update condition photos." });
+               }
+
+                var safeSerial = PathUtils.SanitizeSerialForPath(item.SerialNumber ?? "unknown");
+                var fileName = $"master-{safeSerial}-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}{Path.GetExtension(image.FileName)}";
+                
+                var uploads = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "storage", "items", safeSerial);
                 Directory.CreateDirectory(uploads);
+                
                 var filePath = Path.Combine(uploads, fileName);
                 using (var fileStream = new FileStream(filePath, FileMode.Create))
                 {
                     await image.CopyToAsync(fileStream);
                 }
-                item.Image = $"items/{item.SerialNumber ?? "unknown"}/{fileName}";
+                
+                item.Image = $"items/{safeSerial}/{fileName}";
             }
 
             item.UpdatedAt = DateTime.Now;

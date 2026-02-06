@@ -4,6 +4,7 @@ using net_backend.Data;
 using net_backend.DTOs;
 using net_backend.Models;
 using net_backend.Services;
+using net_backend.Utils;
 
 namespace net_backend.Controllers
 {
@@ -74,15 +75,41 @@ namespace net_backend.Controllers
             string? imagePath = null;
             if (image != null)
             {
-                var fileName = $"inward-{Guid.NewGuid()}{Path.GetExtension(image.FileName)}";
-                var uploads = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "storage", "inwards");
+                // New Logic:
+                // If Issue IssueId -> items/{itemSerial}/inward/parameter-name
+                // If Item ItemId -> items/{itemSerial}/inward/parameter-name
+                // For this we need the item serial.
+                
+                string serialNumber = "unknown";
+                if (request.IssueId.HasValue)
+                {
+                    // Fetch Issue -> Item to get Serial
+                    var issueForSerial = await _context.Issues.Include(i => i.Item).FirstOrDefaultAsync(i => i.Id == request.IssueId);
+                    if (issueForSerial?.Item != null) serialNumber = issueForSerial.Item.SerialNumber;
+                }
+                else if (request.ItemId.HasValue)
+                {
+                     var itemForSerial = await _context.Items.FindAsync(request.ItemId);
+                     if (itemForSerial != null) serialNumber = itemForSerial.SerialNumber;
+                }
+
+                var safeSerial = PathUtils.SanitizeSerialForPath(serialNumber);
+                var ext = Path.GetExtension(image.FileName);
+                var fileName = request.IssueId.HasValue 
+                    ? $"inward-issue-{request.IssueId}-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}{ext}"
+                    : $"inward-missing-{request.ItemId}-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}{ext}";
+
+                var uploads = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "storage", "items", safeSerial, "inward");
                 Directory.CreateDirectory(uploads);
+                
                 var filePath = Path.Combine(uploads, fileName);
                 using (var fileStream = new FileStream(filePath, FileMode.Create))
                 {
                     await image.CopyToAsync(fileStream);
                 }
-                imagePath = $"inwards/{fileName}";
+                
+                // Stored path: items/{serial}/inward/{filename}
+                imagePath = $"items/{safeSerial}/inward/{fileName}";
             }
 
             var ret = new Return

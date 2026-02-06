@@ -1,6 +1,6 @@
 {
   "Version": 1,
-  "Hash": "cqeG8116XxRm0R5bwQiEXB0XgKghXAq1UmbPyoRcxM4=",
+  "Hash": "KUU6HBDAHFkoaCwO0D7/BS0x1HfGxgnogV6156RSFl4=",
   "Source": "net_backend",
   "BasePath": "_content/net_backend",
   "Mode": "Default",
@@ -16,6 +16,40 @@
     }
   ],
   "Assets": [
+    {
+      "Identity": "D:\\AiraEuro\\QC_Tool\\net_backend\\wwwroot\\storage\\inwards\\inward-7f738636-f025-4eff-8d32-730c1e89d5c3.jpg",
+      "SourceId": "net_backend",
+      "SourceType": "Discovered",
+      "ContentRoot": "D:\\AiraEuro\\QC_Tool\\net_backend\\wwwroot\\",
+      "BasePath": "_content/net_backend",
+      "RelativePath": "storage/inwards/inward-7f738636-f025-4eff-8d32-730c1e89d5c3.jpg",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\storage\\inwards\\inward-7f738636-f025-4eff-8d32-730c1e89d5c3.jpg"
+    },
+    {
+      "Identity": "D:\\AiraEuro\\QC_Tool\\net_backend\\wwwroot\\storage\\inwards\\inward-a1474ea2-f5c1-4013-8abd-f21efd9cb7f8.jpg",
+      "SourceId": "net_backend",
+      "SourceType": "Discovered",
+      "ContentRoot": "D:\\AiraEuro\\QC_Tool\\net_backend\\wwwroot\\",
+      "BasePath": "_content/net_backend",
+      "RelativePath": "storage/inwards/inward-a1474ea2-f5c1-4013-8abd-f21efd9cb7f8.jpg",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\storage\\inwards\\inward-a1474ea2-f5c1-4013-8abd-f21efd9cb7f8.jpg"
+    },
     {
       "Identity": "D:\\AiraEuro\\QC_Tool\\net_backend\\wwwroot\\storage\\inwards\\inward-cc688711-ba05-44bc-bb53-80582bba0541.jpg",
       "SourceId": "net_backend",

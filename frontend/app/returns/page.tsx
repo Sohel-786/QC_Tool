@@ -301,6 +301,7 @@ export default function ReturnsPage() {
       queryClient.invalidateQueries({ queryKey: ["issues"] });
       queryClient.invalidateQueries({ queryKey: ["active-issues"] });
       queryClient.invalidateQueries({ queryKey: ["items", "missing"] });
+      queryClient.invalidateQueries({ queryKey: ["items"] });
       handleCloseForm();
       toast.success("Inward entry created");
     },
@@ -350,6 +351,7 @@ export default function ReturnsPage() {
       queryClient.invalidateQueries({ queryKey: ["returns"] });
       queryClient.invalidateQueries({ queryKey: ["issues"] });
       queryClient.invalidateQueries({ queryKey: ["active-issues"] });
+      queryClient.invalidateQueries({ queryKey: ["items"] });
       setInactiveTarget(null);
       toast.success("Inward marked inactive");
     },
@@ -370,6 +372,7 @@ export default function ReturnsPage() {
       queryClient.invalidateQueries({ queryKey: ["returns"] });
       queryClient.invalidateQueries({ queryKey: ["issues"] });
       queryClient.invalidateQueries({ queryKey: ["active-issues"] });
+      queryClient.invalidateQueries({ queryKey: ["items"] });
       toast.success("Inward marked active");
     },
     onError: (e: unknown) => {

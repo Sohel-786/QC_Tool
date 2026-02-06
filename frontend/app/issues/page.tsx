@@ -229,6 +229,7 @@ export default function IssuesPage() {
       queryClient.invalidateQueries({ queryKey: ["active-issues"] });
       queryClient.invalidateQueries({ queryKey: ["items-by-category"] });
       queryClient.invalidateQueries({ queryKey: ["available-items"] });
+      queryClient.invalidateQueries({ queryKey: ["items"] });
       handleCloseForm();
       toast.success("Outward entry created");
     },
@@ -280,6 +281,7 @@ export default function IssuesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["issues"] });
       queryClient.invalidateQueries({ queryKey: ["active-issues"] });
+      queryClient.invalidateQueries({ queryKey: ["items"] });
       setInactiveTarget(null);
       toast.success("Outward marked inactive");
     },
@@ -299,6 +301,7 @@ export default function IssuesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["issues"] });
       queryClient.invalidateQueries({ queryKey: ["active-issues"] });
+      queryClient.invalidateQueries({ queryKey: ["items"] });
       toast.success("Outward marked active");
     },
     onError: (e: unknown) => {
@@ -1057,7 +1060,7 @@ export default function IssuesPage() {
         <ItemSelectionDialog
           isOpen={isItemDialogOpen}
           onClose={() => setIsItemDialogOpen(false)}
-          items={filterItems}
+          items={itemsByCategory}
           categories={categories}
           selectedCategoryId={selectedCategoryId ?? null}
           onSelectItem={(item) => setValue("itemId", item.id)}

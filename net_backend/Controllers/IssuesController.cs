@@ -156,5 +156,46 @@ namespace net_backend.Controllers
 
             return Ok(new ApiResponse<Issue> { Data = issue });
         }
+
+        [HttpPatch("{id}/inactive")]
+        public async Task<ActionResult<ApiResponse<Issue>>> SetInactive(int id)
+        {
+            var issue = await _context.Issues.Include(i => i.Item).FirstOrDefaultAsync(i => i.Id == id);
+            if (issue == null) return NotFound(new ApiResponse<Issue> { Success = false, Message = "Issue not found" });
+            
+            if (issue.IsReturned)
+            {
+                return BadRequest(new ApiResponse<Issue> { Success = false, Message = "Cannot mark outward inactive once inward is done." });
+            }
+
+            issue.IsActive = false;
+            issue.UpdatedAt = DateTime.Now;
+
+            if (issue.Item != null)
+            {
+                issue.Item.Status = ItemStatus.AVAILABLE;
+            }
+
+            await _context.SaveChangesAsync();
+            return Ok(new ApiResponse<Issue> { Data = issue });
+        }
+
+        [HttpPatch("{id}/active")]
+        public async Task<ActionResult<ApiResponse<Issue>>> SetActive(int id)
+        {
+            var issue = await _context.Issues.Include(i => i.Item).FirstOrDefaultAsync(i => i.Id == id);
+            if (issue == null) return NotFound(new ApiResponse<Issue> { Success = false, Message = "Issue not found" });
+
+            issue.IsActive = true;
+            issue.UpdatedAt = DateTime.Now;
+
+            if (issue.Item != null && issue.Item.Status == ItemStatus.AVAILABLE)
+            {
+                issue.Item.Status = ItemStatus.ISSUED;
+            }
+
+            await _context.SaveChangesAsync();
+            return Ok(new ApiResponse<Issue> { Data = issue });
+        }
     }
 }
