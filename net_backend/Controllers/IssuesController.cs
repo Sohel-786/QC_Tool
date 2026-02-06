@@ -21,7 +21,16 @@ namespace net_backend.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<ApiResponse<IEnumerable<Issue>>>> GetAll([FromQuery] bool? onlyPendingInward)
+        public async Task<ActionResult<ApiResponse<IEnumerable<Issue>>>> GetAll(
+            [FromQuery] string? status,
+            [FromQuery] string? companyIds,
+            [FromQuery] string? contractorIds,
+            [FromQuery] string? machineIds,
+            [FromQuery] string? locationIds,
+            [FromQuery] string? itemIds,
+            [FromQuery] string? operatorName,
+            [FromQuery] string? search,
+            [FromQuery] bool? onlyPendingInward)
         {
             var query = _context.Issues
                 .Include(i => i.Item)
@@ -30,9 +39,70 @@ namespace net_backend.Controllers
                 .Include(i => i.Contractor)
                 .Include(i => i.Machine)
                 .Include(i => i.Location)
-                .Include(i => i.Returns) // Include Returns for filtering
+                .Include(i => i.Returns)
                 .AsQueryable();
 
+            // Status filter
+            if (!string.IsNullOrEmpty(status))
+            {
+                if (status == "active") query = query.Where(i => i.IsActive);
+                else if (status == "inactive") query = query.Where(i => !i.IsActive);
+            }
+
+            // Multi-select filters
+            if (!string.IsNullOrEmpty(companyIds))
+            {
+                var ids = companyIds.Split(',').Select(id => int.TryParse(id.Trim(), out var n) ? n : 0).Where(n => n > 0).ToList();
+                if (ids.Any()) query = query.Where(i => ids.Contains(i.CompanyId));
+            }
+
+            if (!string.IsNullOrEmpty(contractorIds))
+            {
+                var ids = contractorIds.Split(',').Select(id => int.TryParse(id.Trim(), out var n) ? n : 0).Where(n => n > 0).ToList();
+                if (ids.Any()) query = query.Where(i => ids.Contains(i.ContractorId));
+            }
+
+            if (!string.IsNullOrEmpty(machineIds))
+            {
+                var ids = machineIds.Split(',').Select(id => int.TryParse(id.Trim(), out var n) ? n : 0).Where(n => n > 0).ToList();
+                if (ids.Any()) query = query.Where(i => ids.Contains(i.MachineId));
+            }
+
+            if (!string.IsNullOrEmpty(locationIds))
+            {
+                var ids = locationIds.Split(',').Select(id => int.TryParse(id.Trim(), out var n) ? n : 0).Where(n => n > 0).ToList();
+                if (ids.Any()) query = query.Where(i => ids.Contains(i.LocationId));
+            }
+
+            if (!string.IsNullOrEmpty(itemIds))
+            {
+                var ids = itemIds.Split(',').Select(id => int.TryParse(id.Trim(), out var n) ? n : 0).Where(n => n > 0).ToList();
+                if (ids.Any()) query = query.Where(i => ids.Contains(i.ItemId));
+            }
+
+            // Operator name filter
+            if (!string.IsNullOrEmpty(operatorName))
+            {
+                var searchTerm = operatorName.Trim();
+                query = query.Where(i => i.IssuedTo != null && i.IssuedTo.Contains(searchTerm));
+            }
+
+            // Global search filter
+            if (!string.IsNullOrEmpty(search))
+            {
+                var searchTerm = search.Trim();
+                query = query.Where(i =>
+                    i.IssueNo.Contains(searchTerm) ||
+                    (i.Item != null && (i.Item.ItemName.Contains(searchTerm) || (i.Item.SerialNumber != null && i.Item.SerialNumber.Contains(searchTerm)))) ||
+                    (i.Company != null && i.Company.Name.Contains(searchTerm)) ||
+                    (i.Contractor != null && i.Contractor.Name.Contains(searchTerm)) ||
+                    (i.Machine != null && i.Machine.Name.Contains(searchTerm)) ||
+                    (i.Location != null && i.Location.Name.Contains(searchTerm)) ||
+                    (i.IssuedTo != null && i.IssuedTo.Contains(searchTerm))
+                );
+            }
+
+            // Only pending inward filter
             if (onlyPendingInward.HasValue && onlyPendingInward.Value)
             {
                 // Filter out issues that have ANY active return (meaning Inward is done/active)

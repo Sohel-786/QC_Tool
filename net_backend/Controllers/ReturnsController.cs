@@ -22,7 +22,17 @@ namespace net_backend.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<ApiResponse<IEnumerable<Return>>>> GetAll([FromQuery] bool? hideIssuedItems)
+        public async Task<ActionResult<ApiResponse<IEnumerable<Return>>>> GetAll(
+            [FromQuery] string? status,
+            [FromQuery] string? companyIds,
+            [FromQuery] string? contractorIds,
+            [FromQuery] string? machineIds,
+            [FromQuery] string? locationIds,
+            [FromQuery] string? itemIds,
+            [FromQuery] string? conditions,
+            [FromQuery] string? operatorName,
+            [FromQuery] string? search,
+            [FromQuery] bool? hideIssuedItems)
         {
             var query = _context.Returns
                 .Include(r => r.Issue).ThenInclude(i => i.Item)
@@ -39,6 +49,116 @@ namespace net_backend.Controllers
                 .Include(r => r.Status)
                 .AsQueryable();
 
+            // Status filter
+            if (!string.IsNullOrEmpty(status))
+            {
+                if (status == "active") query = query.Where(r => r.IsActive);
+                else if (status == "inactive") query = query.Where(r => !r.IsActive);
+            }
+
+            // Multi-select filters - check both direct return properties and issue properties
+            if (!string.IsNullOrEmpty(companyIds))
+            {
+                var ids = companyIds.Split(',').Select(id => int.TryParse(id.Trim(), out var n) ? n : 0).Where(n => n > 0).ToList();
+                if (ids.Any())
+                {
+                    query = query.Where(r =>
+                        (r.CompanyId.HasValue && ids.Contains(r.CompanyId.Value)) ||
+                        (r.Issue != null && ids.Contains(r.Issue.CompanyId))
+                    );
+                }
+            }
+
+            if (!string.IsNullOrEmpty(contractorIds))
+            {
+                var ids = contractorIds.Split(',').Select(id => int.TryParse(id.Trim(), out var n) ? n : 0).Where(n => n > 0).ToList();
+                if (ids.Any())
+                {
+                    query = query.Where(r =>
+                        (r.ContractorId.HasValue && ids.Contains(r.ContractorId.Value)) ||
+                        (r.Issue != null && ids.Contains(r.Issue.ContractorId))
+                    );
+                }
+            }
+
+            if (!string.IsNullOrEmpty(machineIds))
+            {
+                var ids = machineIds.Split(',').Select(id => int.TryParse(id.Trim(), out var n) ? n : 0).Where(n => n > 0).ToList();
+                if (ids.Any())
+                {
+                    query = query.Where(r =>
+                        (r.MachineId.HasValue && ids.Contains(r.MachineId.Value)) ||
+                        (r.Issue != null && ids.Contains(r.Issue.MachineId))
+                    );
+                }
+            }
+
+            if (!string.IsNullOrEmpty(locationIds))
+            {
+                var ids = locationIds.Split(',').Select(id => int.TryParse(id.Trim(), out var n) ? n : 0).Where(n => n > 0).ToList();
+                if (ids.Any())
+                {
+                    query = query.Where(r =>
+                        (r.LocationId.HasValue && ids.Contains(r.LocationId.Value)) ||
+                        (r.Issue != null && ids.Contains(r.Issue.LocationId))
+                    );
+                }
+            }
+
+            if (!string.IsNullOrEmpty(itemIds))
+            {
+                var ids = itemIds.Split(',').Select(id => int.TryParse(id.Trim(), out var n) ? n : 0).Where(n => n > 0).ToList();
+                if (ids.Any())
+                {
+                    query = query.Where(r =>
+                        (r.ItemId.HasValue && ids.Contains(r.ItemId.Value)) ||
+                        (r.Issue != null && ids.Contains(r.Issue.ItemId))
+                    );
+                }
+            }
+
+            // Condition filter (specific to returns)
+            if (!string.IsNullOrEmpty(conditions))
+            {
+                var validConditions = new[] { "OK", "Damaged", "Calibration Required", "Missing" };
+                var conditionList = conditions.Split(',').Select(c => c.Trim()).Where(c => validConditions.Contains(c)).ToList();
+                if (conditionList.Any())
+                {
+                    query = query.Where(r => conditionList.Contains(r.Condition));
+                }
+            }
+
+            // Operator name filter
+            if (!string.IsNullOrEmpty(operatorName))
+            {
+                var searchTerm = operatorName.Trim();
+                query = query.Where(r => r.Issue != null && r.Issue.IssuedTo != null && r.Issue.IssuedTo.Contains(searchTerm));
+            }
+
+            // Global search filter
+            if (!string.IsNullOrEmpty(search))
+            {
+                var searchTerm = search.Trim();
+                query = query.Where(r =>
+                    (r.ReturnCode != null && r.ReturnCode.Contains(searchTerm)) ||
+                    r.Condition.Contains(searchTerm) ||
+                    (r.Issue != null && r.Issue.IssueNo.Contains(searchTerm)) ||
+                    (r.Issue != null && r.Issue.Item != null && (r.Issue.Item.ItemName.Contains(searchTerm) || (r.Issue.Item.SerialNumber != null && r.Issue.Item.SerialNumber.Contains(searchTerm)))) ||
+                    (r.Item != null && (r.Item.ItemName.Contains(searchTerm) || (r.Item.SerialNumber != null && r.Item.SerialNumber.Contains(searchTerm)))) ||
+                    (r.Issue != null && r.Issue.Company != null && r.Issue.Company.Name.Contains(searchTerm)) ||
+                    (r.Issue != null && r.Issue.Contractor != null && r.Issue.Contractor.Name.Contains(searchTerm)) ||
+                    (r.Issue != null && r.Issue.Machine != null && r.Issue.Machine.Name.Contains(searchTerm)) ||
+                    (r.Issue != null && r.Issue.Location != null && r.Issue.Location.Name.Contains(searchTerm)) ||
+                    (r.Company != null && r.Company.Name.Contains(searchTerm)) ||
+                    (r.Contractor != null && r.Contractor.Name.Contains(searchTerm)) ||
+                    (r.Machine != null && r.Machine.Name.Contains(searchTerm)) ||
+                    (r.Location != null && r.Location.Name.Contains(searchTerm)) ||
+                    (r.Status != null && r.Status.Name.Contains(searchTerm)) ||
+                    (r.Issue != null && r.Issue.IssuedTo != null && r.Issue.IssuedTo.Contains(searchTerm))
+                );
+            }
+
+            // Hide issued items filter
             if (hideIssuedItems.HasValue && hideIssuedItems.Value)
             {
                 // Find the latest active issue ID for each item

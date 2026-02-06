@@ -282,6 +282,7 @@ export default function IssuesPage() {
       queryClient.invalidateQueries({ queryKey: ["issues"] });
       queryClient.invalidateQueries({ queryKey: ["active-issues"] });
       queryClient.invalidateQueries({ queryKey: ["items"] });
+      queryClient.invalidateQueries({ queryKey: ["returns"] });
       setInactiveTarget(null);
       toast.success("Outward marked inactive");
     },
@@ -302,6 +303,7 @@ export default function IssuesPage() {
       queryClient.invalidateQueries({ queryKey: ["issues"] });
       queryClient.invalidateQueries({ queryKey: ["active-issues"] });
       queryClient.invalidateQueries({ queryKey: ["items"] });
+      queryClient.invalidateQueries({ queryKey: ["returns"] });
       toast.success("Outward marked active");
     },
     onError: (e: unknown) => {

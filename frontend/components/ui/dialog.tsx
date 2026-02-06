@@ -31,7 +31,7 @@ export function Dialog({
   size = "md",
   overlayClassName,
   contentScroll = true,
-  closeOnBackdropClick = true,
+  closeOnBackdropClick = false,
   closeButtonDisabled = false,
 }: DialogProps) {
   // Lock body scroll when dialog is open
