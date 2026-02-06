@@ -80,6 +80,10 @@ namespace net_backend.Controllers
         {
             var issue = await _context.Issues
                 .Include(i => i.Item)
+                .Include(i => i.Company)
+                .Include(i => i.Contractor)
+                .Include(i => i.Machine)
+                .Include(i => i.Location)
                 .FirstOrDefaultAsync(i => i.IssueNo == issueNo);
                 
             if (issue == null) return NotFound(new ApiResponse<Issue> { Success = false, Message = "Issue not found" });

@@ -106,6 +106,14 @@ export default function ReturnsPage() {
     },
   );
 
+  const issueIdsWithActiveReturn = useMemo(() => {
+    return new Set(
+      returns
+        .filter((r) => r.isActive && r.issueId)
+        .map((r) => r.issueId as number),
+    );
+  }, [returns]);
+
   const { data: activeIssues = [] } = useQuery<Issue[]>({
     queryKey: ["active-issues"],
     queryFn: async () => {
@@ -747,9 +755,16 @@ export default function ReturnsPage() {
                                         onClick={() =>
                                           setActiveMutation.mutate(r.id)
                                         }
-                                        title="Mark inward active"
+                                        title={
+                                          r.issueId && issueIdsWithActiveReturn.has(r.issueId)
+                                            ? "Another inward is already active for this outward"
+                                            : "Mark inward active"
+                                        }
                                         className="shrink-0 text-green-600 hover:bg-green-50"
-                                        disabled={setActiveMutation.isPending}
+                                        disabled={
+                                          setActiveMutation.isPending ||
+                                          (!!r.issueId && issueIdsWithActiveReturn.has(r.issueId))
+                                        }
                                       >
                                         <CheckCircle className="w-4 h-4" />
                                       </Button>

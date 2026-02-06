@@ -25,7 +25,11 @@ namespace net_backend.Controllers
         public async Task<ActionResult<ApiResponse<IEnumerable<Return>>>> GetAll()
         {
             var returns = await _context.Returns
-                .Include(r => r.Issue)
+                .Include(r => r.Issue).ThenInclude(i => i.Item)
+                .Include(r => r.Issue).ThenInclude(i => i.Company)
+                .Include(r => r.Issue).ThenInclude(i => i.Contractor)
+                .Include(r => r.Issue).ThenInclude(i => i.Machine)
+                .Include(r => r.Issue).ThenInclude(i => i.Location)
                 .Include(r => r.Item)
                 .Include(r => r.ReturnedByUser)
                 .Include(r => r.Company)
@@ -42,7 +46,11 @@ namespace net_backend.Controllers
         public async Task<ActionResult<ApiResponse<Return>>> GetById(int id)
         {
             var ret = await _context.Returns
-                .Include(r => r.Issue)
+                .Include(r => r.Issue).ThenInclude(i => i.Item)
+                .Include(r => r.Issue).ThenInclude(i => i.Company)
+                .Include(r => r.Issue).ThenInclude(i => i.Contractor)
+                .Include(r => r.Issue).ThenInclude(i => i.Machine)
+                .Include(r => r.Issue).ThenInclude(i => i.Location)
                 .Include(r => r.Item)
                 .Include(r => r.ReturnedByUser)
                 .Include(r => r.Company)
@@ -66,8 +74,16 @@ namespace net_backend.Controllers
         [HttpPost]
         public async Task<ActionResult<ApiResponse<Return>>> Create([FromForm] CreateReturnRequest request, IFormFile? image)
         {
-            if (request.IssueId.HasValue && request.ItemId.HasValue)
-                return BadRequest(new ApiResponse<Return> { Success = false, Message = "Choose either Issue or Item, not both" });
+            if (request.IssueId.HasValue)
+            {
+                var existingActiveReturn = await _context.Returns
+                    .AnyAsync(r => r.IssueId == request.IssueId && r.IsActive);
+                
+                if (existingActiveReturn)
+                {
+                    return BadRequest(new ApiResponse<Return> { Success = false, Message = "An active inward entry already exists for this outward entry. Please inactivate the existing inward entry first." });
+                }
+            }
 
             var count = await _context.Returns.CountAsync();
             var returnCode = _codeGenerator.GenerateNextCode("INWARD", count);
@@ -188,7 +204,11 @@ namespace net_backend.Controllers
         public async Task<ActionResult<ApiResponse<Return>>> MarkInactive(int id)
         {
             var ret = await _context.Returns
-                .Include(r => r.Issue)
+                .Include(r => r.Issue).ThenInclude(i => i.Item)
+                .Include(r => r.Issue).ThenInclude(i => i.Company)
+                .Include(r => r.Issue).ThenInclude(i => i.Contractor)
+                .Include(r => r.Issue).ThenInclude(i => i.Machine)
+                .Include(r => r.Issue).ThenInclude(i => i.Location)
                 .Include(r => r.Item)
                 .FirstOrDefaultAsync(r => r.Id == id);
 
@@ -229,11 +249,27 @@ namespace net_backend.Controllers
         public async Task<ActionResult<ApiResponse<Return>>> MarkActive(int id)
         {
             var ret = await _context.Returns
-                .Include(r => r.Issue)
+                .Include(r => r.Issue).ThenInclude(i => i.Item)
+                .Include(r => r.Issue).ThenInclude(i => i.Company)
+                .Include(r => r.Issue).ThenInclude(i => i.Contractor)
+                .Include(r => r.Issue).ThenInclude(i => i.Machine)
+                .Include(r => r.Issue).ThenInclude(i => i.Location)
                 .Include(r => r.Item)
                 .FirstOrDefaultAsync(r => r.Id == id);
 
             if (ret == null) return NotFound(new ApiResponse<Return> { Success = false, Message = "Return record not found" });
+
+            // Ensure no other active return exists for this issue
+            if (ret.IssueId.HasValue)
+            {
+                var otherActiveReturn = await _context.Returns
+                    .AnyAsync(r => r.IssueId == ret.IssueId && r.IsActive && r.Id != id);
+
+                if (otherActiveReturn)
+                {
+                    return BadRequest(new ApiResponse<Return> { Success = false, Message = "Another inward entry is already active for this outward entry. Please inactivate it before reactivating this one." });
+                }
+            }
 
             // 1. Mark Return as Active
             ret.IsActive = true;
