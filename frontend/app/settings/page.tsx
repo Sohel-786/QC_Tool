@@ -102,6 +102,7 @@ function permissionsFlagsEqual(
     for (const key of permissionKeys) {
       if (pa[key] !== pb[key]) return false;
     }
+    if (pa.navigationLayout !== pb.navigationLayout) return false;
   }
   return true;
 }
