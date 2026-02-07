@@ -67,7 +67,7 @@ const userSchema = z.object({
 type UserForm = z.infer<typeof userSchema>;
 
 const permissionLabels: Record<
-  keyof Omit<RolePermission, "id" | "role" | "createdAt" | "updatedAt">,
+  keyof Omit<RolePermission, "id" | "role" | "createdAt" | "updatedAt" | "navigationLayout" | "manageUsers">,
   string
 > = {
   viewDashboard: "View Dashboard",
@@ -82,9 +82,7 @@ const permissionLabels: Record<
   editInward: "Edit Inward",
   addMaster: "Add Master",
   editMaster: "Edit Master",
-  manageUsers: "Manage Users",
   accessSettings: "Access Settings",
-  navigationLayout: "Navigation Layout",
 };
 
 const permissionKeys = Object.keys(
@@ -720,19 +718,7 @@ export default function SettingsPage() {
                                               e.target.checked,
                                             )
                                           }
-                                          disabled={
-                                            role !== Role.QC_ADMIN &&
-                                            (key === "editMaster" ||
-                                              key === "editInward" ||
-                                              key === "editOutward")
-                                          }
-                                          className={`w-4 h-4 rounded border-secondary-300 text-primary-600 focus:ring-primary-500 ${role !== Role.QC_ADMIN &&
-                                            (key === "editMaster" ||
-                                              key === "editInward" ||
-                                              key === "editOutward")
-                                            ? "opacity-50 cursor-not-allowed"
-                                            : "cursor-pointer"
-                                            }`}
+                                          className="w-4 h-4 rounded border-secondary-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
                                         />
                                       </td>
                                     );

@@ -349,6 +349,8 @@ namespace net_backend.Controllers
         [HttpPost]
         public async Task<ActionResult<ApiResponse<Item>>> Create([FromForm] CreateItemRequest request, IFormFile? image)
         {
+            if (!await CheckPermission("addMaster")) return Forbidden();
+
             if (string.IsNullOrEmpty(request.ItemName) || string.IsNullOrEmpty(request.SerialNumber))
             {
                 return BadRequest(new ApiResponse<Item> { Success = false, Message = "Item name and serial number are required" });
@@ -400,6 +402,8 @@ namespace net_backend.Controllers
         [HttpPut("{id}")]
         public async Task<ActionResult<ApiResponse<Item>>> Update(int id, [FromForm] UpdateItemRequest request, IFormFile? image)
         {
+            if (!await CheckPermission("editMaster")) return Forbidden();
+
             var item = await _context.Items.FindAsync(id);
             if (item == null) return NotFound(new ApiResponse<Item> { Success = false, Message = "Item not found" });
 
@@ -440,6 +444,28 @@ namespace net_backend.Controllers
             await _context.SaveChangesAsync();
 
             return Ok(new ApiResponse<Item> { Data = item });
+        }
+
+        private async Task<bool> CheckPermission(string permissionKey)
+        {
+            var role = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+            if (string.IsNullOrEmpty(role)) return false;
+            if (role == "QC_ADMIN") return true;
+
+            var permissions = await _context.RolePermissions.FirstOrDefaultAsync(p => p.Role == role);
+            if (permissions == null) return false;
+
+            return permissionKey switch
+            {
+                "addMaster" => permissions.AddMaster,
+                "editMaster" => permissions.EditMaster,
+                _ => false
+            };
+        }
+
+        private ActionResult Forbidden()
+        {
+            return StatusCode(403, new ApiResponse<object> { Success = false, Message = "You do not have permission to perform this action." });
         }
     }
 }

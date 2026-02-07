@@ -208,6 +208,8 @@ namespace net_backend.Controllers
         [HttpPost]
         public async Task<ActionResult<ApiResponse<Return>>> Create([FromForm] CreateReturnRequest request, IFormFile? image)
         {
+            if (!await CheckPermission("addInward")) return Forbidden();
+
             if (request.IssueId.HasValue && request.ItemId.HasValue)
             {
                 return BadRequest(new ApiResponse<Return> { Success = false, Message = "Choose either Outward (Issue) or Missing item, not both" });
@@ -337,6 +339,8 @@ namespace net_backend.Controllers
         [HttpPut("{id}")]
         public async Task<ActionResult<ApiResponse<Return>>> Update(int id, [FromBody] UpdateReturnRequest request)
         {
+            if (!await CheckPermission("editInward")) return Forbidden();
+
             var ret = await _context.Returns.FindAsync(id);
             if (ret == null) return NotFound(new ApiResponse<Return> { Success = false, Message = "Return record not found" });
 
@@ -431,6 +435,8 @@ namespace net_backend.Controllers
         [HttpPost("{id}/active")]
         public async Task<ActionResult<ApiResponse<Return>>> MarkActive(int id)
         {
+            if (User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value != "QC_ADMIN") return Forbidden();
+
             var ret = await _context.Returns
                 .Include(r => r.Issue).ThenInclude(i => i.Item)
                 .Include(r => r.Issue).ThenInclude(i => i.Company)
@@ -482,6 +488,28 @@ namespace net_backend.Controllers
             await _context.SaveChangesAsync();
 
             return Ok(new ApiResponse<Return> { Data = ret });
+        }
+
+        private async Task<bool> CheckPermission(string permissionKey)
+        {
+            var role = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+            if (string.IsNullOrEmpty(role)) return false;
+            if (role == "QC_ADMIN") return true;
+
+            var permissions = await _context.RolePermissions.FirstOrDefaultAsync(p => p.Role == role);
+            if (permissions == null) return false;
+
+            return permissionKey switch
+            {
+                "addInward" => permissions.AddInward,
+                "editInward" => permissions.EditInward,
+                _ => false
+            };
+        }
+
+        private ActionResult Forbidden()
+        {
+            return StatusCode(403, new ApiResponse<object> { Success = false, Message = "You do not have permission to perform this action." });
         }
     }
 }

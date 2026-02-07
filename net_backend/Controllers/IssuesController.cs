@@ -171,6 +171,8 @@ namespace net_backend.Controllers
         [HttpPost]
         public async Task<ActionResult<ApiResponse<Issue>>> Create([FromBody] CreateIssueRequest request)
         {
+            if (!await CheckPermission("addOutward")) return Forbidden();
+
             // Validation logic matching Node.js
             var item = await _context.Items.FindAsync(request.ItemId);
             if (item == null) return NotFound(new ApiResponse<Issue> { Success = false, Message = "Item not found" });
@@ -214,6 +216,8 @@ namespace net_backend.Controllers
         [HttpPut("{id}")]
         public async Task<ActionResult<ApiResponse<Issue>>> Update(int id, [FromBody] UpdateIssueRequest request)
         {
+            if (!await CheckPermission("editOutward")) return Forbidden();
+
             var issue = await _context.Issues.FindAsync(id);
             if (issue == null) return NotFound();
             if (issue.IsReturned) return BadRequest(new ApiResponse<Issue> { Success = false, Message = "Cannot edit returned issue" });
@@ -234,6 +238,8 @@ namespace net_backend.Controllers
         [HttpPatch("{id}/inactive")]
         public async Task<ActionResult<ApiResponse<Issue>>> SetInactive(int id)
         {
+            if (User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value != "QC_ADMIN") return Forbidden();
+
             var issue = await _context.Issues.Include(i => i.Item).FirstOrDefaultAsync(i => i.Id == id);
             if (issue == null) return NotFound(new ApiResponse<Issue> { Success = false, Message = "Issue not found" });
             
@@ -257,6 +263,8 @@ namespace net_backend.Controllers
         [HttpPatch("{id}/active")]
         public async Task<ActionResult<ApiResponse<Issue>>> SetActive(int id)
         {
+            if (User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value != "QC_ADMIN") return Forbidden();
+
             var issue = await _context.Issues.Include(i => i.Item).FirstOrDefaultAsync(i => i.Id == id);
             if (issue == null) return NotFound(new ApiResponse<Issue> { Success = false, Message = "Issue not found" });
 
@@ -270,6 +278,28 @@ namespace net_backend.Controllers
 
             await _context.SaveChangesAsync();
             return Ok(new ApiResponse<Issue> { Data = issue });
+        }
+
+        private async Task<bool> CheckPermission(string permissionKey)
+        {
+            var role = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+            if (string.IsNullOrEmpty(role)) return false;
+            if (role == "QC_ADMIN") return true;
+
+            var permissions = await _context.RolePermissions.FirstOrDefaultAsync(p => p.Role == role);
+            if (permissions == null) return false;
+
+            return permissionKey switch
+            {
+                "addOutward" => permissions.AddOutward,
+                "editOutward" => permissions.EditOutward,
+                _ => false
+            };
+        }
+
+        private ActionResult Forbidden()
+        {
+            return StatusCode(403, new ApiResponse<object> { Success = false, Message = "You do not have permission to perform this action." });
         }
     }
 }

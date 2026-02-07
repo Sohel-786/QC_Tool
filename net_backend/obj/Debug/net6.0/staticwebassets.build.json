@@ -1,6 +1,6 @@
 {
   "Version": 1,
-  "Hash": "K8ECCOuzfGsuFi7EbS7PQDB4plFpt4Gr31IjssBNdao=",
+  "Hash": "FEdFpny0F8uzi5Z1meVp5+0It3ItmTkp54TxLeZHFmc=",
   "Source": "net_backend",
   "BasePath": "_content/net_backend",
   "Mode": "Default",
@@ -168,6 +168,23 @@
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
       "OriginalItemSpec": "wwwroot\\storage\\items\\GV0001\\bda11b55-df2e-44dc-af62-46cd55782e0a.jpg"
+    },
+    {
+      "Identity": "D:\\AiraEuro\\QC_Tool\\net_backend\\wwwroot\\storage\\settings\\logo-3283067f-908f-4bed-b740-dad9544748b7.webp",
+      "SourceId": "net_backend",
+      "SourceType": "Discovered",
+      "ContentRoot": "D:\\AiraEuro\\QC_Tool\\net_backend\\wwwroot\\",
+      "BasePath": "_content/net_backend",
+      "RelativePath": "storage/settings/logo-3283067f-908f-4bed-b740-dad9544748b7.webp",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\storage\\settings\\logo-3283067f-908f-4bed-b740-dad9544748b7.webp"
     }
   ]
 }

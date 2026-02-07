@@ -90,6 +90,7 @@ function ReportsContent() {
   const [ledgerSelectedItemId, setLedgerSelectedItemId] = useState<
     number | null
   >(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   const debouncedSearch = useDebouncedValue(filters.search, 400);
   const debouncedMissingSearch = useDebouncedValue(missingFilters.search, 400);
@@ -249,6 +250,7 @@ function ReportsContent() {
 
   const handleExportExcel = useCallback(
     async (type: ReportType) => {
+      setIsExporting(true);
       try {
         let endpoint = "";
         let params: Record<string, string> = {};
@@ -295,6 +297,8 @@ function ReportsContent() {
       } catch (error) {
         console.error("Export failed:", error);
         alert("Failed to export report. Please try again.");
+      } finally {
+        setIsExporting(false);
       }
     },
     [
@@ -519,7 +523,8 @@ function ReportsContent() {
                   setPage(1);
                 }}
                 onExportExcel={() => handleExportExcel("issued")}
-                exportDisabled={loadingIssued}
+                exportDisabled={isExporting}
+                exportLoading={isExporting}
                 exportLabel="Export Excel"
               />
               <Card className="shadow-sm overflow-hidden">
@@ -672,7 +677,8 @@ function ReportsContent() {
                   setPage(1);
                 }}
                 onExportExcel={() => handleExportExcel("missing")}
-                exportDisabled={loadingMissing}
+                exportDisabled={isExporting}
+                exportLoading={isExporting}
                 exportLabel="Export Excel"
               />
               <Card className="shadow-sm overflow-hidden">
@@ -1141,12 +1147,14 @@ function ReportToolbar({
   onRowCountChange,
   onExportExcel,
   exportDisabled,
+  exportLoading,
   exportLabel,
 }: {
   rowCount: RowCount;
   onRowCountChange: (v: RowCount) => void;
   onExportExcel: () => void;
   exportDisabled: boolean;
+  exportLoading?: boolean;
   exportLabel: string;
 }) {
   return (
@@ -1179,6 +1187,7 @@ function ReportToolbar({
           <Button
             onClick={onExportExcel}
             disabled={exportDisabled}
+            loading={exportLoading}
             className="shadow-md"
           >
             <Download className="w-4 h-4 mr-2" />

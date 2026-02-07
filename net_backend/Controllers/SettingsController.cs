@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using net_backend.Data;
@@ -18,6 +19,7 @@ namespace net_backend.Controllers
             _context = context;
         }
 
+        [AllowAnonymous]
         [HttpGet("software")]
         public async Task<ActionResult<ApiResponse<AppSettings>>> GetSoftwareSettings()
         {
@@ -35,6 +37,9 @@ namespace net_backend.Controllers
         [HttpPut("software")]
         public async Task<ActionResult<ApiResponse<AppSettings>>> UpdateSoftwareSettings([FromBody] UpdateSettingsRequest request)
         {
+            if (!await CheckPermission("accessSettings"))
+                return Forbidden();
+
             var settings = await _context.AppSettings.FirstOrDefaultAsync();
             if (settings == null)
             {
@@ -73,6 +78,9 @@ namespace net_backend.Controllers
         [HttpGet("permissions")]
         public async Task<ActionResult<ApiResponse<IEnumerable<RolePermission>>>> GetPermissions()
         {
+            if (!await CheckPermission("accessSettings"))
+                return Forbidden();
+
             var permissions = await _context.RolePermissions.ToListAsync();
             return Ok(new ApiResponse<IEnumerable<RolePermission>> { Data = permissions });
         }
@@ -81,13 +89,30 @@ namespace net_backend.Controllers
         [HttpPut("permissions")]
         public async Task<ActionResult<ApiResponse<IEnumerable<RolePermission>>>> UpdatePermissions([FromBody] UpdatePermissionsRequest request)
         {
+            if (!await CheckPermission("accessSettings"))
+                return Forbidden();
+
             foreach (var perm in request.Permissions)
             {
                 var existing = await _context.RolePermissions.FirstOrDefaultAsync(p => p.Role == perm.Role);
                 if (existing != null)
                 {
-                    // Update existing
-                    _context.Entry(existing).CurrentValues.SetValues(perm);
+                    // Update existing fields individually to avoid ID conflicts or unintended overwrites
+                    existing.ViewDashboard = perm.ViewDashboard;
+                    existing.ViewMaster = perm.ViewMaster;
+                    existing.ViewOutward = perm.ViewOutward;
+                    existing.ViewInward = perm.ViewInward;
+                    existing.ViewReports = perm.ViewReports;
+                    existing.ImportExportMaster = perm.ImportExportMaster;
+                    existing.AddOutward = perm.AddOutward;
+                    existing.EditOutward = perm.EditOutward;
+                    existing.AddInward = perm.AddInward;
+                    existing.EditInward = perm.EditInward;
+                    existing.AddMaster = perm.AddMaster;
+                    existing.EditMaster = perm.EditMaster;
+                    existing.ManageUsers = perm.ManageUsers;
+                    existing.AccessSettings = perm.AccessSettings;
+                    existing.NavigationLayout = perm.NavigationLayout ?? "VERTICAL";
                     existing.UpdatedAt = DateTime.Now;
                 }
                 else
@@ -95,6 +120,7 @@ namespace net_backend.Controllers
                     // Add new
                     perm.CreatedAt = DateTime.Now;
                     perm.UpdatedAt = DateTime.Now;
+                    if (string.IsNullOrEmpty(perm.NavigationLayout)) perm.NavigationLayout = "VERTICAL";
                     _context.RolePermissions.Add(perm);
                 }
             }
@@ -104,15 +130,18 @@ namespace net_backend.Controllers
             return Ok(new ApiResponse<IEnumerable<RolePermission>> { Data = all });
         }
         [HttpPost("software/logo")]
-        public async Task<ActionResult<ApiResponse<AppSettings>>> UpdateLogo(IFormFile logo)
+        public async Task<ActionResult<object>> UpdateLogo([FromForm] IFormFile logo)
         {
+            if (!await CheckPermission("accessSettings"))
+                return Forbidden();
+
             if (logo == null || logo.Length == 0)
-                return BadRequest(new ApiResponse<AppSettings> { Success = false, Message = "No file uploaded" });
+                return BadRequest(new ApiResponse<AppSettings> { Success = false, Message = "No logo file uploaded" });
 
             var settings = await _context.AppSettings.FirstOrDefaultAsync();
             if (settings == null)
             {
-                settings = new AppSettings();
+                settings = new AppSettings { CompanyName = "QC Item System" };
                 _context.AppSettings.Add(settings);
             }
 
@@ -126,11 +155,51 @@ namespace net_backend.Controllers
                 await logo.CopyToAsync(fileStream);
             }
 
-            settings.CompanyLogo = $"settings/{fileName}";
+            var relativePath = $"settings/{fileName}";
+            settings.CompanyLogo = relativePath;
             settings.UpdatedAt = DateTime.Now;
             await _context.SaveChangesAsync();
 
-            return Ok(new ApiResponse<AppSettings> { Data = settings });
+            return Ok(new { 
+                Success = true, 
+                Data = settings, 
+                LogoUrl = $"/storage/{relativePath}" 
+            });
+        }
+
+        private async Task<bool> CheckPermission(string permissionKey)
+        {
+            var role = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+            if (string.IsNullOrEmpty(role)) return false;
+            
+            if (role == "QC_ADMIN") return true;
+
+            var permissions = await _context.RolePermissions.FirstOrDefaultAsync(p => p.Role == role);
+            if (permissions == null) return false;
+
+            return permissionKey switch
+            {
+                "accessSettings" => permissions.AccessSettings,
+                "manageUsers" => permissions.ManageUsers,
+                "viewDashboard" => permissions.ViewDashboard,
+                "viewMaster" => permissions.ViewMaster,
+                "viewOutward" => permissions.ViewOutward,
+                "viewInward" => permissions.ViewInward,
+                "viewReports" => permissions.ViewReports,
+                "importExportMaster" => permissions.ImportExportMaster,
+                "addOutward" => permissions.AddOutward,
+                "editOutward" => permissions.EditOutward,
+                "addInward" => permissions.AddInward,
+                "editInward" => permissions.EditInward,
+                "addMaster" => permissions.AddMaster,
+                "editMaster" => permissions.EditMaster,
+                _ => false
+            };
+        }
+
+        private ActionResult Forbidden()
+        {
+            return StatusCode(403, new { Success = false, Message = "You do not have permission to perform this action." });
         }
     }
 }

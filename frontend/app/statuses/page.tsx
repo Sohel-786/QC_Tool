@@ -217,7 +217,7 @@ export default function StatusesPage() {
                   <Button
                     variant="outline"
                     onClick={handleExport}
-                    disabled={exportLoading}
+                    loading={exportLoading}
                     className="shadow-sm"
                   >
                     <Download className="w-4 h-4 mr-2" />
@@ -226,7 +226,7 @@ export default function StatusesPage() {
                   <Button
                     variant="outline"
                     onClick={() => importFileRef.current?.click()}
-                    disabled={importLoading}
+                    loading={importLoading}
                     className="shadow-sm"
                   >
                     <Upload className="w-4 h-4 mr-2" />

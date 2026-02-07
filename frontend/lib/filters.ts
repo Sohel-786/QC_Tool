@@ -8,7 +8,6 @@ export function buildFilterParams(
   f: TransactionFiltersState
 ): Record<string, string> {
   const params: Record<string, string> = {};
-  if (f.status !== "all") params.status = f.status;
   if (f.companyIds.length) params.companyIds = f.companyIds.join(",");
   if (f.contractorIds.length) params.contractorIds = f.contractorIds.join(",");
   if (f.machineIds.length) params.machineIds = f.machineIds.join(",");
@@ -22,7 +21,6 @@ export function buildFilterParams(
 
 export function hasActiveFilters(f: TransactionFiltersState): boolean {
   return (
-    f.status !== "all" ||
     f.companyIds.length > 0 ||
     f.contractorIds.length > 0 ||
     f.machineIds.length > 0 ||

@@ -46,6 +46,8 @@ namespace net_backend.Controllers
                 LastName = request.LastName,
                 Role = Enum.Parse<Role>(request.Role),
                 IsActive = request.IsActive,
+                Avatar = request.Avatar,
+                CreatedBy = request.CreatedBy,
                 CreatedAt = DateTime.Now,
                 UpdatedAt = DateTime.Now
             };
@@ -63,11 +65,21 @@ namespace net_backend.Controllers
             var user = await _context.Users.FindAsync(id);
             if (user == null) return NotFound();
 
+            if (!string.IsNullOrEmpty(request.Username) && request.Username != user.Username)
+            {
+                if (await _context.Users.AnyAsync(u => u.Username == request.Username && u.Id != id))
+                {
+                    return Conflict(new ApiResponse<User> { Success = false, Message = "Username already exists" });
+                }
+                user.Username = request.Username;
+            }
+
             if (!string.IsNullOrEmpty(request.FirstName)) user.FirstName = request.FirstName;
             if (!string.IsNullOrEmpty(request.LastName)) user.LastName = request.LastName;
             if (!string.IsNullOrEmpty(request.Role)) user.Role = Enum.Parse<Role>(request.Role);
             if (request.IsActive.HasValue) user.IsActive = request.IsActive.Value;
             if (!string.IsNullOrEmpty(request.Password)) user.Password = BCrypt.Net.BCrypt.HashPassword(request.Password);
+            if (request.Avatar != null) user.Avatar = string.IsNullOrEmpty(request.Avatar) ? null : request.Avatar;
 
             user.UpdatedAt = DateTime.Now;
             await _context.SaveChangesAsync();

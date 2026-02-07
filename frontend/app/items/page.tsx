@@ -335,7 +335,7 @@ export default function ItemsPage() {
                   <Button
                     variant="outline"
                     onClick={handleExport}
-                    disabled={exportLoading}
+                    loading={exportLoading}
                     className="shadow-sm"
                   >
                     <Download className="w-4 h-4 mr-2" />
@@ -344,7 +344,7 @@ export default function ItemsPage() {
                   <Button
                     variant="outline"
                     onClick={() => importFileRef.current?.click()}
-                    disabled={importLoading}
+                    loading={importLoading}
                     className="shadow-sm"
                   >
                     <Upload className="w-4 h-4 mr-2" />
@@ -509,7 +509,7 @@ export default function ItemsPage() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleOpenForm(i)}
-                                title={canEditMaster ? "Edit item" : "View item (edit disabled)"}
+                                title="Edit/View item"
                               >
                                 <Edit2 className="w-4 h-4" />
                               </Button>

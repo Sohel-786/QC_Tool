@@ -619,11 +619,9 @@ export default function ReturnsPage() {
                         <th className="px-4 py-3 font-semibold text-primary-900 text-center w-[60px] min-w-[60px]">
                           Image
                         </th>
-                        {(canAddInward || canEditInward) && (
-                          <th className="px-4 py-3 font-semibold text-primary-900 text-center min-w-[160px]">
-                            Actions
-                          </th>
-                        )}
+                        <th className="px-4 py-3 font-semibold text-primary-900 text-center min-w-[160px]">
+                          Actions
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -723,58 +721,56 @@ export default function ReturnsPage() {
                               <span className="text-secondary-400">—</span>
                             )}
                           </td>
-                          {!isManager && (
-                            <td className="px-4 py-3 min-w-[160px]">
-                              <div className="flex flex-nowrap items-center justify-center gap-1 whitespace-nowrap">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleOpenEdit(r)}
-                                  title="Edit inward"
-                                  className="shrink-0"
-                                >
-                                  <Edit2 className="w-4 h-4" />
-                                </Button>
-                                {isAdmin && (
-                                  <>
-                                    {r.isActive && (
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => setInactiveTarget(r)}
-                                        title="Mark inward inactive"
-                                        className="shrink-0 text-amber-600 hover:bg-amber-50"
-                                        disabled={setInactiveMutation.isPending}
-                                      >
-                                        <Ban className="w-4 h-4" />
-                                      </Button>
-                                    )}
-                                    {!r.isActive && (
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() =>
-                                          setActiveMutation.mutate(r.id)
-                                        }
-                                        title={
-                                          r.issueId && issueIdsWithActiveReturn.has(r.issueId)
-                                            ? "Another inward is already active for this outward"
-                                            : "Mark inward active"
-                                        }
-                                        className="shrink-0 text-green-600 hover:bg-green-50"
-                                        disabled={
-                                          setActiveMutation.isPending ||
-                                          (!!r.issueId && issueIdsWithActiveReturn.has(r.issueId))
-                                        }
-                                      >
-                                        <CheckCircle className="w-4 h-4" />
-                                      </Button>
-                                    )}
-                                  </>
-                                )}
-                              </div>
-                            </td>
-                          )}
+                          <td className="px-4 py-3 min-w-[160px]">
+                            <div className="flex flex-nowrap items-center justify-center gap-1 whitespace-nowrap">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleOpenEdit(r)}
+                                title={canEditInward ? "Edit inward" : "View inward (edit disabled)"}
+                                className="shrink-0"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </Button>
+                              {isAdmin && (
+                                <>
+                                  {r.isActive && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => setInactiveTarget(r)}
+                                      title="Mark inward inactive"
+                                      className="shrink-0 text-amber-600 hover:bg-amber-50"
+                                      disabled={setInactiveMutation.isPending}
+                                    >
+                                      <Ban className="w-4 h-4" />
+                                    </Button>
+                                  )}
+                                  {!r.isActive && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() =>
+                                        setActiveMutation.mutate(r.id)
+                                      }
+                                      title={
+                                        r.issueId && issueIdsWithActiveReturn.has(r.issueId)
+                                          ? "Another inward is already active for this outward"
+                                          : "Mark inward active"
+                                      }
+                                      className="shrink-0 text-green-600 hover:bg-green-50"
+                                      disabled={
+                                        setActiveMutation.isPending ||
+                                        (!!r.issueId && issueIdsWithActiveReturn.has(r.issueId))
+                                      }
+                                    >
+                                      <CheckCircle className="w-4 h-4" />
+                                    </Button>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          </td>
                         </motion.tr>
                       ))}
                     </tbody>
@@ -1482,12 +1478,13 @@ export default function ReturnsPage() {
               </div>
 
               <div className="flex-none flex gap-3 px-6 py-4 border-t border-secondary-200 bg-secondary-50/50">
-                {canAddInward && (
+                {(editingReturn ? canEditInward : canAddInward) && (
                   <Button
                     type="submit"
                     disabled={
                       createMutation.isPending ||
-                      (imageRequired && !imageFile) ||
+                      updateMutation.isPending ||
+                      (imageRequired && !imageFile && !editingReturn) ||
                       !watch("condition") ||
                       !watch("statusId") ||
                       (isFromOutwardMode && !hasValidIssue) ||
@@ -1495,7 +1492,11 @@ export default function ReturnsPage() {
                     }
                     className="flex-1 bg-primary-600 hover:bg-primary-700 text-white"
                   >
-                    {createMutation.isPending ? "Saving…" : "Save"}
+                    {createMutation.isPending || updateMutation.isPending
+                      ? "Saving…"
+                      : editingReturn
+                        ? "Update"
+                        : "Save"}
                   </Button>
                 )}
                 <Button

@@ -81,6 +81,7 @@ export default function IssuesPage() {
   const { data: permissions } = useCurrentUserPermissions();
   const canAddOutward = permissions?.addOutward ?? false;
   const canEditOutward = permissions?.editOutward ?? false;
+  const canAddInward = permissions?.addInward ?? false;
   const isManager = currentUser?.role === Role.QC_MANAGER;
   const isAdmin = currentUser?.role === Role.QC_ADMIN;
   const isViewOnly = !!editingIssue?.isReturned;
@@ -518,11 +519,9 @@ export default function IssuesPage() {
                         {/* <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[100px]">
                           Inward Done
                         </th> */}
-                        {(canAddOutward || canEditOutward) && (
-                          <th className="px-4 py-3 font-semibold text-primary-900 text-center min-w-[200px]">
-                            Actions
-                          </th>
-                        )}
+                        <th className="px-4 py-3 font-semibold text-primary-900 text-center min-w-[200px]">
+                          Actions
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -579,67 +578,66 @@ export default function IssuesPage() {
                               {issue.isReturned ? "Yes" : "No"}
                             </span>
                           </td> */}
-                          {(canAddOutward || canEditOutward) && (
-                            <td className="px-4 py-3 min-w-[200px]">
-                              <div className="flex flex-nowrap items-center justify-center gap-1 whitespace-nowrap">
-                                {!issue.isReturned && (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => goToInward(issue)}
-                                    className="shrink-0 text-primary-600 border-primary-200 hover:bg-primary-50 hover:border-primary-300"
-                                  >
-                                    <LogIn className="w-4 h-4 mr-1" />
-                                    Inward
-                                  </Button>
-                                )}
+                          <td className="px-4 py-3 min-w-[200px]">
+                            <div className="flex flex-nowrap items-center justify-center gap-1 whitespace-nowrap">
+                              {!issue.isReturned && canAddInward && (
                                 <Button
-                                  variant="ghost"
+                                  variant="outline"
                                   size="sm"
-                                  onClick={() => handleOpenEdit(issue)}
-                                  title={
-                                    issue.isReturned
-                                      ? "View only (inward done)"
-                                      : canEditOutward
-                                        ? "Edit outward"
-                                        : "View outward (edit disabled)"
-                                  }
-                                  className="shrink-0"
+                                  onClick={() => goToInward(issue)}
+                                  className="shrink-0 text-primary-600 border-primary-200 hover:bg-primary-50 hover:border-primary-300"
                                 >
-                                  <Edit2 className="w-4 h-4" />
+                                  <LogIn className="w-4 h-4 mr-1" />
+                                  Inward
                                 </Button>
-                                {isAdmin && (
-                                  <>
-                                    {issue.isActive && !issue.isReturned && (
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => setInactiveTarget(issue)}
-                                        title="Mark outward inactive"
-                                        className="shrink-0 text-amber-600 hover:bg-amber-50"
-                                        disabled={setInactiveMutation.isPending}
-                                      >
-                                        <Ban className="w-4 h-4" />
-                                      </Button>
-                                    )}
-                                    {!issue.isActive && (
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() =>
-                                          setActiveMutation.mutate(issue.id)
-                                        }
-                                        title="Mark outward active"
-                                        className="shrink-0 text-green-600 hover:bg-green-50"
-                                        disabled={setActiveMutation.isPending}
-                                      >
-                                        <CheckCircle className="w-4 h-4" />
-                                      </Button>
-                                    )}
-                                  </>
-                                )}
-                              </div>
-                            </td>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleOpenEdit(issue)}
+                                title={
+                                  issue.isReturned
+                                    ? "View only (inward done)"
+                                    : canEditOutward
+                                      ? "Edit outward"
+                                      : "View outward (edit disabled)"
+                                }
+                                className="shrink-0"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </Button>
+                              {isAdmin && (
+                                <>
+                                  {issue.isActive && !issue.isReturned && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => setInactiveTarget(issue)}
+                                      title="Mark outward inactive"
+                                      className="shrink-0 text-amber-600 hover:bg-amber-50"
+                                      disabled={setInactiveMutation.isPending}
+                                    >
+                                      <Ban className="w-4 h-4" />
+                                    </Button>
+                                  )}
+                                  {!issue.isActive && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() =>
+                                        setActiveMutation.mutate(issue.id)
+                                      }
+                                      title="Mark outward active"
+                                      className="shrink-0 text-green-600 hover:bg-green-50"
+                                      disabled={setActiveMutation.isPending}
+                                    >
+                                      <CheckCircle className="w-4 h-4" />
+                                    </Button>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          </td>
                           )}
                         </motion.tr>
                       ))}
