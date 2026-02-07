@@ -1,0 +1,15 @@
+# Build folders
+bin/
+obj/
+
+# IDE
+.vs/
+.vscode/
+*.user
+*.suo
+
+# Logs
+*.log
+
+# Storage (if user uploads)
+wwwroot/storage/
