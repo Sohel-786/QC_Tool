@@ -4,15 +4,17 @@ import { User } from '@/types';
 import { Avatar } from '@/components/ui/avatar';
 import { useAppSettings, useCurrentUserPermissions } from '@/hooks/use-settings';
 import { useSoftwareProfileDraft } from '@/contexts/software-profile-draft-context';
-import { Building2 } from 'lucide-react';
+import { Building2, ChevronUp, ChevronDown, Menu } from 'lucide-react';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 interface HeaderProps {
   user: User;
+  isNavExpanded?: boolean;
+  onNavExpandChange?: (expanded: boolean) => void;
 }
 
-export function Header({ user }: HeaderProps) {
+export function Header({ user, isNavExpanded, onNavExpandChange }: HeaderProps) {
   const { data: appSettings } = useAppSettings();
   const { data: permissions } = useCurrentUserPermissions();
   const profileDraft = useSoftwareProfileDraft()?.draft ?? null;
@@ -26,8 +28,8 @@ export function Header({ user }: HeaderProps) {
   return (
     <header
       className={`bg-white border-b border-secondary-200 flex items-center justify-between px-4 md:px-6 sticky top-0 z-40 shadow-sm ${isHorizontal
-          ? 'h-14 py-1'
-          : hasLogo ? 'min-h-[5.5rem] py-2' : 'h-16'
+        ? 'h-14 py-1'
+        : hasLogo ? 'min-h-[5.5rem] py-2' : 'h-16'
         }`}
     >
       <div className="flex items-center min-w-0 shrink-0">
@@ -50,6 +52,24 @@ export function Header({ user }: HeaderProps) {
         )}
       </div>
       <div className="flex items-center gap-4 min-w-0">
+        {isHorizontal && onNavExpandChange && (
+          <button
+            onClick={() => onNavExpandChange(!isNavExpanded)}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-secondary-50 hover:bg-white border border-secondary-200 hover:border-primary-200 transition-all duration-200 group shadow-sm active:scale-95"
+          >
+            {isNavExpanded ? (
+              <>
+                <ChevronUp className="w-4 h-4 text-secondary-500 group-hover:text-primary-500 transition-transform duration-300" />
+                <span className="hidden sm:inline text-[11px] font-bold text-secondary-700 group-hover:text-primary-700">Collapse</span>
+              </>
+            ) : (
+              <>
+                <ChevronDown className="w-4 h-4 text-secondary-500 group-hover:text-primary-500 transition-transform duration-300" />
+                <span className="hidden sm:inline text-[11px] font-bold text-secondary-700 group-hover:text-primary-700">Expand</span>
+              </>
+            )}
+          </button>
+        )}
         <div className="flex items-center gap-3">
           <Avatar user={user} size={isHorizontal ? "sm" : "md"} showName={false} />
           <div className="flex flex-col justify-center min-w-0">

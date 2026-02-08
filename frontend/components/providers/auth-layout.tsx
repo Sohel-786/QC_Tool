@@ -38,6 +38,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
+  const [navExpanded, setNavExpanded] = useState(true);
   const sidebarWidth = sidebarExpanded ? SIDEBAR_WIDTH_EXPANDED : SIDEBAR_WIDTH_COLLAPSED;
 
   const { data: permissions, isLoading: permissionsLoading } = useCurrentUserPermissions(
@@ -159,8 +160,14 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
             className="transition-[margin] duration-200 ease-in-out relative z-0"
             style={{ marginLeft: permissions?.navigationLayout === 'HORIZONTAL' ? 0 : sidebarWidth }}
           >
-            <Header user={user} />
-            {permissions?.navigationLayout === 'HORIZONTAL' && <HorizontalNav />}
+            <Header
+              user={user}
+              isNavExpanded={navExpanded}
+              onNavExpandChange={setNavExpanded}
+            />
+            {permissions?.navigationLayout === 'HORIZONTAL' && (
+              <HorizontalNav isExpanded={navExpanded} />
+            )}
             <main className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-6">
               <div className="text-center max-w-md mx-auto bg-white p-8 rounded-2xl shadow-lg border border-red-100">
                 <div className="bg-red-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -197,8 +204,14 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
           className="transition-[margin] duration-200 ease-in-out relative z-0"
           style={{ marginLeft: permissions?.navigationLayout === 'HORIZONTAL' ? 0 : sidebarWidth }}
         >
-          <Header user={user} />
-          {permissions?.navigationLayout === 'HORIZONTAL' && <HorizontalNav />}
+          <Header
+            user={user}
+            isNavExpanded={navExpanded}
+            onNavExpandChange={setNavExpanded}
+          />
+          {permissions?.navigationLayout === 'HORIZONTAL' && (
+            <HorizontalNav isExpanded={navExpanded} />
+          )}
           <main className="min-h-[calc(100vh-4rem)]">{children}</main>
         </div>
       </div>
