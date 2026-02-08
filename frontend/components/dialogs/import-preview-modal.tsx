@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,6 +35,13 @@ export function ImportPreviewModal({
     title = "Import Preview",
 }: ImportPreviewModalProps) {
     const [activeTab, setActiveTab] = useState<TabType>("valid");
+
+    // Reset to valid records tab whenever modal opens
+    useEffect(() => {
+        if (isOpen) {
+            setActiveTab("valid");
+        }
+    }, [isOpen]);
 
     if (!data) return null;
 
@@ -119,9 +126,9 @@ export function ImportPreviewModal({
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={activeTab}
-                            initial={{ opacity: 0, x: 10 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: -10 }}
+                            initial={{ opacity: 0, y: 5 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -5 }}
                             transition={{ duration: 0.2 }}
                             className="p-1"
                         >
