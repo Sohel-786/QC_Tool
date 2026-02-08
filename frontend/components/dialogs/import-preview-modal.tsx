@@ -1,0 +1,213 @@
+"use client";
+
+import { useState } from "react";
+import { Dialog } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import {
+    CheckCircle2,
+    AlertCircle,
+    Copy,
+    Database,
+    XCircle,
+    Info,
+    Loader2,
+} from "lucide-react";
+import { ValidationResult, ValidationEntry } from "@/types";
+import { motion, AnimatePresence } from "framer-motion";
+
+interface ImportPreviewModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    data: ValidationResult | null;
+    onConfirm: () => void;
+    isLoading: boolean;
+    title?: string;
+}
+
+type TabType = "valid" | "duplicates" | "alreadyExists" | "invalid";
+
+export function ImportPreviewModal({
+    isOpen,
+    onClose,
+    data,
+    onConfirm,
+    isLoading,
+    title = "Import Preview",
+}: ImportPreviewModalProps) {
+    const [activeTab, setActiveTab] = useState<TabType>("valid");
+
+    if (!data) return null;
+
+    const tabs: { id: TabType; label: string; count: number; icon: any; color: string }[] = [
+        {
+            id: "valid",
+            label: "Valid Records",
+            count: data.valid.length,
+            icon: CheckCircle2,
+            color: "text-green-600",
+        },
+        {
+            id: "duplicates",
+            label: "Duplicates (File)",
+            count: data.duplicates.length,
+            icon: Copy,
+            color: "text-amber-600",
+        },
+        {
+            id: "alreadyExists",
+            label: "Already Exists",
+            count: data.alreadyExists.length,
+            icon: Database,
+            color: "text-blue-600",
+        },
+        {
+            id: "invalid",
+            label: "Invalid Records",
+            count: data.invalid.length,
+            icon: XCircle,
+            color: "text-red-600",
+        },
+    ];
+
+    const getRecordsForTab = () => {
+        switch (activeTab) {
+            case "valid":
+                return data.valid;
+            case "duplicates":
+                return data.duplicates;
+            case "alreadyExists":
+                return data.alreadyExists;
+            case "invalid":
+                return data.invalid;
+            default:
+                return [];
+        }
+    };
+
+    const records = getRecordsForTab();
+
+    return (
+        <Dialog isOpen={isOpen} onClose={onClose} title={title} size="3xl">
+            <div className="flex flex-col h-[70vh]">
+                {/* Tabs Header */}
+                <div className="flex border-b border-secondary-200 mb-4 overflow-x-auto">
+                    {tabs.map((tab) => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id)}
+                            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-all whitespace-nowrap ${activeTab === tab.id
+                                ? `border-primary-500 bg-primary-50/50 ${tab.color} font-semibold`
+                                : "border-transparent text-secondary-500 hover:text-secondary-700 hover:bg-secondary-50/50"
+                                }`}
+                        >
+                            <tab.icon className="w-4 h-4" />
+                            <span>{tab.label}</span>
+                            <span
+                                className={`ml-1 px-2 py-0.5 rounded-full text-xs ${activeTab === tab.id
+                                    ? "bg-primary-100 text-primary-700"
+                                    : "bg-secondary-100 text-secondary-600"
+                                    }`}
+                            >
+                                {tab.count}
+                            </span>
+                        </button>
+                    ))}
+                </div>
+
+                {/* Content Area */}
+                <div className="flex-1 overflow-auto bg-secondary-50/30 rounded-lg border border-secondary-200">
+                    <AnimatePresence mode="wait">
+                        <motion.div
+                            key={activeTab}
+                            initial={{ opacity: 0, x: 10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -10 }}
+                            transition={{ duration: 0.2 }}
+                            className="p-1"
+                        >
+                            {records.length > 0 ? (
+                                <div className="overflow-x-auto overflow-y-hidden">
+                                    <table className="w-full text-left text-sm">
+                                        <thead className="sticky top-0 bg-white border-b border-secondary-200 shadow-sm z-10">
+                                            <tr>
+                                                <th className="px-4 py-3 font-semibold text-text w-16">Row</th>
+                                                {/* Dynamically render headers based on data in first record */}
+                                                {records[0].data &&
+                                                    Object.keys(records[0].data).map((key) => (
+                                                        <th key={key} className="px-4 py-3 font-semibold text-text capitalize">
+                                                            {key.replace(/([A-Z])/g, " $1")}
+                                                        </th>
+                                                    ))}
+                                                {(activeTab === "invalid" || activeTab === "duplicates" || activeTab === "alreadyExists") && (
+                                                    <th className="px-4 py-3 font-semibold text-text">Message</th>
+                                                )}
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white">
+                                            {records.map((entry, idx) => (
+                                                <tr
+                                                    key={idx}
+                                                    className="border-b border-secondary-100 hover:bg-primary-50/30 transition-colors"
+                                                >
+                                                    <td className="px-4 py-3 text-secondary-500">{entry.row}</td>
+                                                    {entry.data &&
+                                                        Object.values(entry.data).map((val: any, vIdx) => (
+                                                            <td key={vIdx} className="px-4 py-3 text-secondary-700">
+                                                                {typeof val === "boolean" ? (val ? "Yes" : "No") : val || "—"}
+                                                            </td>
+                                                        ))}
+                                                    {(activeTab === "invalid" || activeTab === "duplicates" || activeTab === "alreadyExists") && (
+                                                        <td className="px-4 py-3 text-red-600 italic flex items-center gap-1.5">
+                                                            <AlertCircle className="w-3.5 h-3.5" />
+                                                            {entry.message}
+                                                        </td>
+                                                    )}
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center py-20 text-secondary-400">
+                                    <Info className="w-12 h-12 mb-3 opacity-20" />
+                                    <p className="text-lg">No records found in this category</p>
+                                </div>
+                            )}
+                        </motion.div>
+                    </AnimatePresence>
+                </div>
+
+                {/* Footer */}
+                <div className="mt-6 flex flex-col sm:flex-row justify-between items-center gap-4 bg-white p-4 rounded-xl border border-secondary-200 shadow-sm">
+                    <div className="text-sm text-secondary-600">
+                        Total records in file: <span className="font-bold text-text">{data.totalRows}</span>
+                        <span className="mx-2">|</span>
+                        To be imported: <span className="font-bold text-green-600">{data.valid.length}</span>
+                    </div>
+                    <div className="flex gap-3 w-full sm:w-auto">
+                        <Button variant="outline" onClick={onClose} className="flex-1 sm:flex-initial">
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={onConfirm}
+                            disabled={data.valid.length === 0 || isLoading}
+                            className="flex-1 sm:flex-initial bg-green-600 hover:bg-green-700 shadow-sm"
+                        >
+                            {isLoading ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                    Importing...
+                                </>
+                            ) : (
+                                <>
+                                    <CheckCircle2 className="w-4 h-4 mr-2" />
+                                    Confirm & Import ({data.valid.length})
+                                </>
+                            )}
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        </Dialog>
+    );
+}

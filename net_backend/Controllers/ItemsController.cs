@@ -39,6 +39,21 @@ namespace net_backend.Controllers
             return File(file, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "items.xlsx");
         }
 
+        [HttpPost("validate")]
+        public async Task<ActionResult<ApiResponse<ValidationResultDto<ItemImportDto>>>> Validate(IFormFile file)
+        {
+            if (file == null || file.Length == 0) return Ok(new ApiResponse<ValidationResultDto<ItemImportDto>> { Success = false, Message = "No file" });
+            try
+            {
+                using var stream = file.OpenReadStream();
+                var result = _excelService.ImportExcel<ItemImportDto>(stream);
+                var validation = await ValidateItems(result.Data);
+                validation.TotalRows = result.TotalRows;
+                return Ok(new ApiResponse<ValidationResultDto<ItemImportDto>> { Data = validation });
+            }
+            catch (Exception ex) { return Ok(new ApiResponse<ValidationResultDto<ItemImportDto>> { Success = false, Message = ex.Message }); }
+        }
+
         [HttpPost("import")]
         public async Task<ActionResult<ApiResponse<object>>> Import(IFormFile file)
         {
@@ -48,35 +63,13 @@ namespace net_backend.Controllers
                 using var stream = file.OpenReadStream();
                 var result = _excelService.ImportExcel<ItemImportDto>(stream);
                 
-                var categories = await _context.ItemCategories.ToDictionaryAsync(c => c.Name.ToLower(), c => c.Id);
-                var existingSerials = await _context.Items.Select(i => i.SerialNumber.ToLower()).ToListAsync();
-                var processedInFile = new HashSet<string>();
+                var validation = await ValidateItems(result.Data);
                 var newItems = new List<Item>();
+                var categories = await _context.ItemCategories.ToDictionaryAsync(c => c.Name.ToLower(), c => c.Id);
 
-                foreach (var row in result.Data)
+                foreach (var validRow in validation.Valid)
                 {
-                    var item = row.Data;
-                    if (string.IsNullOrEmpty(item.ItemName) || string.IsNullOrEmpty(item.SerialNumber))
-                    {
-                        result.Errors.Add(new RowError { Row = row.RowNumber, Message = "Name and Serial Number are mandatory" });
-                        continue;
-                    }
-
-                    var serialLower = item.SerialNumber.Trim().ToLower();
-
-                    if (processedInFile.Contains(serialLower))
-                    {
-                        result.Errors.Add(new RowError { Row = row.RowNumber, Message = $"Duplicate Serial Number in file: {item.SerialNumber}" });
-                        continue;
-                    }
-
-                    if (existingSerials.Contains(serialLower))
-                    {
-                        result.Errors.Add(new RowError { Row = row.RowNumber, Message = $"Serial Number already exists: {item.SerialNumber}" });
-                        processedInFile.Add(serialLower);
-                        continue;
-                    }
-
+                    var item = validRow.Data;
                     int? categoryId = null;
                     if (!string.IsNullOrEmpty(item.Category) && categories.TryGetValue(item.Category.Trim().ToLower(), out var catId))
                     {
@@ -86,7 +79,7 @@ namespace net_backend.Controllers
                     newItems.Add(new Item
                     {
                         ItemName = item.ItemName.Trim(),
-                        SerialNumber = item.SerialNumber.Trim(),
+                        SerialNumber = item.SerialNumber!.Trim(),
                         Description = item.Description?.Trim(),
                         CategoryId = categoryId,
                         Status = ItemStatus.AVAILABLE,
@@ -94,8 +87,6 @@ namespace net_backend.Controllers
                         CreatedAt = DateTime.Now,
                         UpdatedAt = DateTime.Now
                     });
-
-                    processedInFile.Add(serialLower);
                 }
 
                 if (newItems.Any())
@@ -104,10 +95,47 @@ namespace net_backend.Controllers
                     await _context.SaveChangesAsync();
                 }
 
-                var finalResult = new { imported = newItems.Count, totalRows = result.TotalRows, errors = result.Errors.OrderBy(e => e.Row).ToList() };
+                var finalResult = new { imported = newItems.Count, totalRows = result.TotalRows, errors = validation.Invalid.Select(e => new RowError { Row = e.Row, Message = e.Message ?? "" }).ToList() };
                 return Ok(new ApiResponse<object> { Data = finalResult, Message = $"{newItems.Count} items imported successfully" });
             }
             catch (Exception ex) { return Ok(new ApiResponse<object> { Success = false, Message = ex.Message }); }
+        }
+
+        private async Task<ValidationResultDto<ItemImportDto>> ValidateItems(List<ExcelRow<ItemImportDto>> rows)
+        {
+            var validation = new ValidationResultDto<ItemImportDto>();
+            var existingSerials = await _context.Items.Select(i => i.SerialNumber.ToLower()).ToListAsync();
+            var processedInFile = new HashSet<string>();
+
+            foreach (var row in rows)
+            {
+                var item = row.Data;
+                if (string.IsNullOrEmpty(item.ItemName) || string.IsNullOrEmpty(item.SerialNumber))
+                {
+                    validation.Invalid.Add(new ValidationEntry<ItemImportDto> { Row = row.RowNumber, Data = item, Message = "Name and Serial Number are mandatory" });
+                    continue;
+                }
+
+                var serialLower = item.SerialNumber.Trim().ToLower();
+
+                if (processedInFile.Contains(serialLower))
+                {
+                    validation.Duplicates.Add(new ValidationEntry<ItemImportDto> { Row = row.RowNumber, Data = item, Message = $"Duplicate Serial Number in file: {item.SerialNumber}" });
+                    continue;
+                }
+
+                if (existingSerials.Contains(serialLower))
+                {
+                    validation.AlreadyExists.Add(new ValidationEntry<ItemImportDto> { Row = row.RowNumber, Data = item, Message = $"Serial Number already exists: {item.SerialNumber}" });
+                    processedInFile.Add(serialLower);
+                    continue;
+                }
+
+                validation.Valid.Add(new ValidationEntry<ItemImportDto> { Row = row.RowNumber, Data = item });
+                processedInFile.Add(serialLower);
+            }
+
+            return validation;
         }
 
         [HttpGet]

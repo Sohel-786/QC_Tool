@@ -16,6 +16,7 @@ import * as z from "zod";
 import { Plus, Edit2, Search, Ban, CheckCircle, Download, Upload } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { useMasterExportImport } from "@/hooks/use-master-export-import";
+import { ImportPreviewModal } from "@/components/dialogs/import-preview-modal";
 import { useCurrentUserPermissions } from "@/hooks/use-settings";
 
 const categorySchema = z.object({
@@ -46,8 +47,17 @@ export default function ItemCategoriesPage() {
   const canAddMaster = permissions?.addMaster ?? false;
   const canEditMaster = permissions?.editMaster ?? false;
   const canImportExportMaster = permissions?.importExportMaster ?? false;
-  const { handleExport, handleImport, exportLoading, importLoading } =
-    useMasterExportImport("item-categories", ["item-categories"]);
+  const {
+    handleExport,
+    handleValidate,
+    handleImport,
+    exportLoading,
+    validateLoading,
+    importLoading,
+    validationData,
+    setValidationData,
+    pendingFile,
+  } = useMasterExportImport("item-categories", ["item-categories"]);
 
   const { data: categories = [], isLoading } = useQuery<ItemCategory[]>({
     queryKey: ["item-categories"],
@@ -215,7 +225,7 @@ export default function ItemCategoriesPage() {
                 onChange={(e) => {
                   const f = e.target.files?.[0];
                   if (f) {
-                    handleImport(f);
+                    handleValidate(f);
                     e.target.value = "";
                   }
                 }}
@@ -234,7 +244,7 @@ export default function ItemCategoriesPage() {
                   <Button
                     variant="outline"
                     onClick={() => importFileRef.current?.click()}
-                    loading={importLoading}
+                    loading={validateLoading}
                     className="shadow-sm"
                   >
                     <Upload className="w-4 h-4 mr-2" />
@@ -514,6 +524,14 @@ export default function ItemCategoriesPage() {
             </div>
           </form>
         </Dialog>
+        <ImportPreviewModal
+          isOpen={!!validationData}
+          onClose={() => setValidationData(null)}
+          data={validationData}
+          onConfirm={() => pendingFile && handleImport(pendingFile)}
+          isLoading={importLoading}
+          title="Item Categories Import Preview"
+        />
       </motion.div>
     </div>
   );

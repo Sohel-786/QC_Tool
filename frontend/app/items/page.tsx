@@ -28,6 +28,7 @@ import {
 import { CameraPhotoInput } from "@/components/ui/camera-photo-input";
 import { FullScreenImageViewer } from "@/components/ui/full-screen-image-viewer";
 import { useMasterExportImport } from "@/hooks/use-master-export-import";
+import { ImportPreviewModal } from "@/components/dialogs/import-preview-modal";
 import { useCurrentUserPermissions } from "@/hooks/use-settings";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { toast } from "react-hot-toast";
@@ -66,8 +67,17 @@ export default function ItemsPage() {
   const canAddMaster = permissions?.addMaster ?? false;
   const canEditMaster = permissions?.editMaster ?? false;
   const canImportExportMaster = permissions?.importExportMaster ?? false;
-  const { handleExport, handleImport, exportLoading, importLoading } =
-    useMasterExportImport("items", ["items"]);
+  const {
+    handleExport,
+    handleValidate,
+    handleImport,
+    exportLoading,
+    validateLoading,
+    importLoading,
+    validationData,
+    setValidationData,
+    pendingFile,
+  } = useMasterExportImport("items", ["items"]);
 
   const { data: items = [], isLoading } = useQuery<Item[]>({
     queryKey: ["items"],
@@ -325,7 +335,7 @@ export default function ItemsPage() {
                 onChange={(e) => {
                   const f = e.target.files?.[0];
                   if (f) {
-                    handleImport(f);
+                    handleValidate(f);
                     e.target.value = "";
                   }
                 }}
@@ -344,7 +354,7 @@ export default function ItemsPage() {
                   <Button
                     variant="outline"
                     onClick={() => importFileRef.current?.click()}
-                    loading={importLoading}
+                    loading={validateLoading}
                     className="shadow-sm"
                   >
                     <Upload className="w-4 h-4 mr-2" />
@@ -844,6 +854,15 @@ export default function ItemsPage() {
             </div>
           </form>
         </Dialog>
+
+        <ImportPreviewModal
+          isOpen={!!validationData}
+          onClose={() => setValidationData(null)}
+          data={validationData}
+          onConfirm={() => pendingFile && handleImport(pendingFile)}
+          isLoading={importLoading}
+          title="Items Import Preview"
+        />
 
         <FullScreenImageViewer
           isOpen={!!fullScreenImageSrc}

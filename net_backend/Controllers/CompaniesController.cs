@@ -35,6 +35,21 @@ namespace net_backend.Controllers
             return File(file, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "companies.xlsx");
         }
 
+        [HttpPost("validate")]
+        public async Task<ActionResult<ApiResponse<ValidationResultDto<CompanyImportDto>>>> Validate(IFormFile file)
+        {
+            if (file == null || file.Length == 0) return Ok(new ApiResponse<ValidationResultDto<CompanyImportDto>> { Success = false, Message = "No file" });
+            try
+            {
+                using var stream = file.OpenReadStream();
+                var result = _excelService.ImportExcel<CompanyImportDto>(stream);
+                var validation = await ValidateCompanies(result.Data);
+                validation.TotalRows = result.TotalRows;
+                return Ok(new ApiResponse<ValidationResultDto<CompanyImportDto>> { Data = validation });
+            }
+            catch (Exception ex) { return Ok(new ApiResponse<ValidationResultDto<CompanyImportDto>> { Success = false, Message = ex.Message }); }
+        }
+
         [HttpPost("import")]
         public async Task<ActionResult<ApiResponse<object>>> Import(IFormFile file)
         {
@@ -46,42 +61,18 @@ namespace net_backend.Controllers
                 using (var stream = file.OpenReadStream())
                 {
                     var result = _excelService.ImportExcel<CompanyImportDto>(stream);
+                    var validation = await ValidateCompanies(result.Data);
                     var newCompanies = new List<Company>();
-                    
-                    var existingNames = await _context.Companies.Select(c => c.Name.ToLower()).ToListAsync();
-                    var processedInFile = new HashSet<string>();
 
-                    foreach (var row in result.Data)
+                    foreach (var validRow in validation.Valid)
                     {
-                        var item = row.Data;
-                        if (string.IsNullOrWhiteSpace(item.Name)) 
+                        newCompanies.Add(new Company
                         {
-                            result.Errors.Add(new RowError { Row = row.RowNumber, Message = "Name is mandatory" });
-                            continue;
-                        }
-
-                        var nameLower = item.Name.Trim().ToLower();
-
-                        if (processedInFile.Contains(nameLower))
-                        {
-                            result.Errors.Add(new RowError { Row = row.RowNumber, Message = $"Duplicate Company Name in file: {item.Name}" });
-                            continue;
-                        }
-
-                        if (existingNames.Contains(nameLower))
-                        {
-                            result.Errors.Add(new RowError { Row = row.RowNumber, Message = $"Company '{item.Name}' already exists in database" });
-                            processedInFile.Add(nameLower);
-                            continue;
-                        }
-
-                        newCompanies.Add(new Company {
-                            Name = item.Name.Trim(),
+                            Name = validRow.Data.Name.Trim(),
                             IsActive = true,
                             CreatedAt = DateTime.Now,
                             UpdatedAt = DateTime.Now
                         });
-                        processedInFile.Add(nameLower);
                     }
 
                     if (newCompanies.Any())
@@ -90,10 +81,11 @@ namespace net_backend.Controllers
                         await _context.SaveChangesAsync();
                     }
 
-                    var finalResult = new {
+                    var finalResult = new
+                    {
                         imported = newCompanies.Count,
                         totalRows = result.TotalRows,
-                        errors = result.Errors.OrderBy(e => e.Row).ToList()
+                        errors = validation.Invalid.Select(e => new RowError { Row = e.Row, Message = e.Message ?? "" }).ToList()
                     };
 
                     return Ok(new ApiResponse<object> { Data = finalResult, Message = $"{newCompanies.Count} companies imported successfully" });
@@ -103,6 +95,43 @@ namespace net_backend.Controllers
             {
                 return Ok(new ApiResponse<object> { Success = false, Message = $"Import failed: {ex.Message}" });
             }
+        }
+
+        private async Task<ValidationResultDto<CompanyImportDto>> ValidateCompanies(List<ExcelRow<CompanyImportDto>> rows)
+        {
+            var validation = new ValidationResultDto<CompanyImportDto>();
+            var existingNames = await _context.Companies.Select(c => c.Name.ToLower()).ToListAsync();
+            var processedInFile = new HashSet<string>();
+
+            foreach (var row in rows)
+            {
+                var item = row.Data;
+                if (string.IsNullOrWhiteSpace(item.Name))
+                {
+                    validation.Invalid.Add(new ValidationEntry<CompanyImportDto> { Row = row.RowNumber, Data = item, Message = "Name is mandatory" });
+                    continue;
+                }
+
+                var nameLower = item.Name.Trim().ToLower();
+
+                if (processedInFile.Contains(nameLower))
+                {
+                    validation.Duplicates.Add(new ValidationEntry<CompanyImportDto> { Row = row.RowNumber, Data = item, Message = $"Duplicate Company Name in file: {item.Name}" });
+                    continue;
+                }
+
+                if (existingNames.Contains(nameLower))
+                {
+                    validation.AlreadyExists.Add(new ValidationEntry<CompanyImportDto> { Row = row.RowNumber, Data = item, Message = $"Company '{item.Name}' already exists in database" });
+                    processedInFile.Add(nameLower);
+                    continue;
+                }
+
+                validation.Valid.Add(new ValidationEntry<CompanyImportDto> { Row = row.RowNumber, Data = item });
+                processedInFile.Add(nameLower);
+            }
+
+            return validation;
         }
 
         [HttpGet]

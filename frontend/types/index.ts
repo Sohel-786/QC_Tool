@@ -198,3 +198,17 @@ export interface RolePermission {
   createdAt?: string;
   updatedAt?: string;
 }
+
+export interface ValidationEntry<T = any> {
+  row: number;
+  data: T;
+  message?: string;
+}
+
+export interface ValidationResult<T = any> {
+  valid: ValidationEntry<T>[];
+  duplicates: ValidationEntry<T>[];
+  alreadyExists: ValidationEntry<T>[];
+  invalid: ValidationEntry<T>[];
+  totalRows: number;
+}

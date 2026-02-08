@@ -50,6 +50,22 @@ namespace net_backend.DTOs
         public T Data { get; set; } = new T();
     }
 
+    public class ValidationEntry<T> where T : new()
+    {
+        public int Row { get; set; }
+        public T Data { get; set; } = new T();
+        public string? Message { get; set; }
+    }
+
+    public class ValidationResultDto<T> where T : new()
+    {
+        public List<ValidationEntry<T>> Valid { get; set; } = new();
+        public List<ValidationEntry<T>> Duplicates { get; set; } = new();
+        public List<ValidationEntry<T>> AlreadyExists { get; set; } = new();
+        public List<ValidationEntry<T>> Invalid { get; set; } = new();
+        public int TotalRows { get; set; }
+    }
+
     public class ImportResultDto<T> where T : new()
     {
         public int Imported { get; set; }

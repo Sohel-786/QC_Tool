@@ -15,6 +15,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Plus, Edit2, Search, Ban, CheckCircle, Download, Upload } from "lucide-react";
 import { useMasterExportImport } from "@/hooks/use-master-export-import";
+import { ImportPreviewModal } from "@/components/dialogs/import-preview-modal";
 import { useCurrentUserPermissions } from "@/hooks/use-settings";
 import { toast } from "react-hot-toast";
 
@@ -42,8 +43,17 @@ export default function ContractorsPage() {
   const canAddMaster = permissions?.addMaster ?? false;
   const canEditMaster = permissions?.editMaster ?? false;
   const canImportExportMaster = permissions?.importExportMaster ?? false;
-  const { handleExport, handleImport, exportLoading, importLoading } =
-    useMasterExportImport("contractors", ["contractors"]);
+  const {
+    handleExport,
+    handleValidate,
+    handleImport,
+    exportLoading,
+    validateLoading,
+    importLoading,
+    validationData,
+    setValidationData,
+    pendingFile,
+  } = useMasterExportImport("contractors", ["contractors"]);
 
   const { data: contractors = [], isLoading } = useQuery<Contractor[]>({
     queryKey: ["contractors"],
@@ -212,7 +222,7 @@ export default function ContractorsPage() {
                 onChange={(e) => {
                   const f = e.target.files?.[0];
                   if (f) {
-                    handleImport(f);
+                    handleValidate(f);
                     e.target.value = "";
                   }
                 }}
@@ -231,7 +241,7 @@ export default function ContractorsPage() {
                   <Button
                     variant="outline"
                     onClick={() => importFileRef.current?.click()}
-                    loading={importLoading}
+                    loading={validateLoading}
                     className="shadow-sm"
                   >
                     <Upload className="w-4 h-4 mr-2" />
@@ -509,6 +519,14 @@ export default function ContractorsPage() {
             </div>
           </form>
         </Dialog>
+        <ImportPreviewModal
+          isOpen={!!validationData}
+          onClose={() => setValidationData(null)}
+          data={validationData}
+          onConfirm={() => pendingFile && handleImport(pendingFile)}
+          isLoading={importLoading}
+          title="Contractors Import Preview"
+        />
       </motion.div>
     </div>
   );
