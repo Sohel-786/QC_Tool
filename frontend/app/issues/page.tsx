@@ -638,7 +638,6 @@ export default function IssuesPage() {
                               )}
                             </div>
                           </td>
-                          )}
                         </motion.tr>
                       ))}
                     </tbody>
@@ -1064,6 +1063,7 @@ export default function IssuesPage() {
           categories={categories}
           selectedCategoryId={selectedCategoryId ?? null}
           onSelectItem={(item) => setValue("itemId", item.id)}
+          isLoading={itemsLoading}
         />
       </motion.div>
     </div>

@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Search, Eye, AlertCircle } from "lucide-react";
+import { Search, Eye, AlertCircle, Loader2 } from "lucide-react";
 import { Item, ItemCategory } from "@/types";
 import { FullScreenImageViewer } from "@/components/ui/full-screen-image-viewer";
 import { cn } from "@/lib/utils";
@@ -17,6 +17,7 @@ interface ItemSelectionDialogProps {
   categories: ItemCategory[];
   selectedCategoryId: number | null;
   onSelectItem: (item: Item) => void;
+  isLoading?: boolean;
 }
 
 export function ItemSelectionDialog({
@@ -26,6 +27,7 @@ export function ItemSelectionDialog({
   categories,
   selectedCategoryId,
   onSelectItem,
+  isLoading = false,
 }: ItemSelectionDialogProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
@@ -132,7 +134,14 @@ export function ItemSelectionDialog({
           <div className="flex-1 overflow-y-auto px-6 py-4">
             {" "}
             {/* Enable Y scroll */}
-            {filteredItems.length === 0 ? (
+            {isLoading ? (
+              <div className="flex flex-col items-center justify-center py-20 text-primary-600">
+                <Loader2 className="w-10 h-10 animate-spin mb-3" />
+                <p className="text-secondary-600 font-medium tracking-wide">
+                  Fetching available items...
+                </p>
+              </div>
+            ) : filteredItems.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-secondary-500">
                 <AlertCircle className="w-12 h-12 mb-3 text-secondary-400" />
                 <p className="text-lg font-medium">No items found</p>
