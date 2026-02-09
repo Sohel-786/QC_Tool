@@ -468,6 +468,12 @@ namespace net_backend.Controllers
 
             if (request.Description != null) item.Description = request.Description.Trim();
             if (request.CategoryId.HasValue) item.CategoryId = request.CategoryId;
+
+            // Restrict inactivation when item is in outward
+            if (request.IsActive.HasValue && !request.IsActive.Value && item.Status == ItemStatus.ISSUED)
+            {
+                return BadRequest(new ApiResponse<Item> { Success = false, Message = "Item is in outward. Please inward first, then inactivate." });
+            }
             if (request.IsActive.HasValue) item.IsActive = request.IsActive.Value;
             
             if (!string.IsNullOrEmpty(request.Status) && Enum.TryParse<ItemStatus>(request.Status, true, out var newStatus))

@@ -230,6 +230,9 @@ export default function IssuesPage() {
       queryClient.invalidateQueries({ queryKey: ["items-by-category"] });
       queryClient.invalidateQueries({ queryKey: ["available-items"] });
       queryClient.invalidateQueries({ queryKey: ["items"] });
+      queryClient.invalidateQueries({ queryKey: ["reports"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-metrics"] });
       handleCloseForm();
       toast.success("Outward entry created");
     },
@@ -250,6 +253,7 @@ export default function IssuesPage() {
       data: Partial<IssueForm>;
     }) => {
       const res = await api.patch(`/issues/${id}`, {
+        itemId: data.itemId,
         companyId: data.companyId ?? undefined,
         contractorId: data.contractorId ?? undefined,
         machineId: data.machineId ?? undefined,
@@ -262,6 +266,9 @@ export default function IssuesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["issues"] });
       queryClient.invalidateQueries({ queryKey: ["active-issues"] });
+      queryClient.invalidateQueries({ queryKey: ["reports"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-metrics"] });
       handleCloseForm();
       toast.success("Outward entry updated");
     },
@@ -282,6 +289,9 @@ export default function IssuesPage() {
       queryClient.invalidateQueries({ queryKey: ["issues"] });
       queryClient.invalidateQueries({ queryKey: ["active-issues"] });
       queryClient.invalidateQueries({ queryKey: ["items"] });
+      queryClient.invalidateQueries({ queryKey: ["reports"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-metrics"] });
       setInactiveTarget(null);
       toast.success("Outward marked inactive");
     },
@@ -302,6 +312,9 @@ export default function IssuesPage() {
       queryClient.invalidateQueries({ queryKey: ["issues"] });
       queryClient.invalidateQueries({ queryKey: ["active-issues"] });
       queryClient.invalidateQueries({ queryKey: ["items"] });
+      queryClient.invalidateQueries({ queryKey: ["reports"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-metrics"] });
       toast.success("Outward marked active");
     },
     onError: (e: unknown) => {
@@ -366,9 +379,11 @@ export default function IssuesPage() {
       updateMutation.mutate({
         id: editingIssue.id,
         data: {
+          itemId: data.itemId,
           companyId: data.companyId,
           contractorId: data.contractorId,
           machineId: data.machineId,
+          locationId: data.locationId,
           issuedTo: data.issuedTo,
           remarks: data.remarks,
         },
@@ -869,99 +884,73 @@ export default function IssuesPage() {
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {editingIssue ? (
-                      <>
-                        <div>
-                          <Label className="text-sm font-medium text-secondary-700">
-                            Item Category
-                          </Label>
-                          <p className="mt-1.5 h-10 px-3 py-2 rounded-md border border-secondary-200 bg-secondary-50 text-sm text-secondary-700 flex items-center">
-                            {editingIssue.item?.categoryId != null
-                              ? (categories.find(
-                                (c) => c.id === editingIssue.item?.categoryId,
-                              )?.name ?? "—")
-                              : "—"}
+                    <div>
+                      <Label
+                        htmlFor="outward-category-id"
+                        className="text-sm font-medium text-secondary-700"
+                      >
+                        Item Category{" "}
+                        <span className="text-red-500">*</span>
+                      </Label>
+                      <div className="mt-1.5">
+                        <SearchableSelect
+                          id="outward-category-id"
+                          options={categorySelectOptions}
+                          value={selectedCategoryId ?? ""}
+                          onChange={(v) => {
+                            const n = v ? Number(v) : 0;
+                            setValue("categoryId", n);
+                            setValue("itemId", 0);
+                            if (n !== 0) {
+                              setIsItemDialogOpen(true);
+                            }
+                          }}
+                          disabled={isViewOnly}
+                          placeholder="Select category"
+                          searchPlaceholder="Search categories..."
+                          error={errors.categoryId?.message}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label
+                        htmlFor="outward-item-id"
+                        className="text-sm font-medium text-secondary-700"
+                      >
+                        Item <span className="text-red-500">*</span>
+                      </Label>
+                      <div className="mt-1.5">
+                        <div
+                          onClick={() => {
+                            if (!isViewOnly && selectedCategoryId && selectedCategoryId !== 0) {
+                              setIsItemDialogOpen(true);
+                            }
+                          }}
+                          className={cn(
+                            "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+                            isViewOnly || !selectedCategoryId || selectedCategoryId === 0
+                              ? "cursor-not-allowed opacity-50 bg-secondary-100/50"
+                              : "cursor-pointer hover:bg-secondary-50"
+                          )}
+                        >
+                          <span className={cn(
+                            "truncate",
+                            !selectedItemId && "text-muted-foreground"
+                          )}>
+                            {selectedItemId
+                              ? filterItems.find((i) => i.id === selectedItemId)?.itemName || "Select item"
+                              : selectedCategoryId
+                                ? "Select item"
+                                : "Select category first"}
+                          </span>
+                        </div>
+                        {errors.itemId?.message && (
+                          <p className="mt-1 text-xs text-red-500 font-medium">
+                            {errors.itemId.message}
                           </p>
-                        </div>
-                        <div>
-                          <Label className="text-sm font-medium text-secondary-700">
-                            Item
-                          </Label>
-                          <p className="mt-1.5 h-10 px-3 py-2 rounded-md border border-secondary-200 bg-secondary-50 text-sm text-secondary-700 flex items-center">
-                            {editingIssue.item?.itemName ?? "—"}
-                          </p>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div>
-                          <Label
-                            htmlFor="outward-category-id"
-                            className="text-sm font-medium text-secondary-700"
-                          >
-                            Item Category{" "}
-                            <span className="text-red-500">*</span>
-                          </Label>
-                          <div className="mt-1.5">
-                            <SearchableSelect
-                              id="outward-category-id"
-                              options={categorySelectOptions}
-                              value={selectedCategoryId ?? ""}
-                              onChange={(v) => {
-                                const n = v ? Number(v) : 0;
-                                setValue("categoryId", n);
-                                setValue("itemId", 0);
-                                if (n !== 0) {
-                                  setIsItemDialogOpen(true);
-                                }
-                              }}
-                              placeholder="Select category"
-                              searchPlaceholder="Search categories..."
-                              error={errors.categoryId?.message}
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <Label
-                            htmlFor="outward-item-id"
-                            className="text-sm font-medium text-secondary-700"
-                          >
-                            Item <span className="text-red-500">*</span>
-                          </Label>
-                          <div className="mt-1.5">
-                            <div
-                              onClick={() => {
-                                if (selectedCategoryId && selectedCategoryId !== 0) {
-                                  setIsItemDialogOpen(true);
-                                }
-                              }}
-                              className={cn(
-                                "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
-                                !selectedCategoryId || selectedCategoryId === 0
-                                  ? "cursor-not-allowed opacity-50 bg-secondary-100/50"
-                                  : "cursor-pointer hover:bg-secondary-50"
-                              )}
-                            >
-                              <span className={cn(
-                                "truncate",
-                                !selectedItemId && "text-muted-foreground"
-                              )}>
-                                {selectedItemId
-                                  ? filterItems.find((i) => i.id === selectedItemId)?.itemName || "Select item"
-                                  : selectedCategoryId
-                                    ? "Select item"
-                                    : "Select category first"}
-                              </span>
-                            </div>
-                            {errors.itemId?.message && (
-                              <p className="mt-1 text-xs text-red-500 font-medium">
-                                {errors.itemId.message}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </>
-                    )}
+                        )}
+                      </div>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1116,6 +1105,7 @@ export default function IssuesPage() {
           categories={categories}
           selectedCategoryId={selectedCategoryId ?? null}
           onSelectItem={(item) => setValue("itemId", item.id)}
+          currentItemId={editingIssue?.itemId}
         />
       </motion.div>
     </div>

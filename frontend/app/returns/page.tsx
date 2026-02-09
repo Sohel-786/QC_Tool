@@ -46,6 +46,7 @@ const returnSchema = z
     contractorId: z.number().optional(),
     machineId: z.number().optional(),
     locationId: z.number().optional(),
+    categoryId: z.number().optional(),
   })
   .refine(
     (data) =>
@@ -206,6 +207,7 @@ export default function ReturnsPage() {
       contractorId: undefined,
       machineId: undefined,
       locationId: undefined,
+      categoryId: undefined,
     },
   });
 
@@ -223,6 +225,7 @@ export default function ReturnsPage() {
       : Number(selectedItemId);
   const hasValidIssue = !Number.isNaN(numIssueId) && numIssueId > 0;
   const hasValidMissingItem = !Number.isNaN(numItemId) && numItemId > 0;
+  const watchedCategoryId = watch("categoryId");
   const displayIssue = hasValidIssue
     ? ((prefetchedIssue?.id === numIssueId
       ? prefetchedIssue
@@ -241,16 +244,18 @@ export default function ReturnsPage() {
     [activeIssues],
   );
 
-  const missingItemOptions = useMemo(
-    () =>
-      missingItems.map((item) => ({
-        value: item.id,
-        label: item.serialNumber
-          ? `${item.itemName} (${item.serialNumber})`
-          : item.itemName,
-      })),
-    [missingItems],
-  );
+  const missingItemOptions = useMemo(() => {
+    let result = missingItems;
+    if (watchedCategoryId && watchedCategoryId >= 1) {
+      result = result.filter((i) => i.categoryId === watchedCategoryId);
+    }
+    return result.map((item) => ({
+      value: item.id,
+      label: item.serialNumber
+        ? `${item.itemName} (${item.serialNumber})`
+        : item.itemName,
+    }));
+  }, [missingItems, watchedCategoryId]);
 
   const isMissingItemMode = entryMode === "missing_item";
   const isFromOutwardMode = entryMode === "from_outward";
@@ -367,6 +372,9 @@ export default function ReturnsPage() {
       queryClient.invalidateQueries({ queryKey: ["active-issues"] });
       queryClient.invalidateQueries({ queryKey: ["items", "missing"] });
       queryClient.invalidateQueries({ queryKey: ["items"] });
+      queryClient.invalidateQueries({ queryKey: ["reports"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-metrics"] });
       handleCloseForm();
       toast.success("Inward entry created");
     },
@@ -396,6 +404,9 @@ export default function ReturnsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["returns"] });
+      queryClient.invalidateQueries({ queryKey: ["reports"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-metrics"] });
       handleCloseEditForm();
       toast.success("Inward entry updated");
     },
@@ -417,6 +428,9 @@ export default function ReturnsPage() {
       queryClient.invalidateQueries({ queryKey: ["issues"] });
       queryClient.invalidateQueries({ queryKey: ["active-issues"] });
       queryClient.invalidateQueries({ queryKey: ["items"] });
+      queryClient.invalidateQueries({ queryKey: ["reports"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-metrics"] });
       setInactiveTarget(null);
       toast.success("Inward marked inactive");
     },
@@ -438,6 +452,9 @@ export default function ReturnsPage() {
       queryClient.invalidateQueries({ queryKey: ["issues"] });
       queryClient.invalidateQueries({ queryKey: ["active-issues"] });
       queryClient.invalidateQueries({ queryKey: ["items"] });
+      queryClient.invalidateQueries({ queryKey: ["reports"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-metrics"] });
       toast.success("Inward marked active");
     },
     onError: (e: unknown) => {
@@ -1215,7 +1232,9 @@ export default function ReturnsPage() {
                             id="inward-issue-id"
                             options={outwardOptions}
                             value={hasValidIssue ? numIssueId : ""}
-                            onChange={(v) => setValue("issueId", Number(v))}
+                            onChange={(v: any) =>
+                              setValue("issueId", Number(v))
+                            }
                             placeholder="Select outward entry"
                             searchPlaceholder="Search outward number..."
                             error={errors.issueId?.message}
@@ -1227,29 +1246,6 @@ export default function ReturnsPage() {
 
                     {isMissingItemMode && (
                       <>
-                        <div>
-                          <Label
-                            htmlFor="inward-item-id"
-                            className="text-sm font-medium text-secondary-700"
-                          >
-                            Missing item <span className="text-red-500">*</span>
-                          </Label>
-                          <div className="mt-1.5">
-                            <SearchableSelect
-                              id="inward-item-id"
-                              options={missingItemOptions}
-                              value={hasValidMissingItem ? numItemId : ""}
-                              onChange={(v) => setValue("itemId", Number(v))}
-                              placeholder="Select missing item"
-                              searchPlaceholder="Search item..."
-                              error={errors.itemId?.message}
-                              aria-label="Missing item"
-                            />
-                          </div>
-                          <p className="mt-1 text-xs text-secondary-500">
-                            Items previously inwarded as Missing appear here.
-                          </p>
-                        </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                             <Label
@@ -1281,6 +1277,43 @@ export default function ReturnsPage() {
                                 placeholder="Select company"
                                 searchPlaceholder="Search company..."
                                 aria-label="Company"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <Label
+                              htmlFor="inward-missing-location"
+                              className="text-sm font-medium text-secondary-700"
+                            >
+                              Location{" "}
+                              <span className="text-secondary-400 font-normal">
+                                (optional)
+                              </span>
+                            </Label>
+                            <div className="mt-1.5">
+                              <SearchableSelect
+                                id="inward-missing-location"
+                                options={locationFormOptions}
+                                value={
+                                  watch("locationId") &&
+                                    Number(watch("locationId")) >= 1
+                                    ? Number(watch("locationId"))
+                                    : ""
+                                }
+                                onChange={(v) =>
+                                  setValue(
+                                    "locationId",
+                                    v ? Number(v) : undefined,
+                                  )
+                                }
+                                disabled={!watchedCompanyId}
+                                placeholder={
+                                  watchedCompanyId
+                                    ? "Select location"
+                                    : "Select company first"
+                                }
+                                searchPlaceholder="Search location..."
+                                aria-label="Location"
                               />
                             </div>
                           </div>
@@ -1354,42 +1387,64 @@ export default function ReturnsPage() {
                               />
                             </div>
                           </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                             <Label
-                              htmlFor="inward-missing-location"
+                              htmlFor="inward-category-id"
                               className="text-sm font-medium text-secondary-700"
                             >
-                              Location{" "}
+                              Item Category{" "}
                               <span className="text-secondary-400 font-normal">
                                 (optional)
                               </span>
                             </Label>
                             <div className="mt-1.5">
                               <SearchableSelect
-                                id="inward-missing-location"
-                                options={locationFormOptions}
-                                value={
-                                  watch("locationId") &&
-                                    Number(watch("locationId")) >= 1
-                                    ? Number(watch("locationId"))
-                                    : ""
-                                }
-                                onChange={(v) =>
+                                id="inward-category-id"
+                                options={filterOptions.category}
+                                value={watchedCategoryId ?? ""}
+                                onChange={(v) => {
                                   setValue(
-                                    "locationId",
+                                    "categoryId",
                                     v ? Number(v) : undefined,
-                                  )
-                                }
-                                disabled={!watchedCompanyId}
-                                placeholder={
-                                  watchedCompanyId
-                                    ? "Select location"
-                                    : "Select company first"
-                                }
-                                searchPlaceholder="Search location..."
-                                aria-label="Location"
+                                  );
+                                  setValue("itemId", 0);
+                                }}
+                                placeholder="Select category"
+                                searchPlaceholder="Search categories..."
+                                aria-label="Item Category"
                               />
                             </div>
+                          </div>
+                          <div>
+                            <Label
+                              htmlFor="inward-item-id"
+                              className="text-sm font-medium text-secondary-700"
+                            >
+                              Missing item{" "}
+                              <span className="text-red-500">*</span>
+                            </Label>
+                            <div className="mt-1.5">
+                              <SearchableSelect
+                                id="inward-item-id"
+                                options={missingItemOptions}
+                                value={hasValidMissingItem ? numItemId : ""}
+                                onChange={(v) => setValue("itemId", Number(v))}
+                                placeholder={
+                                  watchedCategoryId
+                                    ? "Select missing item"
+                                    : "Select category or search all..."
+                                }
+                                searchPlaceholder="Search item..."
+                                error={errors.itemId?.message}
+                                aria-label="Missing item"
+                              />
+                            </div>
+                            <p className="mt-1 text-xs text-secondary-500">
+                              Items previously inwarded as Missing appear here.
+                            </p>
                           </div>
                         </div>
                       </>
@@ -1465,16 +1520,23 @@ export default function ReturnsPage() {
                           Outward details
                         </h4>
                         <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-secondary-700">
-                          <span>Item</span>
-                          <span>{displayIssue.item?.itemName ?? "—"}</span>
                           <span>Company</span>
                           <span>{displayIssue.company?.name ?? "—"}</span>
+                          <span>Location</span>
+                          <span>{displayIssue.location?.name ?? "—"}</span>
                           <span>Contractor</span>
                           <span>{displayIssue.contractor?.name ?? "—"}</span>
                           <span>Machine</span>
                           <span>{displayIssue.machine?.name ?? "—"}</span>
-                          <span>Location</span>
-                          <span>{displayIssue.location?.name ?? "—"}</span>
+                          <span>Category</span>
+                          <span>
+                            {filterOptions.category.find(
+                              (c: any) =>
+                                c.value === displayIssue.item?.categoryId,
+                            )?.label ?? "—"}
+                          </span>
+                          <span>Item</span>
+                          <span>{displayIssue.item?.itemName ?? "—"}</span>
                           <span>Operator</span>
                           <span>{displayIssue.issuedTo ?? "—"}</span>
                         </div>
@@ -1489,14 +1551,16 @@ export default function ReturnsPage() {
                         <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-secondary-700">
                           <span>Inward No</span>
                           <span>{nextInwardCode ?? "—"}</span>
-                          <span>Item</span>
-                          <span>{displayMissingItem.itemName}</span>
-                          <span>Serial</span>
-                          <span>{displayMissingItem.serialNumber ?? "—"}</span>
                           <span>Company</span>
                           <span>
                             {filterOptions.company.find(
                               (c: any) => c.value === watch("companyId"),
+                            )?.label ?? "—"}
+                          </span>
+                          <span>Location</span>
+                          <span>
+                            {filterOptions.location.find(
+                              (l: any) => l.value === watch("locationId"),
                             )?.label ?? "—"}
                           </span>
                           <span>Contractor</span>
@@ -1511,12 +1575,16 @@ export default function ReturnsPage() {
                               (m: any) => m.value === watch("machineId"),
                             )?.label ?? "—"}
                           </span>
-                          <span>Location</span>
+                          <span>Category</span>
                           <span>
-                            {filterOptions.location.find(
-                              (l: any) => l.value === watch("locationId"),
+                            {filterOptions.category.find(
+                              (c: any) => c.value === watch("categoryId"),
                             )?.label ?? "—"}
                           </span>
+                          <span>Item</span>
+                          <span>{displayMissingItem.itemName}</span>
+                          <span>Serial</span>
+                          <span>{displayMissingItem.serialNumber ?? "—"}</span>
                         </div>
                       </div>
                     )}

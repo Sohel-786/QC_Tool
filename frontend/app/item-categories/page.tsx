@@ -85,6 +85,7 @@ export default function ItemCategoriesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["item-categories"] });
+      queryClient.invalidateQueries({ queryKey: ["items-by-category"] });
       reset();
       toast.success("Item category created successfully");
     },
@@ -103,6 +104,7 @@ export default function ItemCategoriesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["item-categories"] });
+      queryClient.invalidateQueries({ queryKey: ["items-by-category"] });
       handleCloseForm();
       toast.success("Item category updated successfully");
     },
@@ -121,6 +123,7 @@ export default function ItemCategoriesPage() {
     },
     onSuccess: (_, { isActive }) => {
       queryClient.invalidateQueries({ queryKey: ["item-categories"] });
+      queryClient.invalidateQueries({ queryKey: ["items-by-category"] });
       setInactiveTarget(null);
       toast.success(
         isActive ? "Category marked active." : "Category marked inactive.",

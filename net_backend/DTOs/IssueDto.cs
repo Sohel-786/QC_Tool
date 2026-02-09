@@ -14,6 +14,8 @@ namespace net_backend.DTOs
 
     public class UpdateIssueRequest
     {
+        public int? ItemId { get; set; }
+        public int? CategoryId { get; set; }
         public string? IssuedTo { get; set; }
         public string? Remarks { get; set; }
         public int? CompanyId { get; set; }

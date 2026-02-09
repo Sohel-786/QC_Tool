@@ -32,6 +32,8 @@ import { useCurrentUserPermissions } from "@/hooks/use-settings";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { toast } from "react-hot-toast";
 
+import { Autocomplete } from "@/components/ui/autocomplete";
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 const itemSchema = z.object({
@@ -102,9 +104,24 @@ export default function ItemsPage() {
     resolver: zodResolver(itemSchema),
   });
 
+
+
   const watchedItemName = watch("itemName");
   const watchedSerialNumber = watch("serialNumber");
   const watchedCategoryId = watch("categoryId");
+
+  // Suggestion logic: Filter unique item names based on selected category
+  const filteredItemNames = useMemo(() => {
+    if (!watchedCategoryId) return [];
+
+    // Get items from this category
+    const categoryItems = items.filter(i => i.categoryId === watchedCategoryId);
+
+    // Extract unique names
+    const names = new Set(categoryItems.map(i => i.itemName));
+    return Array.from(names).sort();
+  }, [items, watchedCategoryId]);
+
   const hasRequiredFields =
     typeof watchedItemName === "string" &&
     watchedItemName.trim().length > 0 &&
@@ -113,6 +130,7 @@ export default function ItemsPage() {
     typeof watchedCategoryId === "number" &&
     !Number.isNaN(watchedCategoryId) &&
     watchedCategoryId >= 1;
+
   const hasRequiredImage = editingItem
     ? !imageRemovedByUser || !!imageFile
     : !!imageFile;
@@ -120,7 +138,8 @@ export default function ItemsPage() {
   useEffect(() => {
     if (!isFormOpen) return;
     const t = setTimeout(() => {
-      document.getElementById("item-name-input")?.focus();
+      // Focus Category first as per new flow
+      document.getElementById("categoryId")?.focus();
     }, 100);
     return () => clearTimeout(t);
   }, [isFormOpen]);
@@ -134,6 +153,8 @@ export default function ItemsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["items"] });
+      queryClient.invalidateQueries({ queryKey: ["items-by-category"] });
+      queryClient.invalidateQueries({ queryKey: ["available-items"] });
       reset();
       toast.success("Item created successfully");
     },
@@ -154,6 +175,8 @@ export default function ItemsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["items"] });
+      queryClient.invalidateQueries({ queryKey: ["items-by-category"] });
+      queryClient.invalidateQueries({ queryKey: ["available-items"] });
       handleCloseForm();
       toast.success("Item updated successfully");
     },
@@ -176,6 +199,8 @@ export default function ItemsPage() {
     },
     onSuccess: (_, { isActive }) => {
       queryClient.invalidateQueries({ queryKey: ["items"] });
+      queryClient.invalidateQueries({ queryKey: ["items-by-category"] });
+      queryClient.invalidateQueries({ queryKey: ["available-items"] });
       setInactiveTarget(null);
       toast.success(isActive ? "Item marked active." : "Item marked inactive.");
     },
@@ -281,6 +306,11 @@ export default function ItemsPage() {
       return;
     }
 
+    if (editingItem && data.isActive === false && editingItem.status === ItemStatus.ISSUED) {
+      toast.error("Item is in outward. Please inward first, then inactivate.");
+      return;
+    }
+
     const fd = new FormData();
     fd.append("itemName", itemName);
     fd.append("serialNumber", serialNumber);
@@ -300,6 +330,11 @@ export default function ItemsPage() {
 
   const handleMarkInactiveConfirm = () => {
     if (!inactiveTarget) return;
+    if (inactiveTarget.status === ItemStatus.ISSUED) {
+      toast.error("Item is in outward. Please inward first, then inactivate.");
+      setInactiveTarget(null);
+      return;
+    }
     toggleActiveMutation.mutate({ id: inactiveTarget.id, isActive: false });
   };
 
@@ -638,57 +673,6 @@ export default function ItemsPage() {
                 <div className="space-y-5">
                   <div>
                     <Label
-                      htmlFor="item-name-input"
-                      className="text-sm font-medium text-secondary-700"
-                    >
-                      Item Master Name <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="item-name-input"
-                      {...register("itemName")}
-                      placeholder="e.g. Calibration device"
-                      className="mt-1.5 h-10 border-secondary-300 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
-                      aria-required="true"
-                      aria-invalid={!!errors.itemName}
-                      aria-describedby={
-                        errors.itemName ? "item-name-error" : "item-form-hint"
-                      }
-                    />
-                    {errors.itemName && (
-                      <p
-                        id="item-name-error"
-                        className="text-sm text-red-600 mt-1"
-                        role="alert"
-                      >
-                        {errors.itemName.message}
-                      </p>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <Label
-                        htmlFor="serialNumber"
-                        className="text-sm font-medium text-secondary-700"
-                      >
-                        Serial Number <span className="text-red-500">*</span>
-                      </Label>
-                      <Input
-                        id="serialNumber"
-                        {...register("serialNumber")}
-                        placeholder="e.g. SN-12345"
-                        className="mt-1.5 h-10 border-secondary-300 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
-                        aria-required="true"
-                        aria-invalid={!!errors.serialNumber}
-                      />
-                      {errors.serialNumber && (
-                        <p className="text-sm text-red-600 mt-1" role="alert">
-                          {errors.serialNumber.message}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div>
-                    <Label
                       htmlFor="categoryId"
                       className="text-sm font-medium text-secondary-700"
                     >
@@ -714,6 +698,60 @@ export default function ItemsPage() {
                         {errors.categoryId.message}
                       </p>
                     )}
+                  </div>
+
+                  <div>
+                    <Label
+                      htmlFor="item-name-input"
+                      className="text-sm font-medium text-secondary-700"
+                    >
+                      Item Master Name <span className="text-red-500">*</span>
+                    </Label>
+                    <Autocomplete
+                      id="item-name-input"
+                      value={watchedItemName || ""}
+                      onChange={(val) => setValue("itemName", val, { shouldValidate: true })}
+                      options={filteredItemNames}
+                      placeholder="e.g. Calibration device"
+                      className="mt-1.5"
+                      aria-invalid={!!errors.itemName}
+                      aria-describedby={
+                        errors.itemName ? "item-name-error" : "item-form-hint"
+                      }
+                    />
+                    {errors.itemName && (
+                      <p
+                        id="item-name-error"
+                        className="text-sm text-red-600 mt-1"
+                        role="alert"
+                      >
+                        {errors.itemName.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <Label
+                        htmlFor="serialNumber"
+                        className="text-sm font-medium text-secondary-700"
+                      >
+                        Serial Number <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="serialNumber"
+                        {...register("serialNumber")}
+                        placeholder="e.g. SN-12345"
+                        className="mt-1.5 h-10 border-secondary-300 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
+                        aria-required="true"
+                        aria-invalid={!!errors.serialNumber}
+                      />
+                      {errors.serialNumber && (
+                        <p className="text-sm text-red-600 mt-1" role="alert">
+                          {errors.serialNumber.message}
+                        </p>
+                      )}
+                    </div>
                   </div>
 
                   <div>

@@ -18,6 +18,7 @@ interface ItemSelectionDialogProps {
   selectedCategoryId: number | null;
   onSelectItem: (item: Item) => void;
   isLoading?: boolean;
+  currentItemId?: number;
 }
 
 export function ItemSelectionDialog({
@@ -28,6 +29,7 @@ export function ItemSelectionDialog({
   selectedCategoryId,
   onSelectItem,
   isLoading = false,
+  currentItemId,
 }: ItemSelectionDialogProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
@@ -57,8 +59,9 @@ export function ItemSelectionDialog({
 
   const handleSelectItem = (item: Item) => {
     const isAvailable = item.status === "AVAILABLE";
+    const isCurrent = currentItemId && item.id === currentItemId;
     const hasImage = !!(item.latestImage || item.image);
-    if (isAvailable && hasImage) {
+    if ((isAvailable || isCurrent) && hasImage) {
       onSelectItem(item);
       onClose();
       setSearchQuery(""); // Reset search on close
@@ -175,8 +178,9 @@ export function ItemSelectionDialog({
                 <tbody className="divide-y divide-secondary-200">
                   {filteredItems.map((item) => {
                     const isAvailable = item.status === "AVAILABLE";
+                    const isCurrent = currentItemId && item.id === currentItemId;
                     const hasImage = !!(item.latestImage || item.image);
-                    const isSelectable = isAvailable && hasImage;
+                    const isSelectable = (isAvailable || isCurrent) && hasImage;
 
                     const baseImage = item.latestImage || item.image;
                     const imageUrl = baseImage

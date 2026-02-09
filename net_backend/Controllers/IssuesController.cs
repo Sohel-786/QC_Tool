@@ -218,9 +218,34 @@ namespace net_backend.Controllers
         {
             if (!await CheckPermission("editOutward")) return Forbidden();
 
-            var issue = await _context.Issues.FindAsync(id);
+            var issue = await _context.Issues.Include(i => i.Item).FirstOrDefaultAsync(i => i.Id == id);
             if (issue == null) return NotFound();
             if (issue.IsReturned) return BadRequest(new ApiResponse<Issue> { Success = false, Message = "Cannot edit returned issue" });
+
+            // Handle Item Change
+            if (request.ItemId.HasValue && request.ItemId.Value != issue.ItemId)
+            {
+                var newItem = await _context.Items.FindAsync(request.ItemId.Value);
+                if (newItem == null) return NotFound(new ApiResponse<Issue> { Success = false, Message = "New item not found" });
+                if (newItem.Status != ItemStatus.AVAILABLE) return BadRequest(new ApiResponse<Issue> { Success = false, Message = "New item is not available" });
+
+                // Image Validation for new item
+                var hasReturnImage = await _context.Returns.AnyAsync(r => r.ItemId == newItem.Id && r.IsActive && !string.IsNullOrEmpty(r.ReturnImage));
+                if (string.IsNullOrEmpty(newItem.Image) && !hasReturnImage)
+                {
+                    return BadRequest(new ApiResponse<Issue> { Success = false, Message = "The selected item does not have an image. Items without images cannot be issued." });
+                }
+
+                // If everything is fine, switch items
+                var oldItem = issue.Item;
+                if (oldItem != null)
+                {
+                    oldItem.Status = ItemStatus.AVAILABLE;
+                }
+
+                issue.ItemId = request.ItemId.Value;
+                newItem.Status = ItemStatus.ISSUED;
+            }
 
             if (request.IssuedTo != null) issue.IssuedTo = request.IssuedTo;
             if (request.Remarks != null) issue.Remarks = request.Remarks;
