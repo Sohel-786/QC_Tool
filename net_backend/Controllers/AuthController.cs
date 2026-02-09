@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -51,7 +52,7 @@ namespace net_backend.Controllers
                 HttpOnly = true,
                 Secure = false, // Set to true in production
                 SameSite = SameSiteMode.Lax,
-                Expires = DateTime.Now.AddDays(7),
+                Expires = DateTime.UtcNow.AddDays(7),
                 Path = "/"
             };
 
@@ -79,11 +80,36 @@ namespace net_backend.Controllers
             return Ok(new { success = true, message = "Logged out successfully" });
         }
 
+        [Authorize]
         [HttpPost("validate")]
-        public IActionResult Validate()
+        public async Task<IActionResult> Validate()
         {
-            // If the code reaches here, it means the token is valid (handled by auth middleware)
-            return Ok(new { success = true, valid = true });
+            var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdStr) || !int.TryParse(userIdStr, out int userId))
+            {
+                return Unauthorized(new { success = false, message = "Invalid token claims" });
+            }
+
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null || !user.IsActive)
+            {
+                return Unauthorized(new { success = false, message = "User not found or inactive" });
+            }
+
+            return Ok(new
+            {
+                success = true,
+                valid = true,
+                user = new UserDto
+                {
+                    Id = user.Id,
+                    Username = user.Username,
+                    FirstName = user.FirstName,
+                    LastName = user.LastName,
+                    Role = user.Role.ToString(),
+                    Avatar = user.Avatar
+                }
+            });
         }
 
         private string GenerateJwtToken(User user)
@@ -97,7 +123,7 @@ namespace net_backend.Controllers
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-            var expires = DateTime.Now.AddDays(7);
+            var expires = DateTime.UtcNow.AddDays(7);
 
             var token = new JwtSecurityToken(
                 _configuration["Jwt:Issuer"],

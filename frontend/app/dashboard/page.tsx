@@ -30,40 +30,12 @@ type TableView = "available" | "total" | "missing" | null;
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
   const [tableView, setTableView] = useState<TableView>(null);
   const [search, setSearch] = useState("");
   const [categoryId, setCategoryId] = useState<number | "">("");
   const [isExporting, setIsExporting] = useState(false);
 
   const debouncedSearch = useDebouncedValue(search, 400);
-
-  useEffect(() => {
-    // First check localStorage for optimistic loading
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        setUser(parsedUser);
-        setLoading(false);
-      } catch {
-        router.push("/login");
-        return;
-      }
-    }
-
-    // Validate in background
-    api
-      .post("/auth/validate")
-      .then(() => {
-        setLoading(false);
-      })
-      .catch(() => {
-        localStorage.removeItem("user");
-        router.push("/login");
-      });
-  }, [router]);
 
   const { data: metrics } = useQuery<DashboardMetrics>({
     queryKey: ["dashboard-metrics"],
@@ -185,17 +157,6 @@ export default function DashboardPage() {
       setIsExporting(false);
     }
   };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-secondary-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-          <p className="mt-4 text-secondary-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
 
   const handleCardClick = (title: string) => {
     if (title === "Total Items") setTableView("total");
@@ -472,10 +433,10 @@ export default function DashboardPage() {
                             <td className="py-3 px-4">
                               <span
                                 className={`px-2 py-1 rounded-full text-xs font-medium ${item.status === "AVAILABLE"
-                                    ? "bg-green-100 text-green-700 border border-green-200"
-                                    : item.status === "MISSING"
-                                      ? "bg-red-100 text-red-700 border border-red-200"
-                                      : "bg-secondary-100 text-secondary-700 border border-secondary-200"
+                                  ? "bg-green-100 text-green-700 border border-green-200"
+                                  : item.status === "MISSING"
+                                    ? "bg-red-100 text-red-700 border border-red-200"
+                                    : "bg-secondary-100 text-secondary-700 border border-secondary-200"
                                   }`}
                               >
                                 {item.status}

@@ -176,8 +176,21 @@ export function ImportPreviewModal({
                                 </div>
                             ) : (
                                 <div className="flex flex-col items-center justify-center py-20 text-secondary-400">
-                                    <Info className="w-12 h-12 mb-3 opacity-20" />
-                                    <p className="text-lg">No records found in this category</p>
+                                    {data.valid.length + data.duplicates.length + data.alreadyExists.length + data.invalid.length === 0 ? (
+                                        <div className="text-center px-6">
+                                            <XCircle className="w-16 h-16 mb-4 mx-auto text-red-400 opacity-50" />
+                                            <h3 className="text-xl font-bold text-red-600 mb-2">Invalid Excel File</h3>
+                                            <p className="text-secondary-600 max-w-md">
+                                                The imported file doesn't seem to be a valid excel file or is missing required columns.
+                                                Please check the file structure and try again.
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <Info className="w-12 h-12 mb-3 opacity-20" />
+                                            <p className="text-lg">No records found in this category</p>
+                                        </>
+                                    )}
                                 </div>
                             )}
                         </motion.div>

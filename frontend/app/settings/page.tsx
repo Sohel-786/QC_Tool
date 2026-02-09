@@ -2,6 +2,9 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import api from "@/lib/api";
+import { toast } from "react-hot-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Settings,
@@ -12,6 +15,8 @@ import {
   Save,
   Loader2,
   X,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 import { Role } from "@/types";
 import { useCurrentUser } from "@/hooks/use-current-user";
@@ -67,14 +72,32 @@ const userSchema = z.object({
 type UserForm = z.infer<typeof userSchema>;
 
 const permissionLabels: Record<
-  keyof Omit<RolePermission, "id" | "role" | "createdAt" | "updatedAt" | "navigationLayout" | "manageUsers">,
+  keyof Omit<
+    RolePermission,
+    | "id"
+    | "role"
+    | "createdAt"
+    | "updatedAt"
+    | "navigationLayout"
+    | "manageUsers"
+    | "viewMaster"
+  >,
   string
 > = {
   viewDashboard: "View Dashboard",
-  viewMaster: "View Master Entry",
+  viewCompanyMaster: "Company Master View",
+  viewLocationMaster: "Location Master View",
+  viewContractorMaster: "Contractor Master View",
+  viewStatusMaster: "Status Master View",
+  viewMachineMaster: "Machine Master View",
+  viewItemMaster: "Item Master View",
+  viewItemCategoryMaster: "Item Category Master View",
   viewOutward: "View Outward",
   viewInward: "View Inward",
   viewReports: "View Reports",
+  viewActiveIssuesReport: "Active Issues Report View",
+  viewMissingItemsReport: "Missing Items View",
+  viewItemHistoryLedgerReport: "Item History Ledger Report View",
   importExportMaster: "Import/Export Master",
   addOutward: "Add Outward",
   editOutward: "Edit Outward",
@@ -100,7 +123,7 @@ function permissionsFlagsEqual(
     const pb = b.find((p) => p.role === pa.role);
     if (!pb) return false;
     for (const key of permissionKeys) {
-      if (pa[key] !== pb[key]) return false;
+      if ((pa as any)[key] !== (pb as any)[key]) return false;
     }
     if (pa.navigationLayout !== pb.navigationLayout) return false;
   }
@@ -130,6 +153,25 @@ export default function SettingsPage() {
   const [localPermissions, setLocalPermissions] = useState<RolePermission[]>(
     [],
   );
+
+  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
+
+  const resetSystem = useMutation({
+    mutationFn: async () => {
+      const res = await api.post("/maintenance/reset-system");
+      return res.data;
+    },
+    onSuccess: (data: any) => {
+      toast.success(data.message || "System reset successfully");
+      setIsResetDialogOpen(false);
+      setTimeout(() => {
+        window.location.href = "/login";
+      }, 1500);
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || "Failed to reset system");
+    },
+  });
 
   // Users
   const { data: users } = useUsers();
@@ -372,7 +414,7 @@ export default function SettingsPage() {
   const handlePermissionChange = (
     role: string,
     key: keyof RolePermission,
-    value: boolean | string,
+    value: any,
   ) => {
     setLocalPermissions((prev) =>
       prev.map((p) => (p.role === role ? { ...p, [key]: value } : p)),
@@ -645,8 +687,98 @@ export default function SettingsPage() {
                     </div>
                   </CardContent>
                 </Card>
+
+                {currentUser?.role === Role.QC_ADMIN && (
+                  <Card className="border-red-200 shadow-sm overflow-hidden mt-6">
+                    <CardHeader className="bg-red-50 border-b border-red-100">
+                      <div className="flex items-center gap-2 text-red-700">
+                        <AlertTriangle className="w-5 h-5" />
+                        <CardTitle className="text-lg">Danger Zone</CardTitle>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-6">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div>
+                          <h4 className="text-base font-semibold text-secondary-900">
+                            System Reset
+                          </h4>
+                          <p className="text-sm text-secondary-600 mt-1 max-w-xl">
+                            Permanently delete all master entries, transactional
+                            data (issues/returns), and user accounts. Only your
+                            admin account and core settings will be preserved.
+                            <br />
+                            <span className="font-semibold text-red-600">
+                              This action cannot be undone.
+                            </span>
+                          </p>
+                        </div>
+                        <Button
+                          variant="destructive"
+                          className="gap-2 whitespace-nowrap"
+                          onClick={() => setIsResetDialogOpen(true)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Reset System
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
               </motion.div>
             )}
+
+            <Dialog
+              isOpen={isResetDialogOpen}
+              onClose={() => setIsResetDialogOpen(false)}
+              title="Full System Reset?"
+              size="sm"
+            >
+              <div className="space-y-4">
+                <div className="bg-red-50 p-4 rounded-lg flex items-start gap-3 border border-red-100">
+                  <AlertTriangle className="w-6 h-6 text-red-600 shrink-0 mt-0.5" />
+                  <div className="text-sm text-red-800">
+                    <p className="font-bold mb-1">Warning: Critical Action</p>
+                    <ul className="list-disc list-inside space-y-1 opacity-90">
+                      <li>All Master Entries will be deleted</li>
+                      <li>All Outward/Inward data will be wiped</li>
+                      <li>All stored images will be removed</li>
+                      <li>All users except you will be removed</li>
+                    </ul>
+                  </div>
+                </div>
+                <p className="text-secondary-600 text-sm italic">
+                  Initial system defaults (Standard Statuses, Categories, etc.)
+                  will be re-seeded for a fresh start.
+                </p>
+                <div className="flex gap-3 pt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsResetDialogOpen(false)}
+                    className="flex-1"
+                    disabled={resetSystem.isPending}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={() => resetSystem.mutate()}
+                    className="flex-1"
+                    disabled={resetSystem.isPending}
+                  >
+                    {resetSystem.isPending ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Resetting...
+                      </>
+                    ) : (
+                      "Yes, Reset Everything"
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </Dialog>
 
             {activeTab === "access" && (
               <motion.div
@@ -703,7 +835,7 @@ export default function SettingsPage() {
                                     const perm = localPermissions.find(
                                       (p) => p.role === role,
                                     );
-                                    const value = perm?.[key] ?? false;
+                                    const value = (perm as any)?.[key] ?? false;
                                     return (
                                       <td
                                         key={role}
@@ -712,6 +844,10 @@ export default function SettingsPage() {
                                         <input
                                           type="checkbox"
                                           checked={!!value}
+                                          disabled={
+                                            role === "QC_ADMIN" &&
+                                            key === "accessSettings"
+                                          }
                                           onChange={(e) =>
                                             handlePermissionChange(
                                               role,
@@ -719,7 +855,11 @@ export default function SettingsPage() {
                                               e.target.checked,
                                             )
                                           }
-                                          className="w-4 h-4 rounded border-secondary-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
+                                          className={`w-4 h-4 rounded border-secondary-300 text-primary-600 focus:ring-primary-500 cursor-pointer ${role === "QC_ADMIN" &&
+                                            key === "accessSettings"
+                                            ? "opacity-50 cursor-not-allowed"
+                                            : ""
+                                            }`}
                                         />
                                       </td>
                                     );
@@ -731,30 +871,42 @@ export default function SettingsPage() {
                               <td className="py-4 px-4 font-bold text-primary-900">
                                 Navigation Mode
                               </td>
-                              {["QC_USER", "QC_MANAGER", "QC_ADMIN"].map((role) => {
-                                const perm = localPermissions.find((p) => p.role === role);
-                                const value = perm?.navigationLayout ?? "VERTICAL";
-                                return (
-                                  <td key={role} className="py-4 px-4 text-center">
-                                    <div className="flex flex-col items-center gap-2">
-                                      <select
-                                        value={value}
-                                        onChange={(e) =>
-                                          handlePermissionChange(
-                                            role,
-                                            "navigationLayout",
-                                            e.target.value,
-                                          )
-                                        }
-                                        className="text-xs rounded border-secondary-300 py-1 px-2 focus:ring-primary-500 focus:border-primary-500"
-                                      >
-                                        <option value="VERTICAL">Vertical Sidebar</option>
-                                        <option value="HORIZONTAL">Horizontal Header</option>
-                                      </select>
-                                    </div>
-                                  </td>
-                                );
-                              })}
+                              {["QC_USER", "QC_MANAGER", "QC_ADMIN"].map(
+                                (role) => {
+                                  const perm = localPermissions.find(
+                                    (p) => p.role === role,
+                                  );
+                                  const value =
+                                    perm?.navigationLayout ?? "VERTICAL";
+                                  return (
+                                    <td
+                                      key={role}
+                                      className="py-4 px-4 text-center"
+                                    >
+                                      <div className="flex flex-col items-center gap-2">
+                                        <select
+                                          value={value}
+                                          onChange={(e) =>
+                                            handlePermissionChange(
+                                              role,
+                                              "navigationLayout",
+                                              e.target.value,
+                                            )
+                                          }
+                                          className="text-xs rounded border-secondary-300 py-1 px-2 focus:ring-primary-500 focus:border-primary-500"
+                                        >
+                                          <option value="VERTICAL">
+                                            Vertical Sidebar
+                                          </option>
+                                          <option value="HORIZONTAL">
+                                            Horizontal Header
+                                          </option>
+                                        </select>
+                                      </div>
+                                    </td>
+                                  );
+                                },
+                              )}
                             </tr>
                           </tbody>
                         </table>

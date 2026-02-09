@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using net_backend.Data;
 
@@ -11,9 +12,10 @@ using net_backend.Data;
 namespace net_backend.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260209060356_AddGranularMasterPermissions")]
+    partial class AddGranularMasterPermissions
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -522,9 +524,6 @@ namespace net_backend.Migrations
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<bool>("ViewActiveIssuesReport")
-                        .HasColumnType("bit");
-
                     b.Property<bool>("ViewCompanyMaster")
                         .HasColumnType("bit");
 
@@ -540,9 +539,6 @@ namespace net_backend.Migrations
                     b.Property<bool>("ViewItemCategoryMaster")
                         .HasColumnType("bit");
 
-                    b.Property<bool>("ViewItemHistoryLedgerReport")
-                        .HasColumnType("bit");
-
                     b.Property<bool>("ViewItemMaster")
                         .HasColumnType("bit");
 
@@ -553,9 +549,6 @@ namespace net_backend.Migrations
                         .HasColumnType("bit");
 
                     b.Property<bool>("ViewMaster")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("ViewMissingItemsReport")
                         .HasColumnType("bit");
 
                     b.Property<bool>("ViewOutward")

@@ -38,7 +38,7 @@ const navigationSections = {
       icon: Building2,
       gradient: "from-violet-500 to-purple-600",
       hoverColor: "text-violet-600",
-      permission: "viewMaster",
+      permission: "viewCompanyMaster",
     },
     {
       href: "/locations",
@@ -46,7 +46,7 @@ const navigationSections = {
       icon: MapPin,
       gradient: "from-emerald-500 to-teal-600",
       hoverColor: "text-emerald-600",
-      permission: "viewMaster",
+      permission: "viewLocationMaster",
     },
     {
       href: "/contractors",
@@ -54,7 +54,7 @@ const navigationSections = {
       icon: Briefcase,
       gradient: "from-orange-500 to-amber-600",
       hoverColor: "text-orange-600",
-      permission: "viewMaster",
+      permission: "viewContractorMaster",
     },
     {
       href: "/statuses",
@@ -62,7 +62,7 @@ const navigationSections = {
       icon: Tag,
       gradient: "from-pink-500 to-rose-600",
       hoverColor: "text-pink-600",
-      permission: "viewMaster",
+      permission: "viewStatusMaster",
     },
     {
       href: "/machines",
@@ -70,7 +70,7 @@ const navigationSections = {
       icon: Cog,
       gradient: "from-cyan-500 to-blue-600",
       hoverColor: "text-cyan-600",
-      permission: "viewMaster",
+      permission: "viewMachineMaster",
     },
     {
       href: "/items",
@@ -78,7 +78,7 @@ const navigationSections = {
       icon: Package,
       gradient: "from-indigo-500 to-blue-600",
       hoverColor: "text-indigo-600",
-      permission: "viewMaster",
+      permission: "viewItemMaster",
     },
     {
       href: "/item-categories",
@@ -86,7 +86,7 @@ const navigationSections = {
       icon: Layers,
       gradient: "from-teal-500 to-emerald-600",
       hoverColor: "text-teal-600",
-      permission: "viewMaster",
+      permission: "viewItemCategoryMaster",
     },
   ],
   transactionEntries: [
@@ -135,21 +135,11 @@ export function HorizontalNav({ isExpanded }: HorizontalNavProps) {
   const pathname = usePathname();
   const { data: permissions } = useCurrentUserPermissions();
 
-  const filterItems = (items: typeof navigationSections.dashboard) => {
+  const filterItems = (items: any[]) => {
     return items.filter((item) => {
-      if (item.permission === "viewDashboard")
-        return permissions?.viewDashboard ?? false;
-      if (item.permission === "viewMaster")
-        return permissions?.viewMaster ?? false;
-      if (item.permission === "viewOutward")
-        return permissions?.viewOutward ?? false;
-      if (item.permission === "viewInward")
-        return permissions?.viewInward ?? false;
-      if (item.permission === "viewReports")
-        return permissions?.viewReports ?? false;
-      if (item.permission === "accessSettings")
-        return permissions?.accessSettings ?? false;
-      return false;
+      if (!permissions) return false;
+      const key = item.permission as keyof typeof permissions;
+      return !!permissions[key];
     });
   };
 

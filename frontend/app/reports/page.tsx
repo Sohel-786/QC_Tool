@@ -30,6 +30,7 @@ import type { MultiSelectSearchOption } from "@/components/ui/multi-select-searc
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { buildFilterParams, hasActiveFilters } from "@/lib/filters";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { useCurrentUserPermissions } from "@/hooks/use-settings";
 import { cn } from "@/lib/utils";
 
 type ReportType = "issued" | "missing" | "history";
@@ -74,6 +75,7 @@ interface LedgerItemPayload {
 }
 
 function ReportsContent() {
+  const { data: permissions } = useCurrentUserPermissions();
   const searchParams = useSearchParams();
   const [activeReport, setActiveReport] = useState<ReportType>("issued");
   const [page, setPage] = useState(1);
@@ -127,12 +129,28 @@ function ReportsContent() {
 
   useEffect(() => {
     const section = searchParams.get("section");
-    if (section === "missing") setActiveReport("missing");
-    else if (section === "active-issues" || section === "issued")
+    if (section === "missing" && permissions?.viewMissingItemsReport) {
+      setActiveReport("missing");
+    } else if (
+      (section === "active-issues" || section === "issued") &&
+      permissions?.viewActiveIssuesReport
+    ) {
       setActiveReport("issued");
-    else if (section === "history" || section === "ledger")
+    } else if (
+      (section === "history" || section === "ledger") &&
+      permissions?.viewItemHistoryLedgerReport
+    ) {
       setActiveReport("history");
-  }, [searchParams]);
+    } else {
+      // Default to first available permission
+      if (permissions) {
+        if (permissions.viewActiveIssuesReport) setActiveReport("issued");
+        else if (permissions.viewMissingItemsReport) setActiveReport("missing");
+        else if (permissions.viewItemHistoryLedgerReport)
+          setActiveReport("history");
+      }
+    }
+  }, [searchParams, permissions]);
 
   const resetPagination = useCallback(() => {
     setPage(1);
@@ -418,20 +436,23 @@ function ReportsContent() {
       label: "Active Issues",
       icon: FileText,
       count: issuedTotal,
+      visible: permissions?.viewActiveIssuesReport ?? false,
     },
     {
       id: "missing" as ReportType,
       label: "Missing Items",
       icon: AlertTriangle,
       count: missingTotal,
+      visible: permissions?.viewMissingItemsReport ?? false,
     },
     {
       id: "history" as ReportType,
       label: "Item History (Ledger)",
       icon: History,
       count: ledgerItemId != null ? ledgerTotal : 0,
+      visible: permissions?.viewItemHistoryLedgerReport ?? false,
     },
-  ];
+  ].filter((tab) => tab.visible);
 
   return (
     <div className="p-6">
@@ -523,7 +544,7 @@ function ReportsContent() {
                   setPage(1);
                 }}
                 onExportExcel={() => handleExportExcel("issued")}
-                exportDisabled={isExporting}
+                exportDisabled={isExporting || loadingIssued || issuedTotal === 0}
                 exportLoading={isExporting}
                 exportLabel="Export Excel"
               />
@@ -677,7 +698,7 @@ function ReportsContent() {
                   setPage(1);
                 }}
                 onExportExcel={() => handleExportExcel("missing")}
-                exportDisabled={isExporting}
+                exportDisabled={isExporting || loadingMissing || missingTotal === 0}
                 exportLoading={isExporting}
                 exportLabel="Export Excel"
               />
@@ -957,7 +978,8 @@ function ReportsContent() {
                   setPage(1);
                 }}
                 onExportExcel={() => handleExportExcel("history")}
-                exportDisabled={loadingLedger || ledgerItemId == null}
+                exportDisabled={isExporting || loadingLedger || ledgerItemId == null || ledgerTotal === 0}
+                exportLoading={isExporting}
                 exportLabel="Export Excel"
               />
               <Card className="shadow-sm overflow-hidden">

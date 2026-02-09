@@ -18,14 +18,13 @@ const SIDEBAR_WIDTH_COLLAPSED = 64;
 // Map route prefixes to required permission keys in RolePermission
 const ROUTE_PERMISSIONS: Record<string, keyof RolePermission> = {
   '/dashboard': 'viewDashboard',
-  '/companies': 'viewMaster',
-  '/locations': 'viewMaster',
-  '/contractors': 'viewMaster',
-  '/statuses': 'viewMaster',
-  '/machines': 'viewMaster',
-  '/items': 'viewMaster',
-  '/item-categories': 'viewMaster',
-  '/users': 'viewMaster',
+  '/companies': 'viewCompanyMaster',
+  '/locations': 'viewLocationMaster',
+  '/contractors': 'viewContractorMaster',
+  '/statuses': 'viewStatusMaster',
+  '/machines': 'viewMachineMaster',
+  '/items': 'viewItemMaster',
+  '/item-categories': 'viewItemCategoryMaster',
   '/issues': 'viewOutward',
   '/returns': 'viewInward',
   '/reports': 'viewReports',
@@ -63,46 +62,35 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const validateAndGetUser = async () => {
-      // Skip auth check for login page
       if (pathname === '/login') {
         setLoading(false);
         return;
       }
 
-      // First check localStorage for optimistic loading
       const storedUser = localStorage.getItem('user');
       if (storedUser) {
         try {
-          const parsedUser = JSON.parse(storedUser);
-          setUser(parsedUser);
-          setLoading(false);
-
-          // Validate in background (don't block UI)
-          api.post('/auth/validate')
-            .catch(() => {
-              // If validation fails, clear user and redirect
-              localStorage.removeItem('user');
-              setUser(null);
-              router.push('/login');
-            });
+          setUser(JSON.parse(storedUser));
         } catch {
-          // Invalid user data in localStorage
           localStorage.removeItem('user');
-          setUser(null);
-          router.push('/login');
-          setLoading(false);
         }
-      } else {
-        // No user in localStorage, validate with cookie
-        try {
-          await api.post('/auth/validate');
-          // If validation succeeds but no user in localStorage, redirect to login
-          router.push('/login');
-        } catch {
-          router.push('/login');
-        } finally {
-          setLoading(false);
+      }
+
+      try {
+        // Always validate with backend if not on login page
+        const response = await api.post('/auth/validate');
+        if (response.data.user) {
+          const user = response.data.user;
+          setUser(user);
+          localStorage.setItem('user', JSON.stringify(user));
         }
+      } catch (err) {
+        // If validation fails, clear and redirect only if not on public routes
+        localStorage.removeItem('user');
+        setUser(null);
+        router.push('/login');
+      } finally {
+        setLoading(false);
       }
     };
 

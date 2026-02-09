@@ -26,7 +26,9 @@ api.interceptors.response.use(
       // For login itself, just bubble the error (no full page reload)
       const isLoginRequest =
         requestUrl?.includes("/auth/login") ||
-        requestUrl?.endsWith("/auth/login");
+        requestUrl?.endsWith("/auth/login") ||
+        requestUrl?.includes("/auth/validate") ||
+        requestUrl?.endsWith("/auth/validate");
 
       if (
         !isLoginRequest &&
