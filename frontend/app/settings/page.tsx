@@ -68,6 +68,32 @@ const userSchema = z.object({
   role: z.nativeEnum(Role),
   isActive: z.boolean().optional(),
   avatar: z.string().nullable().optional(),
+  mobileNumber: z.string().optional().nullable(),
+}).superRefine((data, ctx) => {
+  const isMandatory = data.role === Role.QC_USER || data.role === Role.QC_MANAGER;
+  const mobile = data.mobileNumber?.trim();
+
+  // Mandatory check for User/Manager
+  if (isMandatory && (!mobile || mobile.length === 0)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Mobile number is mandatory for User and Manager",
+      path: ["mobileNumber"],
+    });
+    return;
+  }
+
+  // Regex check for Indian Phone Number if provided
+  if (mobile && mobile.length > 0) {
+    const indianPhoneRegex = /^[6-9]\d{9}$/;
+    if (!indianPhoneRegex.test(mobile)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Please enter a valid 10-digit Indian mobile number",
+        path: ["mobileNumber"],
+      });
+    }
+  }
 });
 type UserForm = z.infer<typeof userSchema>;
 
@@ -425,6 +451,7 @@ export default function SettingsPage() {
         role: user.role,
         isActive: user.isActive,
         avatar: user.avatar ?? null,
+        mobileNumber: user.mobileNumber || "",
         password: "",
       });
     } else {
@@ -457,6 +484,7 @@ export default function SettingsPage() {
         role: data.role,
         isActive: data.isActive,
         avatar: data.avatar ?? null,
+        mobileNumber: data.mobileNumber,
       };
       if (data.password) updateData.password = data.password;
       updateUser.mutate(
@@ -474,6 +502,7 @@ export default function SettingsPage() {
           role: data.role,
           isActive: data.isActive ?? false,
           avatar: data.avatar ?? null,
+          mobileNumber: data.mobileNumber,
         },
         { onSuccess: handleCloseUserForm },
       );
@@ -982,6 +1011,9 @@ export default function SettingsPage() {
                               Username
                             </th>
                             <th className="text-left py-3 px-4 font-semibold text-primary-900 text-sm">
+                              Mobile No.
+                            </th>
+                            <th className="text-left py-3 px-4 font-semibold text-primary-900 text-sm">
                               Role
                             </th>
                             <th className="text-left py-3 px-4 font-semibold text-primary-900 text-sm">
@@ -1008,6 +1040,9 @@ export default function SettingsPage() {
                               </td>
                               <td className="py-3 px-4 font-mono text-sm">
                                 {u.username}
+                              </td>
+                              <td className="py-3 px-4 text-sm text-secondary-600">
+                                {u.mobileNumber || "—"}
                               </td>
                               <td className="py-3 px-4">
                                 <span
@@ -1136,6 +1171,24 @@ export default function SettingsPage() {
             {errors.username && (
               <p className="text-sm text-red-600 mt-1">
                 {errors.username.message}
+              </p>
+            )}
+          </div>
+          <div>
+            <Label>Mobile Number {watch("role") !== Role.QC_ADMIN ? "*" : ""}</Label>
+            <Input
+              {...register("mobileNumber")}
+              onChange={(e) => {
+                const value = e.target.value.replace(/\D/g, "").slice(0, 10);
+                e.target.value = value;
+                register("mobileNumber").onChange(e);
+              }}
+              className="mt-1"
+              placeholder="Enter 10-digit mobile number"
+            />
+            {errors.mobileNumber && (
+              <p className="text-sm text-red-600 mt-1">
+                {errors.mobileNumber.message}
               </p>
             )}
           </div>

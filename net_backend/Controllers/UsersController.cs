@@ -47,10 +47,26 @@ namespace net_backend.Controllers
                 Role = Enum.Parse<Role>(request.Role),
                 IsActive = request.IsActive,
                 Avatar = request.Avatar,
+                MobileNumber = request.MobileNumber,
                 CreatedBy = request.CreatedBy,
                 CreatedAt = DateTime.Now,
                 UpdatedAt = DateTime.Now
             };
+
+            // Validation for MobileNumber
+            if ((user.Role == Role.QC_USER || user.Role == Role.QC_MANAGER) && string.IsNullOrEmpty(user.MobileNumber))
+            {
+                return BadRequest(new ApiResponse<User> { Success = false, Message = "Mobile number is mandatory for User and Manager roles." });
+            }
+
+            if (!string.IsNullOrEmpty(user.MobileNumber))
+            {
+                var indianPhoneRegex = new System.Text.RegularExpressions.Regex(@"^[6-9]\d{9}$");
+                if (!indianPhoneRegex.IsMatch(user.MobileNumber))
+                {
+                    return BadRequest(new ApiResponse<User> { Success = false, Message = "Please provide a valid 10-digit Indian mobile number." });
+                }
+            }
 
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
@@ -80,6 +96,22 @@ namespace net_backend.Controllers
             if (request.IsActive.HasValue) user.IsActive = request.IsActive.Value;
             if (!string.IsNullOrEmpty(request.Password)) user.Password = BCrypt.Net.BCrypt.HashPassword(request.Password);
             if (request.Avatar != null) user.Avatar = string.IsNullOrEmpty(request.Avatar) ? null : request.Avatar;
+            if (request.MobileNumber != null) user.MobileNumber = request.MobileNumber;
+
+            // Validation for MobileNumber
+            if ((user.Role == Role.QC_USER || user.Role == Role.QC_MANAGER) && string.IsNullOrEmpty(user.MobileNumber))
+            {
+                return BadRequest(new ApiResponse<User> { Success = false, Message = "Mobile number is mandatory for User and Manager roles." });
+            }
+
+            if (!string.IsNullOrEmpty(user.MobileNumber))
+            {
+                var indianPhoneRegex = new System.Text.RegularExpressions.Regex(@"^[6-9]\d{9}$");
+                if (!indianPhoneRegex.IsMatch(user.MobileNumber))
+                {
+                    return BadRequest(new ApiResponse<User> { Success = false, Message = "Please provide a valid 10-digit Indian mobile number." });
+                }
+            }
 
             user.UpdatedAt = DateTime.Now;
             await _context.SaveChangesAsync();

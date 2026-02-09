@@ -171,6 +171,7 @@ namespace net_backend.Models
         public Role Role { get; set; } = Role.QC_USER;
         public bool IsActive { get; set; } = true;
         public string? Avatar { get; set; }
+        public string? MobileNumber { get; set; }
         public int? CreatedBy { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime UpdatedAt { get; set; } = DateTime.Now;

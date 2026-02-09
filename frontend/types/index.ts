@@ -18,6 +18,7 @@ export interface User {
   role: Role;
   isActive: boolean;
   avatar?: string | null;
+  mobileNumber?: string | null;
   createdAt: string;
   updatedAt: string;
 }
