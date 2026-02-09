@@ -202,3 +202,18 @@ export interface RolePermission {
   createdAt?: string;
   updatedAt?: string;
 }
+
+export interface ValidationEntry {
+  row: number;
+  data: any;
+  message?: string;
+  errors?: string[];
+}
+
+export interface ValidationResult {
+  valid: ValidationEntry[];
+  invalid: ValidationEntry[];
+  duplicates: ValidationEntry[];
+  alreadyExists: ValidationEntry[];
+  totalRows: number;
+}

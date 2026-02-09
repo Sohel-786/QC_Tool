@@ -8,28 +8,35 @@ export function buildFilterParams(
   f: TransactionFiltersState
 ): Record<string, string> {
   const params: Record<string, string> = {};
-  if (f.status !== "all") params.status = f.status;
   if (f.companyIds.length) params.companyIds = f.companyIds.join(",");
   if (f.contractorIds.length) params.contractorIds = f.contractorIds.join(",");
   if (f.machineIds.length) params.machineIds = f.machineIds.join(",");
   if (f.locationIds.length) params.locationIds = f.locationIds.join(",");
+  if (f.itemCategoryIds.length) params.itemCategoryIds = f.itemCategoryIds.join(",");
   if (f.itemIds.length) params.itemIds = f.itemIds.join(",");
   if (f.conditions?.length) params.conditions = f.conditions.join(",");
-  if (f.operatorName.trim()) params.operatorName = f.operatorName.trim();
-  if (f.search.trim()) params.search = f.search.trim();
+  const opName = (f.operatorName || "").trim();
+  if (opName) params.operatorName = opName;
+
+  const recvBy = (f.receivedBy || "").trim();
+  if (recvBy) params.receivedBy = recvBy;
+
+  const search = (f.search || "").trim();
+  if (search) params.search = search;
   return params;
 }
 
 export function hasActiveFilters(f: TransactionFiltersState): boolean {
   return (
-    f.status !== "all" ||
     f.companyIds.length > 0 ||
+    f.locationIds.length > 0 ||
     f.contractorIds.length > 0 ||
     f.machineIds.length > 0 ||
-    f.locationIds.length > 0 ||
+    f.itemCategoryIds.length > 0 ||
     f.itemIds.length > 0 ||
     (f.conditions?.length ?? 0) > 0 ||
-    !!f.operatorName.trim() ||
-    !!f.search.trim()
+    !!(f.operatorName || "").trim() ||
+    !!(f.receivedBy || "").trim() ||
+    !!(f.search || "").trim()
   );
 }

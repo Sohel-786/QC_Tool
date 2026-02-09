@@ -13,7 +13,15 @@ import { Dialog } from "@/components/ui/dialog";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Plus, Edit2, Search, Ban, CheckCircle, Download, Upload } from "lucide-react";
+import {
+  Plus,
+  Edit2,
+  Search,
+  Ban,
+  CheckCircle,
+  Download,
+  Upload,
+} from "lucide-react";
 import { useMasterExportImport } from "@/hooks/use-master-export-import";
 import { useCurrentUserPermissions } from "@/hooks/use-settings";
 import { toast } from "react-hot-toast";
@@ -325,10 +333,10 @@ export default function LocationsPage() {
                           Sr.No
                         </th>
                         <th className="px-4 py-3 font-semibold text-primary-900">
-                          Company
+                          Name
                         </th>
                         <th className="px-4 py-3 font-semibold text-primary-900">
-                          Location Name
+                          Company
                         </th>
                         <th className="px-4 py-3 font-semibold text-primary-900">
                           Status
@@ -350,18 +358,19 @@ export default function LocationsPage() {
                           <td className="px-4 py-3 text-secondary-600">
                             {idx + 1}
                           </td>
-                          <td className="px-4 py-3 text-secondary-600">
-                            {loc.company?.name || `ID: ${loc.companyId}`}
-                          </td>
                           <td className="px-4 py-3 font-medium text-text">
                             {loc.name}
                           </td>
+                          <td className="px-4 py-3 text-secondary-600">
+                            {loc.company?.name || `ID: ${loc.companyId}`}
+                          </td>
                           <td className="px-4 py-3">
                             <span
-                              className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${loc.isActive
-                                ? "bg-green-100 text-green-700 border border-green-200"
-                                : "bg-red-100 text-red-700 border border-red-200"
-                                }`}
+                              className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${
+                                loc.isActive
+                                  ? "bg-green-100 text-green-700 border border-green-200"
+                                  : "bg-red-100 text-red-700 border border-red-200"
+                              }`}
                             >
                               {loc.isActive ? "Active" : "Inactive"}
                             </span>
@@ -372,7 +381,11 @@ export default function LocationsPage() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleOpenForm(loc)}
-                                title={canEditMaster ? "Edit location" : "View location (edit disabled)"}
+                                title={
+                                  canEditMaster
+                                    ? "Edit location"
+                                    : "View location (edit disabled)"
+                                }
                               >
                                 <Edit2 className="w-4 h-4" />
                               </Button>
@@ -470,9 +483,7 @@ export default function LocationsPage() {
             }
           >
             <div>
-              <Label htmlFor="location-company-select">
-                Company *
-              </Label>
+              <Label htmlFor="location-company-select">Company *</Label>
               <Select
                 id="location-company-select"
                 {...register("companyId")}
@@ -539,7 +550,9 @@ export default function LocationsPage() {
               {(editingLocation ? canEditMaster : canAddMaster) && (
                 <Button
                   type="submit"
-                  disabled={createMutation.isPending || updateMutation.isPending}
+                  disabled={
+                    createMutation.isPending || updateMutation.isPending
+                  }
                   className="flex-1"
                   aria-describedby="location-form-hint"
                 >

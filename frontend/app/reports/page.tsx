@@ -28,6 +28,7 @@ import {
 import { MultiSelectSearch } from "@/components/ui/multi-select-search";
 import type { MultiSelectSearchOption } from "@/components/ui/multi-select-search";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import type { SearchableSelectOption } from "@/components/ui/searchable-select";
 import { buildFilterParams, hasActiveFilters } from "@/lib/filters";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useCurrentUserPermissions } from "@/hooks/use-settings";
@@ -129,25 +130,22 @@ function ReportsContent() {
 
   useEffect(() => {
     const section = searchParams.get("section");
-    if (section === "missing" && permissions?.viewMissingItemsReport) {
+    if (section === "missing" && permissions?.viewReports) {
       setActiveReport("missing");
     } else if (
       (section === "active-issues" || section === "issued") &&
-      permissions?.viewActiveIssuesReport
+      permissions?.viewReports
     ) {
       setActiveReport("issued");
     } else if (
       (section === "history" || section === "ledger") &&
-      permissions?.viewItemHistoryLedgerReport
+      permissions?.viewReports
     ) {
       setActiveReport("history");
     } else {
       // Default to first available permission
-      if (permissions) {
-        if (permissions.viewActiveIssuesReport) setActiveReport("issued");
-        else if (permissions.viewMissingItemsReport) setActiveReport("missing");
-        else if (permissions.viewItemHistoryLedgerReport)
-          setActiveReport("history");
+      if (permissions?.viewReports) {
+        setActiveReport("issued");
       }
     }
   }, [searchParams, permissions]);
@@ -329,6 +327,62 @@ function ReportsContent() {
     ],
   );
 
+  const filteredLocationsIssued = useMemo(() => {
+    if (filters.companyIds.length === 0) return locations;
+    return locations.filter((l: { companyId: number; id: number; name: string }) =>
+      filters.companyIds.includes(l.companyId)
+    );
+  }, [locations, filters.companyIds]);
+
+  const filteredMachinesIssued = useMemo(() => {
+    if (filters.contractorIds.length === 0) return machines;
+    return machines.filter((m: { contractorId: number; id: number; name: string }) =>
+      filters.contractorIds.includes(m.contractorId)
+    );
+  }, [machines, filters.contractorIds]);
+
+  const filteredItemsIssued = useMemo(() => {
+    if (filters.itemCategoryIds.length === 0) return filterItems;
+    return filterItems.filter((i: { categoryId?: number | null; id: number; itemName: string }) =>
+      i.categoryId != null && filters.itemCategoryIds.includes(i.categoryId)
+    );
+  }, [filterItems, filters.itemCategoryIds]);
+
+  const filteredLocationsMissing = useMemo(() => {
+    if (missingFilters.companyIds.length === 0) return locations;
+    return locations.filter((l: { companyId: number; id: number; name: string }) =>
+      missingFilters.companyIds.includes(l.companyId)
+    );
+  }, [locations, missingFilters.companyIds]);
+
+  const filteredMachinesMissing = useMemo(() => {
+    if (missingFilters.contractorIds.length === 0) return machines;
+    return machines.filter((m: { contractorId: number; id: number; name: string }) =>
+      missingFilters.contractorIds.includes(m.contractorId)
+    );
+  }, [machines, missingFilters.contractorIds]);
+
+  const filteredItemsMissing = useMemo(() => {
+    if (missingFilters.itemCategoryIds.length === 0) return filterItems;
+    return filterItems.filter((i: { categoryId?: number | null; id: number; itemName: string }) =>
+      i.categoryId != null && missingFilters.itemCategoryIds.includes(i.categoryId)
+    );
+  }, [filterItems, missingFilters.itemCategoryIds]);
+
+  const filteredLocationsLedger = useMemo(() => {
+    if (ledgerFilters.companyIds.length === 0) return locations;
+    return locations.filter((l: { companyId: number; id: number; name: string }) =>
+      ledgerFilters.companyIds.includes(l.companyId)
+    );
+  }, [locations, ledgerFilters.companyIds]);
+
+  const filteredMachinesLedger = useMemo(() => {
+    if (ledgerFilters.contractorIds.length === 0) return machines;
+    return machines.filter((m: { contractorId: number; id: number; name: string }) =>
+      ledgerFilters.contractorIds.includes(m.contractorId)
+    );
+  }, [machines, ledgerFilters.contractorIds]);
+
   const companyOptions: MultiSelectSearchOption[] = useMemo(
     () =>
       companies.map((c: { id: number; name: string }) => ({
@@ -345,25 +399,41 @@ function ReportsContent() {
       })),
     [contractors],
   );
-  const machineOptions: MultiSelectSearchOption[] = useMemo(
+  const machineOptionsIssued: MultiSelectSearchOption[] = useMemo(
     () =>
-      machines.map((m: { id: number; name: string }) => ({
+      filteredMachinesIssued.map((m: { id: number; name: string }) => ({
         value: m.id,
         label: m.name,
       })),
-    [machines],
+    [filteredMachinesIssued],
   );
-  const locationOptions: MultiSelectSearchOption[] = useMemo(
+  const machineOptionsMissing: MultiSelectSearchOption[] = useMemo(
     () =>
-      locations.map((l: { id: number; name: string }) => ({
+      filteredMachinesMissing.map((m: { id: number; name: string }) => ({
+        value: m.id,
+        label: m.name,
+      })),
+    [filteredMachinesMissing],
+  );
+  const locationOptionsIssued: MultiSelectSearchOption[] = useMemo(
+    () =>
+      filteredLocationsIssued.map((l: { id: number; name: string }) => ({
         value: l.id,
         label: l.name,
       })),
-    [locations],
+    [filteredLocationsIssued],
   );
-  const itemOptions: MultiSelectSearchOption[] = useMemo(
+  const locationOptionsMissing: MultiSelectSearchOption[] = useMemo(
     () =>
-      filterItems.map(
+      filteredLocationsMissing.map((l: { id: number; name: string }) => ({
+        value: l.id,
+        label: l.name,
+      })),
+    [filteredLocationsMissing],
+  );
+  const itemOptionsIssued: MultiSelectSearchOption[] = useMemo(
+    () =>
+      filteredItemsIssued.map(
         (i: {
           id: number;
           itemName: string;
@@ -375,7 +445,23 @@ function ReportsContent() {
             : i.itemName,
         }),
       ),
-    [filterItems],
+    [filteredItemsIssued],
+  );
+  const itemOptionsMissing: MultiSelectSearchOption[] = useMemo(
+    () =>
+      filteredItemsMissing.map(
+        (i: {
+          id: number;
+          itemName: string;
+          serialNumber?: string | null;
+        }) => ({
+          value: i.id,
+          label: i.serialNumber
+            ? `${i.itemName} (${i.serialNumber})`
+            : i.itemName,
+        }),
+      ),
+    [filteredItemsMissing],
   );
   const categoryOptions: MultiSelectSearchOption[] = useMemo(
     () =>
@@ -408,6 +494,24 @@ function ReportsContent() {
     [ledgerItemsByCategory],
   );
 
+  const locationOptionsLedger: MultiSelectSearchOption[] = useMemo(
+    () =>
+      filteredLocationsLedger.map((l: { id: number; name: string }) => ({
+        value: l.id,
+        label: l.name,
+      })),
+    [filteredLocationsLedger],
+  );
+
+  const machineOptionsLedger: MultiSelectSearchOption[] = useMemo(
+    () =>
+      filteredMachinesLedger.map((m: { id: number; name: string }) => ({
+        value: m.id,
+        label: m.name,
+      })),
+    [filteredMachinesLedger],
+  );
+
   const issuedData = Array.isArray(issuedReport?.data) ? issuedReport.data : [];
   const issuedTotal = issuedReport?.total ?? 0;
   const missingData = Array.isArray(missingReport?.data)
@@ -436,21 +540,21 @@ function ReportsContent() {
       label: "Active Issues",
       icon: FileText,
       count: issuedTotal,
-      visible: permissions?.viewActiveIssuesReport ?? false,
+      visible: permissions?.viewReports ?? false,
     },
     {
       id: "missing" as ReportType,
       label: "Missing Items",
       icon: AlertTriangle,
       count: missingTotal,
-      visible: permissions?.viewMissingItemsReport ?? false,
+      visible: permissions?.viewReports ?? false,
     },
     {
       id: "history" as ReportType,
       label: "Item History (Ledger)",
       icon: History,
       count: ledgerItemId != null ? ledgerTotal : 0,
-      visible: permissions?.viewItemHistoryLedgerReport ?? false,
+      visible: permissions?.viewReports ?? false,
     },
   ].filter((tab) => tab.visible);
 
@@ -526,10 +630,11 @@ function ReportsContent() {
                   resetPagination();
                 }}
                 companyOptions={companyOptions}
+                locationOptions={locationOptionsIssued}
                 contractorOptions={contractorOptions}
-                machineOptions={machineOptions}
-                locationOptions={locationOptions}
-                itemOptions={itemOptions}
+                machineOptions={machineOptionsIssued}
+                itemCategoryOptions={categoryOptions}
+                itemOptions={itemOptionsIssued}
                 onClear={() => {
                   setFilters(defaultFilters);
                   resetPagination();
@@ -680,10 +785,11 @@ function ReportsContent() {
                   resetPagination();
                 }}
                 companyOptions={companyOptions}
+                locationOptions={locationOptionsMissing}
                 contractorOptions={contractorOptions}
-                machineOptions={machineOptions}
-                locationOptions={locationOptions}
-                itemOptions={itemOptions}
+                machineOptions={machineOptionsMissing}
+                itemCategoryOptions={categoryOptions}
+                itemOptions={itemOptionsMissing}
                 onClear={() => {
                   setMissingFilters(defaultFilters);
                   resetPagination();
@@ -823,7 +929,7 @@ function ReportsContent() {
                     </Label>
                     <SearchableSelect
                       id="ledger-category"
-                      options={categoryOptions}
+                      options={categoryOptions as SearchableSelectOption[]}
                       value={ledgerCategoryId ?? ""}
                       onChange={(v) => {
                         setLedgerCategoryId(v ? Number(v) : null);
@@ -841,7 +947,7 @@ function ReportsContent() {
                     </Label>
                     <SearchableSelect
                       id="ledger-item"
-                      options={ledgerItemOptions}
+                      options={ledgerItemOptions as SearchableSelectOption[]}
                       value={ledgerSelectedItemId ?? ""}
                       onChange={(v) => {
                         const id = v ? Number(v) : null;
@@ -883,8 +989,9 @@ function ReportsContent() {
                 }}
                 companyOptions={companyOptions}
                 contractorOptions={contractorOptions}
-                machineOptions={machineOptions}
-                locationOptions={locationOptions}
+                machineOptions={machineOptionsLedger}
+                locationOptions={locationOptionsLedger}
+                itemCategoryOptions={categoryOptions}
                 itemOptions={ledgerItemOptions}
                 onClear={() => {
                   setLedgerFilters(defaultFilters);

@@ -31,6 +31,7 @@ namespace net_backend.Controllers
             [FromQuery] string? itemIds,
             [FromQuery] string? conditions,
             [FromQuery] string? operatorName,
+            [FromQuery] string? receivedBy,
             [FromQuery] string? search,
             [FromQuery] bool? hideIssuedItems)
         {
@@ -128,11 +129,21 @@ namespace net_backend.Controllers
                 }
             }
 
-            // Operator name filter
+            // Operator name filter (legacy/fallback + ReceivedBy support)
             if (!string.IsNullOrEmpty(operatorName))
             {
                 var searchTerm = operatorName.Trim();
-                query = query.Where(r => r.Issue != null && r.Issue.IssuedTo != null && r.Issue.IssuedTo.Contains(searchTerm));
+                query = query.Where(r => 
+                    (r.Issue != null && r.Issue.IssuedTo != null && r.Issue.IssuedTo.Contains(searchTerm)) ||
+                    (r.ReceivedBy != null && r.ReceivedBy.Contains(searchTerm))
+                );
+            }
+
+            // Received By filter
+            if (!string.IsNullOrEmpty(receivedBy))
+            {
+                var searchTerm = receivedBy.Trim();
+                query = query.Where(r => r.ReceivedBy != null && r.ReceivedBy.Contains(searchTerm));
             }
 
             // Global search filter
@@ -154,7 +165,8 @@ namespace net_backend.Controllers
                     (r.Machine != null && r.Machine.Name.Contains(searchTerm)) ||
                     (r.Location != null && r.Location.Name.Contains(searchTerm)) ||
                     (r.Status != null && r.Status.Name.Contains(searchTerm)) ||
-                    (r.Issue != null && r.Issue.IssuedTo != null && r.Issue.IssuedTo.Contains(searchTerm))
+                    (r.Issue != null && r.Issue.IssuedTo != null && r.Issue.IssuedTo.Contains(searchTerm)) ||
+                    (r.ReceivedBy != null && r.ReceivedBy.Contains(searchTerm))
                 );
             }
 

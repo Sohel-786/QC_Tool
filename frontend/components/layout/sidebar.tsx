@@ -76,11 +76,10 @@ const masterEntries: NavLink[] = [
   { href: "/companies", label: "Company Master", icon: Building2 },
   { href: "/locations", label: "Location Master", icon: MapPin },
   { href: "/contractors", label: "Contractor Master", icon: Briefcase },
-  { href: "/statuses", label: "Status Master", icon: Tag },
   { href: "/machines", label: "Machine Master", icon: Cog },
-  { href: "/items", label: "Item Master", icon: Package },
   { href: "/item-categories", label: "Item Category Master", icon: Layers },
-  // { href: "/users", label: "User Master", icon: Building2 }, // Assuming User endpoint, or if not in original just keep original
+  { href: "/items", label: "Item Master", icon: Package },
+  { href: "/statuses", label: "Status Master", icon: Tag },
 ];
 
 const transactionEntriesAll: NavLink[] = [

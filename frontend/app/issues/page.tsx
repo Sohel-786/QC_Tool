@@ -387,21 +387,50 @@ export default function IssuesPage() {
     setInactiveMutation.mutate(inactiveTarget.id);
   };
 
-  const filterOptions = useMemo(
-    () => ({
+  const filterOptions = useMemo(() => {
+    const filteredLocations =
+      filters.companyIds.length > 0
+        ? locations.filter((l) => filters.companyIds.includes(l.companyId))
+        : locations;
+
+    const filteredMachines =
+      filters.contractorIds.length > 0
+        ? machines.filter((m) =>
+          filters.contractorIds.includes(m.contractorId),
+        )
+        : machines;
+
+    const filteredItems =
+      filters.itemCategoryIds.length > 0
+        ? filterItems.filter((i) =>
+          filters.itemCategoryIds.includes(i.categoryId!),
+        )
+        : filterItems;
+
+    return {
       company: companies.map((c) => ({ value: c.id, label: c.name })),
+      location: filteredLocations.map((l) => ({ value: l.id, label: l.name })),
       contractor: contractors.map((c) => ({ value: c.id, label: c.name })),
-      machine: machines.map((m) => ({ value: m.id, label: m.name })),
-      location: locations.map((l) => ({ value: l.id, label: l.name })),
-      item: filterItems.map((i) => ({
+      machine: filteredMachines.map((m) => ({ value: m.id, label: m.name })),
+      category: categories.map((c) => ({ value: c.id, label: c.name })),
+      item: filteredItems.map((i) => ({
         value: i.id,
         label: i.serialNumber
           ? `${i.itemName} (${i.serialNumber})`
           : i.itemName,
       })),
-    }),
-    [companies, contractors, machines, locations, filterItems],
-  );
+    };
+  }, [
+    companies,
+    contractors,
+    machines,
+    locations,
+    filterItems,
+    categories,
+    filters.companyIds,
+    filters.contractorIds,
+    filters.itemCategoryIds,
+  ]);
 
   const categorySelectOptions = useMemo(() => {
     return categories.map((c) => ({ value: c.id, label: c.name }));
@@ -469,9 +498,10 @@ export default function IssuesPage() {
             filters={filters}
             onFiltersChange={setFilters}
             companyOptions={filterOptions.company}
+            locationOptions={filterOptions.location}
             contractorOptions={filterOptions.contractor}
             machineOptions={filterOptions.machine}
-            locationOptions={filterOptions.location}
+            itemCategoryOptions={filterOptions.category}
             itemOptions={filterOptions.item}
             onClear={() => setFilters(defaultFilters)}
             searchPlaceholder="Search by outward no., item, company, location, operator…"
@@ -740,6 +770,105 @@ export default function IssuesPage() {
                   )}
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <Label
+                        htmlFor="outward-company-id"
+                        className="text-sm font-medium text-secondary-700"
+                      >
+                        Company <span className="text-red-500">*</span>
+                      </Label>
+                      <div className="mt-1.5">
+                        <SearchableSelect
+                          id="outward-company-id"
+                          options={companySelectOptions}
+                          value={watchedCompanyId ?? ""}
+                          onChange={(v) => {
+                            const n = Number(v);
+                            setValue("companyId", n);
+                            setValue("locationId", 0);
+                          }}
+                          disabled={isViewOnly}
+                          placeholder="Select company"
+                          searchPlaceholder="Search companies..."
+                          error={errors.companyId?.message}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label
+                        htmlFor="outward-location-id"
+                        className="text-sm font-medium text-secondary-700"
+                      >
+                        Location <span className="text-red-500">*</span>
+                      </Label>
+                      <div className="mt-1.5">
+                        <SearchableSelect
+                          id="outward-location-id"
+                          options={locationSelectOptions}
+                          value={watchedLocationId ?? ""}
+                          onChange={(v) => setValue("locationId", Number(v))}
+                          disabled={isViewOnly || !watchedCompanyId}
+                          placeholder={
+                            watchedCompanyId
+                              ? "Select location"
+                              : "Select company first"
+                          }
+                          searchPlaceholder="Search locations..."
+                          error={errors.locationId?.message}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label
+                        htmlFor="outward-contractor-id"
+                        className="text-sm font-medium text-secondary-700"
+                      >
+                        Contractor <span className="text-red-500">*</span>
+                      </Label>
+                      <div className="mt-1.5">
+                        <SearchableSelect
+                          id="outward-contractor-id"
+                          options={contractorSelectOptions}
+                          value={watchedContractorId ?? ""}
+                          onChange={(v) => {
+                            const n = Number(v);
+                            setValue("contractorId", n);
+                            setValue("machineId", 0);
+                          }}
+                          disabled={isViewOnly}
+                          placeholder="Select contractor"
+                          searchPlaceholder="Search contractors..."
+                          error={errors.contractorId?.message}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label
+                        htmlFor="outward-machine-id"
+                        className="text-sm font-medium text-secondary-700"
+                      >
+                        Machine <span className="text-red-500">*</span>
+                      </Label>
+                      <div className="mt-1.5">
+                        <SearchableSelect
+                          id="outward-machine-id"
+                          options={machineSelectOptions}
+                          value={watchedMachineId ?? ""}
+                          onChange={(v) => setValue("machineId", Number(v))}
+                          disabled={isViewOnly || !watchedContractorId}
+                          placeholder={
+                            watchedContractorId
+                              ? "Select machine"
+                              : "Select contractor first"
+                          }
+                          searchPlaceholder="Search machines..."
+                          error={errors.machineId?.message}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {editingIssue ? (
                       <>
                         <div>
@@ -833,105 +962,6 @@ export default function IssuesPage() {
                         </div>
                       </>
                     )}
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div>
-                      <Label
-                        htmlFor="outward-company-id"
-                        className="text-sm font-medium text-secondary-700"
-                      >
-                        Company <span className="text-red-500">*</span>
-                      </Label>
-                      <div className="mt-1.5">
-                        <SearchableSelect
-                          id="outward-company-id"
-                          options={companySelectOptions}
-                          value={watchedCompanyId ?? ""}
-                          onChange={(v) => {
-                            const n = Number(v);
-                            setValue("companyId", n);
-                            setValue("locationId", 0);
-                          }}
-                          disabled={isViewOnly}
-                          placeholder="Select company"
-                          searchPlaceholder="Search companies..."
-                          error={errors.companyId?.message}
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <Label
-                        htmlFor="outward-contractor-id"
-                        className="text-sm font-medium text-secondary-700"
-                      >
-                        Contractor <span className="text-red-500">*</span>
-                      </Label>
-                      <div className="mt-1.5">
-                        <SearchableSelect
-                          id="outward-contractor-id"
-                          options={contractorSelectOptions}
-                          value={watchedContractorId ?? ""}
-                          onChange={(v) => {
-                            const n = Number(v);
-                            setValue("contractorId", n);
-                            setValue("machineId", 0);
-                          }}
-                          disabled={isViewOnly}
-                          placeholder="Select contractor"
-                          searchPlaceholder="Search contractors..."
-                          error={errors.contractorId?.message}
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <Label
-                        htmlFor="outward-machine-id"
-                        className="text-sm font-medium text-secondary-700"
-                      >
-                        Machine <span className="text-red-500">*</span>
-                      </Label>
-                      <div className="mt-1.5">
-                        <SearchableSelect
-                          id="outward-machine-id"
-                          options={machineSelectOptions}
-                          value={watchedMachineId ?? ""}
-                          onChange={(v) => setValue("machineId", Number(v))}
-                          disabled={isViewOnly || !watchedContractorId}
-                          placeholder={
-                            watchedContractorId
-                              ? "Select machine"
-                              : "Select contractor first"
-                          }
-                          searchPlaceholder="Search machines..."
-                          error={errors.machineId?.message}
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <Label
-                        htmlFor="outward-location-id"
-                        className="text-sm font-medium text-secondary-700"
-                      >
-                        Location <span className="text-red-500">*</span>
-                      </Label>
-                      <div className="mt-1.5">
-                        <SearchableSelect
-                          id="outward-location-id"
-                          options={locationSelectOptions}
-                          value={watchedLocationId ?? ""}
-                          onChange={(v) => setValue("locationId", Number(v))}
-                          disabled={isViewOnly || !watchedCompanyId}
-                          placeholder={
-                            watchedCompanyId
-                              ? "Select location"
-                              : "Select company first"
-                          }
-                          searchPlaceholder="Search locations..."
-                          error={errors.locationId?.message}
-                        />
-                      </div>
-                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

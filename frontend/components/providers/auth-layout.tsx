@@ -18,13 +18,13 @@ const SIDEBAR_WIDTH_COLLAPSED = 64;
 // Map route prefixes to required permission keys in RolePermission
 const ROUTE_PERMISSIONS: Record<string, keyof RolePermission> = {
   '/dashboard': 'viewDashboard',
-  '/companies': 'viewCompanyMaster',
-  '/locations': 'viewLocationMaster',
-  '/contractors': 'viewContractorMaster',
-  '/statuses': 'viewStatusMaster',
-  '/machines': 'viewMachineMaster',
-  '/items': 'viewItemMaster',
-  '/item-categories': 'viewItemCategoryMaster',
+  '/companies': 'viewMaster',
+  '/locations': 'viewMaster',
+  '/contractors': 'viewMaster',
+  '/statuses': 'viewMaster',
+  '/machines': 'viewMaster',
+  '/items': 'viewMaster',
+  '/item-categories': 'viewMaster',
   '/issues': 'viewOutward',
   '/returns': 'viewInward',
   '/reports': 'viewReports',
@@ -36,8 +36,8 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [sidebarExpanded, setSidebarExpanded] = useState(true);
-  const [navExpanded, setNavExpanded] = useState(true);
+  const [sidebarExpanded, setSidebarExpanded] = useState(false);
+  const [navExpanded, setNavExpanded] = useState(false);
   const sidebarWidth = sidebarExpanded ? SIDEBAR_WIDTH_EXPANDED : SIDEBAR_WIDTH_COLLAPSED;
 
   const { data: permissions, isLoading: permissionsLoading } = useCurrentUserPermissions(

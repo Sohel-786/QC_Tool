@@ -9,29 +9,29 @@ import { MultiSelectSearch } from "@/components/ui/multi-select-search";
 import type { MultiSelectSearchOption } from "@/components/ui/multi-select-search";
 import { cn } from "@/lib/utils";
 
-export type TransactionFilterStatus = "all" | "active" | "inactive";
-
 export interface TransactionFiltersState {
-  status: TransactionFilterStatus;
   companyIds: number[];
   contractorIds: number[];
   machineIds: number[];
   locationIds: number[];
+  itemCategoryIds: number[];
   itemIds: number[];
   conditions: string[];
   operatorName: string;
+  receivedBy: string;
   search: string;
 }
 
 const defaultFilters: TransactionFiltersState = {
-  status: "all",
   companyIds: [],
   contractorIds: [],
   machineIds: [],
   locationIds: [],
+  itemCategoryIds: [],
   itemIds: [],
   conditions: [],
   operatorName: "",
+  receivedBy: "",
   search: "",
 };
 
@@ -44,6 +44,7 @@ export interface TransactionFiltersProps {
   contractorOptions: MultiSelectSearchOption[];
   machineOptions: MultiSelectSearchOption[];
   locationOptions: MultiSelectSearchOption[];
+  itemCategoryOptions: MultiSelectSearchOption[];
   itemOptions: MultiSelectSearchOption[];
   onClear: () => void;
   /** Placeholder for the search bar; when set, the search bar is shown to the right of the filter icon */
@@ -54,7 +55,12 @@ export interface TransactionFiltersProps {
   /** Options for Condition filter; use RETURN_CONDITIONS mapped to { value, label } */
   conditionOptions?: MultiSelectSearchOption[];
   /** When true, hide the Item multi-select filter */
+  /** When true, hide the Item multi-select filter */
   hideItemFilter?: boolean;
+  /** When true, hide the Operator filter input */
+  hideOperatorFilter?: boolean;
+  /** When true, show the Received By filter input */
+  showReceivedByFilter?: boolean;
 }
 
 export function TransactionFilters({
@@ -64,6 +70,7 @@ export function TransactionFilters({
   contractorOptions,
   machineOptions,
   locationOptions,
+  itemCategoryOptions,
   itemOptions,
   onClear,
   searchPlaceholder,
@@ -71,16 +78,20 @@ export function TransactionFilters({
   showConditionFilter,
   conditionOptions = [],
   hideItemFilter,
+  hideOperatorFilter,
+  showReceivedByFilter,
 }: TransactionFiltersProps) {
   const hasActiveFilters =
-    filters.status !== "all" ||
     filters.companyIds.length > 0 ||
+    filters.locationIds.length > 0 ||
     filters.contractorIds.length > 0 ||
     filters.machineIds.length > 0 ||
-    filters.locationIds.length > 0 ||
+    filters.itemCategoryIds.length > 0 ||
     filters.itemIds.length > 0 ||
     (filters.conditions?.length ?? 0) > 0 ||
     !!filters.operatorName.trim() ||
+    !!filters.operatorName.trim() ||
+    !!filters.receivedBy.trim() ||
     !!filters.search.trim();
 
   const update = (patch: Partial<TransactionFiltersState>) => {
@@ -129,27 +140,6 @@ export function TransactionFilters({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 overflow-visible items-start">
             <div className="min-w-0 flex flex-col">
-              <Label
-                htmlFor="filter-status"
-                className="block text-sm mb-1.5 font-medium text-secondary-700"
-              >
-                Status
-              </Label>
-              <select
-                id="filter-status"
-                value={filters.status}
-                onChange={(e) =>
-                  update({ status: e.target.value as TransactionFilterStatus })
-                }
-                className="flex h-10 w-full rounded-lg border border-secondary-300 bg-white px-3 py-2 text-sm text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
-              >
-                <option value="all">All</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-            </div>
-
-            <div className="min-w-0 flex flex-col">
               <MultiSelectSearch
                 label="Company"
                 options={companyOptions}
@@ -157,6 +147,17 @@ export function TransactionFilters({
                 onChange={(v) => update({ companyIds: v as number[] })}
                 placeholder="All companies"
                 searchPlaceholder="Search company…"
+              />
+            </div>
+
+            <div className="min-w-0 flex flex-col">
+              <MultiSelectSearch
+                label="Location"
+                options={locationOptions}
+                value={filters.locationIds}
+                onChange={(v) => update({ locationIds: v as number[] })}
+                placeholder="All locations"
+                searchPlaceholder="Search location…"
               />
             </div>
 
@@ -184,12 +185,12 @@ export function TransactionFilters({
 
             <div className="min-w-0 flex flex-col">
               <MultiSelectSearch
-                label="Location"
-                options={locationOptions}
-                value={filters.locationIds}
-                onChange={(v) => update({ locationIds: v as number[] })}
-                placeholder="All locations"
-                searchPlaceholder="Search location…"
+                label="Item Category"
+                options={itemCategoryOptions}
+                value={filters.itemCategoryIds}
+                onChange={(v) => update({ itemCategoryIds: v as number[], itemIds: [] })}
+                placeholder="All categories"
+                searchPlaceholder="Search category…"
               />
             </div>
 
@@ -206,6 +207,8 @@ export function TransactionFilters({
               </div>
             )}
 
+
+
             {showConditionFilter && conditionOptions.length > 0 && (
               <div className="min-w-0 flex flex-col">
                 <MultiSelectSearch
@@ -219,21 +222,41 @@ export function TransactionFilters({
               </div>
             )}
 
-            <div className="min-w-0 flex flex-col">
-              <Label
-                htmlFor="filter-operator"
-                className="block text-sm mb-1.5 font-medium text-secondary-700"
-              >
-                Operator
-              </Label>
-              <Input
-                id="filter-operator"
-                value={filters.operatorName}
-                onChange={(e) => update({ operatorName: e.target.value })}
-                placeholder="Search operator…"
-                className="h-10 rounded-lg border-secondary-300"
-              />
-            </div>
+            {!hideOperatorFilter && (
+              <div className="min-w-0 flex flex-col">
+                <Label
+                  htmlFor="filter-operator"
+                  className="block text-sm mb-1.5 font-medium text-secondary-700"
+                >
+                  Operator
+                </Label>
+                <Input
+                  id="filter-operator"
+                  value={filters.operatorName}
+                  onChange={(e) => update({ operatorName: e.target.value })}
+                  placeholder="Search operator…"
+                  className="h-10 rounded-lg border-secondary-300"
+                />
+              </div>
+            )}
+
+            {showReceivedByFilter && (
+              <div className="min-w-0 flex flex-col">
+                <Label
+                  htmlFor="filter-received-by"
+                  className="block text-sm mb-1.5 font-medium text-secondary-700"
+                >
+                  Received By
+                </Label>
+                <Input
+                  id="filter-received-by"
+                  value={filters.receivedBy}
+                  onChange={(e) => update({ receivedBy: e.target.value })}
+                  placeholder="Search receiver…"
+                  className="h-10 rounded-lg border-secondary-300"
+                />
+              </div>
+            )}
           </div>
         </div>
       </CardContent>

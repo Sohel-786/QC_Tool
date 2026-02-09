@@ -256,26 +256,63 @@ export default function ReturnsPage() {
   const isFromOutwardMode = entryMode === "from_outward";
   const imageRequired = isFromOutwardMode && condition !== "Missing";
 
-  const filterOptions = useMemo(
-    () => ({
+  const { data: filterCategories = [] } = useQuery({
+    queryKey: ["item-categories", "active"],
+    queryFn: async () => {
+      const res = await api.get("/item-categories/active");
+      return res.data?.data ?? [];
+    },
+  });
+
+  const filterOptions = useMemo(() => {
+    const filteredLocations =
+      filters.companyIds.length > 0
+        ? filterLocations.filter(
+          (l: { companyId: number; id: number; name: string }) =>
+            filters.companyIds.includes(l.companyId),
+        )
+        : filterLocations;
+
+    const filteredMachines =
+      filters.contractorIds.length > 0
+        ? filterMachines.filter(
+          (m: { contractorId: number; id: number; name: string }) =>
+            filters.contractorIds.includes(m.contractorId),
+        )
+        : filterMachines;
+
+    const filteredItems =
+      filters.itemCategoryIds.length > 0
+        ? filterItems.filter(
+          (i: { categoryId?: number | null; id: number; itemName: string }) =>
+            i.categoryId != null &&
+            filters.itemCategoryIds.includes(i.categoryId),
+        )
+        : filterItems;
+
+    return {
       company: filterCompanies.map((c: { id: number; name: string }) => ({
         value: c.id,
         label: c.name,
+      })),
+      location: filteredLocations.map((l: { id: number; name: string }) => ({
+        value: l.id,
+        label: l.name,
       })),
       contractor: filterContractors.map((c: { id: number; name: string }) => ({
         value: c.id,
         label: c.name,
       })),
-      machine: filterMachines.map((m: { id: number; name: string }) => ({
+      machine: filteredMachines.map((m: { id: number; name: string }) => ({
         value: m.id,
         label: m.name,
       })),
-      location: filterLocations.map((l: { id: number; name: string }) => ({
-        value: l.id,
-        label: l.name,
+      category: filterCategories.map((c: { id: number; name: string }) => ({
+        value: c.id,
+        label: c.name,
       })),
       condition: RETURN_CONDITIONS.map((c) => ({ value: c, label: c })),
-      item: filterItems.map(
+      item: filteredItems.map(
         (i: {
           id: number;
           itemName: string;
@@ -287,15 +324,18 @@ export default function ReturnsPage() {
             : i.itemName,
         }),
       ),
-    }),
-    [
-      filterCompanies,
-      filterContractors,
-      filterMachines,
-      filterLocations,
-      filterItems,
-    ],
-  );
+    };
+  }, [
+    filterCompanies,
+    filterContractors,
+    filterMachines,
+    filterLocations,
+    filterItems,
+    filterCategories,
+    filters.companyIds,
+    filters.contractorIds,
+    filters.itemCategoryIds,
+  ]);
 
   const watchedCompanyId = watch("companyId");
   const watchedContractorId = watch("contractorId");
@@ -311,7 +351,7 @@ export default function ReturnsPage() {
     if (!watchedContractorId) return [];
     return filterMachines
       .filter((m: any) => m.contractorId === watchedContractorId)
-      .map((m) => ({ value: m.id, label: m.name }));
+      .map((m: any) => ({ value: m.id, label: m.name }));
   }, [filterMachines, watchedContractorId]);
 
   const createMutation = useMutation({
@@ -571,12 +611,15 @@ export default function ReturnsPage() {
             filters={filters}
             onFiltersChange={setFilters}
             companyOptions={filterOptions.company}
+            locationOptions={filterOptions.location}
             contractorOptions={filterOptions.contractor}
             machineOptions={filterOptions.machine}
-            locationOptions={filterOptions.location}
+            itemCategoryOptions={filterOptions.category}
             itemOptions={filterOptions.item}
             showConditionFilter={true}
             conditionOptions={filterOptions.condition}
+            hideOperatorFilter={true}
+            showReceivedByFilter={true}
             onClear={() => setFilters(defaultFilters)}
             searchPlaceholder="Search by inward no., issue no., item, status…"
             className="shadow-sm"
@@ -668,14 +711,14 @@ export default function ReturnsPage() {
                           <td className="px-4 py-3 text-center">
                             <span
                               className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium border ${r.condition === "OK"
-                                ? "bg-green-100 text-green-700 border-green-200"
-                                : r.condition === "Damaged"
-                                  ? "bg-amber-100 text-amber-700 border-amber-200"
-                                  : r.condition === "Calibration Required"
-                                    ? "bg-blue-100 text-blue-700 border-blue-200"
-                                    : r.condition === "Missing"
-                                      ? "bg-red-100 text-red-700 border-red-200"
-                                      : "bg-secondary-100 text-secondary-700 border-secondary-200"
+                                  ? "bg-green-100 text-green-700 border-green-200"
+                                  : r.condition === "Damaged"
+                                    ? "bg-amber-100 text-amber-700 border-amber-200"
+                                    : r.condition === "Calibration Required"
+                                      ? "bg-blue-100 text-blue-700 border-blue-200"
+                                      : r.condition === "Missing"
+                                        ? "bg-red-100 text-red-700 border-red-200"
+                                        : "bg-secondary-100 text-secondary-700 border-secondary-200"
                                 }`}
                             >
                               {r.condition ?? "—"}
@@ -710,8 +753,8 @@ export default function ReturnsPage() {
                           <td className="px-4 py-3 text-center">
                             <span
                               className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${r.isActive
-                                ? "bg-green-100 text-green-700 border border-green-200"
-                                : "bg-red-100 text-red-700 border border-red-200"
+                                  ? "bg-green-100 text-green-700 border border-green-200"
+                                  : "bg-red-100 text-red-700 border border-red-200"
                                 }`}
                             >
                               {r.isActive ? "Active" : "Inactive"}
@@ -723,14 +766,20 @@ export default function ReturnsPage() {
                                 type="button"
                                 onClick={() =>
                                   setFullScreenImageSrc(
-                                    r.returnImage?.startsWith("/") ? `${API_BASE}${r.returnImage}` : `${API_BASE}/storage/${r.returnImage}`,
+                                    r.returnImage?.startsWith("/")
+                                      ? `${API_BASE}${r.returnImage}`
+                                      : `${API_BASE}/storage/${r.returnImage}`,
                                   )
                                 }
                                 className="w-[30px] h-[30px] rounded border border-secondary-200 inline-block overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary-500 transition-shadow focus:outline-none focus:ring-2 focus:ring-primary-500"
                                 title="View full screen"
                               >
                                 <img
-                                  src={r.returnImage?.startsWith("/") ? `${API_BASE}${r.returnImage}` : `${API_BASE}/storage/${r.returnImage}`}
+                                  src={
+                                    r.returnImage?.startsWith("/")
+                                      ? `${API_BASE}${r.returnImage}`
+                                      : `${API_BASE}/storage/${r.returnImage}`
+                                  }
                                   alt="Inward"
                                   className="w-full h-full object-cover"
                                 />
@@ -773,14 +822,20 @@ export default function ReturnsPage() {
                                           setActiveMutation.mutate(r.id)
                                         }
                                         title={
-                                          r.issueId && issueIdsWithActiveReturn.has(r.issueId)
+                                          r.issueId &&
+                                            issueIdsWithActiveReturn.has(
+                                              r.issueId,
+                                            )
                                             ? "Another inward is already active for this outward"
                                             : "Mark inward active"
                                         }
                                         className="shrink-0 text-green-600 hover:bg-green-50"
                                         disabled={
                                           setActiveMutation.isPending ||
-                                          (!!r.issueId && issueIdsWithActiveReturn.has(r.issueId))
+                                          (!!r.issueId &&
+                                            issueIdsWithActiveReturn.has(
+                                              r.issueId,
+                                            ))
                                         }
                                       >
                                         <CheckCircle className="w-4 h-4" />

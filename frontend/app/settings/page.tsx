@@ -80,24 +80,14 @@ const permissionLabels: Record<
     | "updatedAt"
     | "navigationLayout"
     | "manageUsers"
-    | "viewMaster"
   >,
   string
 > = {
   viewDashboard: "View Dashboard",
-  viewCompanyMaster: "Company Master View",
-  viewLocationMaster: "Location Master View",
-  viewContractorMaster: "Contractor Master View",
-  viewStatusMaster: "Status Master View",
-  viewMachineMaster: "Machine Master View",
-  viewItemMaster: "Item Master View",
-  viewItemCategoryMaster: "Item Category Master View",
+  viewMaster: "View Master Data",
   viewOutward: "View Outward",
   viewInward: "View Inward",
   viewReports: "View Reports",
-  viewActiveIssuesReport: "Active Issues Report View",
-  viewMissingItemsReport: "Missing Items View",
-  viewItemHistoryLedgerReport: "Item History Ledger Report View",
   importExportMaster: "Import/Export Master",
   addOutward: "Add Outward",
   editOutward: "Edit Outward",
