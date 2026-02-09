@@ -103,7 +103,7 @@ export default function MachinesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["machines"] });
-      handleCloseForm();
+      reset();
       toast.success("Machine created successfully");
     },
     onError: (e: unknown) => {
@@ -366,11 +366,10 @@ export default function MachinesPage() {
                           </td>
                           <td className="px-4 py-3">
                             <span
-                              className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${
-                                m.isActive
+                              className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${m.isActive
                                   ? "bg-green-100 text-green-700 border border-green-200"
                                   : "bg-red-100 text-red-700 border border-red-200"
-                              }`}
+                                }`}
                             >
                               {m.isActive ? "Active" : "Inactive"}
                             </span>

@@ -82,7 +82,7 @@ export default function ContractorsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["contractors"] });
-      handleCloseForm();
+      reset();
       toast.success("Contractor created successfully");
     },
     onError: (e: unknown) => {

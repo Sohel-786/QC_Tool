@@ -79,7 +79,7 @@ export default function StatusesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["statuses"] });
-      handleCloseForm();
+      reset();
       toast.success("Status created successfully");
     },
     onError: (e: unknown) => {

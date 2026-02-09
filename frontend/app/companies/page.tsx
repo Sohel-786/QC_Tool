@@ -78,7 +78,7 @@ export default function CompaniesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["companies"] });
-      handleCloseForm();
+      reset();
       toast.success("Company created successfully");
     },
     onError: (e: unknown) => {

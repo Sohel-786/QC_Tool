@@ -103,7 +103,7 @@ export default function LocationsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["locations"] });
-      handleCloseForm();
+      reset();
       toast.success("Location created successfully");
     },
     onError: (e: unknown) => {
@@ -366,11 +366,10 @@ export default function LocationsPage() {
                           </td>
                           <td className="px-4 py-3">
                             <span
-                              className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${
-                                loc.isActive
+                              className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${loc.isActive
                                   ? "bg-green-100 text-green-700 border border-green-200"
                                   : "bg-red-100 text-red-700 border border-red-200"
-                              }`}
+                                }`}
                             >
                               {loc.isActive ? "Active" : "Inactive"}
                             </span>

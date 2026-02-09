@@ -85,7 +85,7 @@ export default function ItemCategoriesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["item-categories"] });
-      handleCloseForm();
+      reset();
       toast.success("Item category created successfully");
     },
     onError: (e: unknown) => {

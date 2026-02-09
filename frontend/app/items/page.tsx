@@ -134,7 +134,7 @@ export default function ItemsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["items"] });
-      handleCloseForm();
+      reset();
       toast.success("Item created successfully");
     },
     onError: (e: unknown) => {
