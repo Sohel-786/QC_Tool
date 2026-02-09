@@ -13,14 +13,24 @@ import { Dialog } from "@/components/ui/dialog";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Plus, Edit2, Search, Ban, CheckCircle, Download, Upload } from "lucide-react";
+import {
+  Plus,
+  Edit2,
+  Search,
+  Ban,
+  CheckCircle,
+  Download,
+  Upload,
+} from "lucide-react";
 import { toast } from "react-hot-toast";
 import { useMasterExportImport } from "@/hooks/use-master-export-import";
-import { ImportPreviewModal } from "@/components/dialogs/import-preview-modal";
 import { useCurrentUserPermissions } from "@/hooks/use-settings";
+import { Contractor } from "@/types";
+import { Select } from "@/components/ui/select";
 
 const machineSchema = z.object({
   name: z.string().min(1, "Machine name is required"),
+  contractorId: z.coerce.number().min(1, "Contractor is required"),
   isActive: z.boolean().optional(),
 });
 
@@ -41,22 +51,21 @@ export default function MachinesPage() {
   const canAddMaster = permissions?.addMaster ?? false;
   const canEditMaster = permissions?.editMaster ?? false;
   const canImportExportMaster = permissions?.importExportMaster ?? false;
-  const {
-    handleExport,
-    handleValidate,
-    handleImport,
-    exportLoading,
-    validateLoading,
-    importLoading,
-    validationData,
-    setValidationData,
-    pendingFile,
-  } = useMasterExportImport("machines", ["machines"]);
+  const { handleExport, handleImport, exportLoading, importLoading } =
+    useMasterExportImport("machines", ["machines"]);
 
   const { data: machines = [], isLoading } = useQuery<Machine[]>({
     queryKey: ["machines"],
     queryFn: async () => {
       const res = await api.get("/machines");
+      return res.data?.data ?? [];
+    },
+  });
+
+  const { data: contractors = [] } = useQuery<Contractor[]>({
+    queryKey: ["contractors", "active"],
+    queryFn: async () => {
+      const res = await api.get("/contractors/active");
       return res.data?.data ?? [];
     },
   });
@@ -69,12 +78,16 @@ export default function MachinesPage() {
     setValue,
   } = useForm<MachineForm>({
     resolver: zodResolver(machineSchema),
+    defaultValues: {
+      isActive: true,
+      contractorId: 0,
+    },
   });
 
   useEffect(() => {
     if (!isFormOpen) return;
     const t = setTimeout(() => {
-      document.getElementById("machine-name-input")?.focus();
+      document.getElementById("machine-contractor-select")?.focus();
     }, 100);
     return () => clearTimeout(t);
   }, [isFormOpen]);
@@ -82,6 +95,7 @@ export default function MachinesPage() {
   const createMutation = useMutation({
     mutationFn: async (data: {
       name: string;
+      contractorId: number;
       isActive?: boolean;
     }) => {
       const res = await api.post("/machines", data);
@@ -142,10 +156,15 @@ export default function MachinesPage() {
     if (machine) {
       setEditingMachine(machine);
       setValue("name", machine.name);
+      setValue("contractorId", machine.contractorId);
       setValue("isActive", machine.isActive);
     } else {
       setEditingMachine(null);
-      reset();
+      reset({
+        name: "",
+        contractorId: 0,
+        isActive: true,
+      });
     }
     setIsFormOpen(true);
   };
@@ -169,6 +188,7 @@ export default function MachinesPage() {
     } else {
       createMutation.mutate({
         name,
+        contractorId: data.contractorId,
         isActive: data.isActive,
       });
     }
@@ -187,7 +207,11 @@ export default function MachinesPage() {
     let list = machines;
     const q = searchTerm.trim().toLowerCase();
     if (q) {
-      list = list.filter((m) => m.name.toLowerCase().includes(q));
+      list = list.filter(
+        (m) =>
+          m.name.toLowerCase().includes(q) ||
+          m.contractor?.name.toLowerCase().includes(q),
+      );
     }
     if (activeFilter === "active") list = list.filter((m) => m.isActive);
     if (activeFilter === "inactive") list = list.filter((m) => !m.isActive);
@@ -219,7 +243,7 @@ export default function MachinesPage() {
                 onChange={(e) => {
                   const f = e.target.files?.[0];
                   if (f) {
-                    handleValidate(f);
+                    handleImport(f);
                     e.target.value = "";
                   }
                 }}
@@ -229,7 +253,7 @@ export default function MachinesPage() {
                   <Button
                     variant="outline"
                     onClick={handleExport}
-                    loading={exportLoading}
+                    disabled={exportLoading}
                     className="shadow-sm"
                   >
                     <Download className="w-4 h-4 mr-2" />
@@ -238,7 +262,7 @@ export default function MachinesPage() {
                   <Button
                     variant="outline"
                     onClick={() => importFileRef.current?.click()}
-                    loading={validateLoading}
+                    disabled={importLoading}
                     className="shadow-sm"
                   >
                     <Upload className="w-4 h-4 mr-2" />
@@ -261,7 +285,7 @@ export default function MachinesPage() {
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400 w-5 h-5" />
                   <Input
-                    placeholder="Search by name..."
+                    placeholder="Search machines or contractors..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10"
@@ -312,6 +336,9 @@ export default function MachinesPage() {
                           Name
                         </th>
                         <th className="px-4 py-3 font-semibold text-text">
+                          Contractor
+                        </th>
+                        <th className="px-4 py-3 font-semibold text-text">
                           Status
                         </th>
                         <th className="px-4 py-3 font-semibold text-text text-right">
@@ -334,12 +361,16 @@ export default function MachinesPage() {
                           <td className="px-4 py-3 font-medium text-text">
                             {m.name}
                           </td>
+                          <td className="px-4 py-3 text-secondary-600">
+                            {m.contractor?.name || `ID: ${m.contractorId}`}
+                          </td>
                           <td className="px-4 py-3">
                             <span
-                              className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${m.isActive
-                                ? "bg-green-100 text-green-700 border border-green-200"
-                                : "bg-red-100 text-red-700 border border-red-200"
-                                }`}
+                              className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${
+                                m.isActive
+                                  ? "bg-green-100 text-green-700 border border-green-200"
+                                  : "bg-red-100 text-red-700 border border-red-200"
+                              }`}
                             >
                               {m.isActive ? "Active" : "Inactive"}
                             </span>
@@ -350,7 +381,11 @@ export default function MachinesPage() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleOpenForm(m)}
-                                title={canEditMaster ? "Edit machine" : "View machine (edit disabled)"}
+                                title={
+                                  canEditMaster
+                                    ? "Edit machine"
+                                    : "View machine (edit disabled)"
+                                }
                               >
                                 <Edit2 className="w-4 h-4" />
                               </Button>
@@ -442,9 +477,29 @@ export default function MachinesPage() {
             aria-label={editingMachine ? "Update machine" : "Add new machine"}
           >
             <div>
-              <Label htmlFor="machine-name-input">
-                Machine Master Name *
-              </Label>
+              <Label htmlFor="machine-contractor-select">Contractor *</Label>
+              <Select
+                id="machine-contractor-select"
+                {...register("contractorId")}
+                className="mt-1"
+                aria-required="true"
+                aria-invalid={!!errors.contractorId}
+              >
+                <option value="">Select Contractor</option>
+                {contractors.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </Select>
+              {errors.contractorId && (
+                <p className="text-sm text-red-600 mt-1" role="alert">
+                  {errors.contractorId.message}
+                </p>
+              )}
+            </div>
+            <div>
+              <Label htmlFor="machine-name-input">Machine Master Name *</Label>
               <Input
                 id="machine-name-input"
                 {...register("name")}
@@ -488,7 +543,9 @@ export default function MachinesPage() {
               {(editingMachine ? canEditMaster : canAddMaster) && (
                 <Button
                   type="submit"
-                  disabled={createMutation.isPending || updateMutation.isPending}
+                  disabled={
+                    createMutation.isPending || updateMutation.isPending
+                  }
                   className="flex-1"
                   aria-describedby="machine-form-hint"
                 >
@@ -510,14 +567,6 @@ export default function MachinesPage() {
             </div>
           </form>
         </Dialog>
-        <ImportPreviewModal
-          isOpen={!!validationData}
-          onClose={() => setValidationData(null)}
-          data={validationData}
-          onConfirm={() => pendingFile && handleImport(pendingFile)}
-          isLoading={importLoading}
-          title="Machines Import Preview"
-        />
       </motion.div>
     </div>
   );

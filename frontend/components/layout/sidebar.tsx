@@ -132,25 +132,12 @@ export function Sidebar({
       : sidebarWidth;
 
   const canViewDashboard = permissions?.viewDashboard ?? false;
+  const canViewMaster = permissions?.viewMaster ?? false;
   const canViewOutward = permissions?.viewOutward ?? false;
   const canViewInward = permissions?.viewInward ?? false;
   const canViewReports = permissions?.viewReports ?? false;
   const canAccessSettings =
     permissions?.accessSettings ?? (userRole === Role.QC_ADMIN && !!permissions);
-
-  const filteredMasterEntries = masterEntries.filter((e) => {
-    if (!permissions) return false;
-    // Match each route to its specific permission
-    if (e.href === "/companies") return permissions.viewCompanyMaster;
-    if (e.href === "/locations") return permissions.viewLocationMaster;
-    if (e.href === "/contractors") return permissions.viewContractorMaster;
-    if (e.href === "/statuses") return permissions.viewStatusMaster;
-    if (e.href === "/machines") return permissions.viewMachineMaster;
-    if (e.href === "/items") return permissions.viewItemMaster;
-    if (e.href === "/item-categories") return permissions.viewItemCategoryMaster;
-    return false;
-  });
-
   const transactionEntries = transactionEntriesAll.filter(
     (e) =>
       (e.href === "/issues" && canViewOutward) ||
@@ -270,7 +257,7 @@ export function Sidebar({
           )}
 
           {/* Master Entry */}
-          {filteredMasterEntries.length > 0 && (
+          {canViewMaster && (
             <div className="pt-1">
               {showFullSidebar ? (
                 <>
@@ -295,7 +282,7 @@ export function Sidebar({
                       animate={{ opacity: 1, height: "auto" }}
                       className="pl-1 mt-0.5 space-y-0.5"
                     >
-                      {filteredMasterEntries.map((item) => {
+                      {masterEntries.map((item) => {
                         const Icon = item.icon;
                         return (
                           <Link key={item.href} href={item.href}>
@@ -319,7 +306,7 @@ export function Sidebar({
                 </>
               ) : (
                 <div className="space-y-0.5">
-                  {filteredMasterEntries.map((item) => {
+                  {masterEntries.map((item) => {
                     const Icon = item.icon;
                     const cellClass = `flex items-center justify-center p-2 rounded-md transition-colors ${pathname === item.href
                       ? "bg-primary-50 text-primary-600"

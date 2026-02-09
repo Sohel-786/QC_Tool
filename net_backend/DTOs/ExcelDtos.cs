@@ -20,6 +20,8 @@ namespace net_backend.DTOs
     public class MachineImportDto
     {
         public string Name { get; set; } = string.Empty;
+        public string ContractorName { get; set; } = string.Empty;
+        public string? IsActive { get; set; }
     }
 
     public class StatusImportDto

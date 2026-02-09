@@ -39,4 +39,22 @@ namespace net_backend.DTOs
         public int CompanyId { get; set; }
         public bool? IsActive { get; set; }
     }
+
+    public class MachineDto
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public int ContractorId { get; set; }
+        public string? ContractorName { get; set; }
+        public bool IsActive { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
+    }
+
+    public class CreateMachineRequest
+    {
+        public string Name { get; set; } = string.Empty;
+        public int ContractorId { get; set; }
+        public bool? IsActive { get; set; }
+    }
 }

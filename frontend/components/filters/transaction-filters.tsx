@@ -9,8 +9,10 @@ import { MultiSelectSearch } from "@/components/ui/multi-select-search";
 import type { MultiSelectSearchOption } from "@/components/ui/multi-select-search";
 import { cn } from "@/lib/utils";
 
+export type TransactionFilterStatus = "all" | "active" | "inactive";
 
 export interface TransactionFiltersState {
+  status: TransactionFilterStatus;
   companyIds: number[];
   contractorIds: number[];
   machineIds: number[];
@@ -22,6 +24,7 @@ export interface TransactionFiltersState {
 }
 
 const defaultFilters: TransactionFiltersState = {
+  status: "all",
   companyIds: [],
   contractorIds: [],
   machineIds: [],
@@ -70,6 +73,7 @@ export function TransactionFilters({
   hideItemFilter,
 }: TransactionFiltersProps) {
   const hasActiveFilters =
+    filters.status !== "all" ||
     filters.companyIds.length > 0 ||
     filters.contractorIds.length > 0 ||
     filters.machineIds.length > 0 ||
@@ -124,6 +128,26 @@ export function TransactionFilters({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 overflow-visible items-start">
+            <div className="min-w-0 flex flex-col">
+              <Label
+                htmlFor="filter-status"
+                className="block text-sm mb-1.5 font-medium text-secondary-700"
+              >
+                Status
+              </Label>
+              <select
+                id="filter-status"
+                value={filters.status}
+                onChange={(e) =>
+                  update({ status: e.target.value as TransactionFilterStatus })
+                }
+                className="flex h-10 w-full rounded-lg border border-secondary-300 bg-white px-3 py-2 text-sm text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+              >
+                <option value="all">All</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
 
             <div className="min-w-0 flex flex-col">
               <MultiSelectSearch

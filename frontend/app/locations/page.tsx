@@ -4,8 +4,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import api from "@/lib/api";
-import { Company, Location } from "@/types";
-import { Select } from "@/components/ui/select";
+import { Location } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,9 +15,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Plus, Edit2, Search, Ban, CheckCircle, Download, Upload } from "lucide-react";
 import { useMasterExportImport } from "@/hooks/use-master-export-import";
-import { ImportPreviewModal } from "@/components/dialogs/import-preview-modal";
 import { useCurrentUserPermissions } from "@/hooks/use-settings";
 import { toast } from "react-hot-toast";
+import { Company } from "@/types";
+import { Select } from "@/components/ui/select";
 
 const locationSchema = z.object({
   name: z.string().min(1, "Location name is required"),
@@ -42,17 +42,8 @@ export default function LocationsPage() {
   const canAddMaster = permissions?.addMaster ?? false;
   const canEditMaster = permissions?.editMaster ?? false;
   const canImportExportMaster = permissions?.importExportMaster ?? false;
-  const {
-    handleExport,
-    handleValidate,
-    handleImport,
-    exportLoading,
-    validateLoading,
-    importLoading,
-    validationData,
-    setValidationData,
-    pendingFile,
-  } = useMasterExportImport("locations", ["locations"]);
+  const { handleExport, handleImport, exportLoading, importLoading } =
+    useMasterExportImport("locations", ["locations"]);
 
   const { data: locations = [], isLoading } = useQuery<Location[]>({
     queryKey: ["locations"],
@@ -78,12 +69,16 @@ export default function LocationsPage() {
     setValue,
   } = useForm<LocationForm>({
     resolver: zodResolver(locationSchema),
+    defaultValues: {
+      isActive: true,
+      companyId: 0,
+    },
   });
 
   useEffect(() => {
     if (!isFormOpen) return;
     const t = setTimeout(() => {
-      document.getElementById("location-name-input")?.focus();
+      document.getElementById("location-company-select")?.focus();
     }, 100);
     return () => clearTimeout(t);
   }, [isFormOpen]);
@@ -159,7 +154,7 @@ export default function LocationsPage() {
       setEditingLocation(null);
       reset({
         name: "",
-        companyId: undefined,
+        companyId: 0,
         isActive: true,
       });
     }
@@ -204,7 +199,11 @@ export default function LocationsPage() {
     let list = locations;
     const q = searchTerm.trim().toLowerCase();
     if (q) {
-      list = list.filter((loc) => loc.name.toLowerCase().includes(q));
+      list = list.filter(
+        (loc) =>
+          loc.name.toLowerCase().includes(q) ||
+          loc.company?.name.toLowerCase().includes(q),
+      );
     }
     if (activeFilter === "active") list = list.filter((loc) => loc.isActive);
     if (activeFilter === "inactive") list = list.filter((loc) => !loc.isActive);
@@ -236,7 +235,7 @@ export default function LocationsPage() {
                 onChange={(e) => {
                   const f = e.target.files?.[0];
                   if (f) {
-                    handleValidate(f);
+                    handleImport(f);
                     e.target.value = "";
                   }
                 }}
@@ -246,7 +245,7 @@ export default function LocationsPage() {
                   <Button
                     variant="outline"
                     onClick={handleExport}
-                    loading={exportLoading}
+                    disabled={exportLoading}
                     className="shadow-sm"
                   >
                     <Download className="w-4 h-4 mr-2" />
@@ -255,7 +254,7 @@ export default function LocationsPage() {
                   <Button
                     variant="outline"
                     onClick={() => importFileRef.current?.click()}
-                    loading={validateLoading}
+                    disabled={importLoading}
                     className="shadow-sm"
                   >
                     <Upload className="w-4 h-4 mr-2" />
@@ -278,7 +277,7 @@ export default function LocationsPage() {
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400 w-5 h-5" />
                   <Input
-                    placeholder="Search by name..."
+                    placeholder="Search locations or companies..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10"
@@ -326,10 +325,10 @@ export default function LocationsPage() {
                           Sr.No
                         </th>
                         <th className="px-4 py-3 font-semibold text-primary-900">
-                          Name
+                          Company
                         </th>
                         <th className="px-4 py-3 font-semibold text-primary-900">
-                          Company
+                          Location Name
                         </th>
                         <th className="px-4 py-3 font-semibold text-primary-900">
                           Status
@@ -351,11 +350,11 @@ export default function LocationsPage() {
                           <td className="px-4 py-3 text-secondary-600">
                             {idx + 1}
                           </td>
-                          <td className="px-4 py-3 font-medium text-text">
-                            {loc.name}
-                          </td>
                           <td className="px-4 py-3 text-secondary-600">
                             {loc.company?.name || `ID: ${loc.companyId}`}
+                          </td>
+                          <td className="px-4 py-3 font-medium text-text">
+                            {loc.name}
                           </td>
                           <td className="px-4 py-3">
                             <span
@@ -482,8 +481,10 @@ export default function LocationsPage() {
                 aria-invalid={!!errors.companyId}
               >
                 <option value="">Select Company</option>
-                {companies.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
+                {companies.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
                 ))}
               </Select>
               {errors.companyId && (
@@ -560,14 +561,6 @@ export default function LocationsPage() {
             </div>
           </form>
         </Dialog>
-        <ImportPreviewModal
-          isOpen={!!validationData}
-          onClose={() => setValidationData(null)}
-          data={validationData}
-          onConfirm={() => pendingFile && handleImport(pendingFile)}
-          isLoading={importLoading}
-          title="Locations Import Preview"
-        />
       </motion.div>
     </div>
   );

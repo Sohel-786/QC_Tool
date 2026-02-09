@@ -22,9 +22,10 @@ namespace net_backend.Controllers
         [HttpGet("export")]
         public async Task<IActionResult> Export()
         {
-            var data = (await _context.Machines.ToListAsync()).Select(c => new {
+            var data = (await _context.Machines.Include(m => m.Contractor).ToListAsync()).Select(c => new {
                 Id = c.Id,
                 Name = c.Name,
+                Contractor = c.Contractor?.Name ?? "—",
                 IsActive = c.IsActive ? "Yes" : "No",
                 CreatedAt = c.CreatedAt.ToString("yyyy-MM-dd HH:mm")
             });
@@ -59,7 +60,23 @@ namespace net_backend.Controllers
 
                 foreach (var validRow in validation.Valid)
                 {
-                    newItems.Add(new Machine { Name = validRow.Data.Name.Trim(), IsActive = true });
+                    var contractor = await _context.Contractors.FirstOrDefaultAsync(c => c.Name.ToLower() == validRow.Data.ContractorName.Trim().ToLower());
+                    if (contractor != null)
+                    {
+                        var isActive = true;
+                        if (!string.IsNullOrEmpty(validRow.Data.IsActive))
+                        {
+                            var statusStr = validRow.Data.IsActive.Trim().ToLower();
+                            isActive = statusStr == "yes" || statusStr == "true" || statusStr == "1" || statusStr == "active";
+                        }
+
+                        newItems.Add(new Machine 
+                        { 
+                            Name = validRow.Data.Name.Trim(), 
+                            ContractorId = contractor.Id,
+                            IsActive = isActive 
+                        });
+                    }
                 }
 
                 if (newItems.Any())
@@ -77,8 +94,8 @@ namespace net_backend.Controllers
         private async Task<ValidationResultDto<MachineImportDto>> ValidateMachines(List<ExcelRow<MachineImportDto>> rows)
         {
             var validation = new ValidationResultDto<MachineImportDto>();
-            var existingNames = await _context.Machines.Select(c => c.Name.ToLower()).ToListAsync();
             var processedInFile = new HashSet<string>();
+            var contractors = await _context.Contractors.ToListAsync();
 
             foreach (var row in rows)
             {
@@ -88,23 +105,40 @@ namespace net_backend.Controllers
                     validation.Invalid.Add(new ValidationEntry<MachineImportDto> { Row = row.RowNumber, Data = item, Message = "Name is mandatory" });
                     continue;
                 }
-                var nameLower = item.Name.Trim().ToLower();
 
-                if (processedInFile.Contains(nameLower))
+                if (string.IsNullOrWhiteSpace(item.ContractorName))
                 {
-                    validation.Duplicates.Add(new ValidationEntry<MachineImportDto> { Row = row.RowNumber, Data = item, Message = $"Duplicate Machine Name in file: {item.Name}" });
+                    validation.Invalid.Add(new ValidationEntry<MachineImportDto> { Row = row.RowNumber, Data = item, Message = "Contractor Name is mandatory" });
                     continue;
                 }
 
-                if (existingNames.Contains(nameLower))
+                var contractor = contractors.FirstOrDefault(c => c.Name.Trim().ToLower() == item.ContractorName.Trim().ToLower());
+                if (contractor == null)
                 {
-                    validation.AlreadyExists.Add(new ValidationEntry<MachineImportDto> { Row = row.RowNumber, Data = item, Message = $"Machine '{item.Name}' already exists" });
-                    processedInFile.Add(nameLower);
+                    validation.Invalid.Add(new ValidationEntry<MachineImportDto> { Row = row.RowNumber, Data = item, Message = $"Contractor '{item.ContractorName}' not found" });
+                    continue;
+                }
+
+                var nameLower = item.Name.Trim().ToLower();
+                var contractorId = contractor.Id;
+                var fileKey = $"{nameLower}_{contractorId}";
+
+                if (processedInFile.Contains(fileKey))
+                {
+                    validation.Duplicates.Add(new ValidationEntry<MachineImportDto> { Row = row.RowNumber, Data = item, Message = $"Duplicate Machine Name '{item.Name}' for Contractor '{contractor.Name}' in file" });
+                    continue;
+                }
+
+                var existsInDb = await _context.Machines.AnyAsync(m => m.Name.ToLower() == nameLower && m.ContractorId == contractorId);
+                if (existsInDb)
+                {
+                    validation.AlreadyExists.Add(new ValidationEntry<MachineImportDto> { Row = row.RowNumber, Data = item, Message = $"Machine '{item.Name}' already exists for Contractor '{contractor.Name}'" });
+                    processedInFile.Add(fileKey);
                     continue;
                 }
 
                 validation.Valid.Add(new ValidationEntry<MachineImportDto> { Row = row.RowNumber, Data = item });
-                processedInFile.Add(nameLower);
+                processedInFile.Add(fileKey);
             }
 
             return validation;
@@ -112,11 +146,15 @@ namespace net_backend.Controllers
 
         [HttpGet]
         public async Task<ActionResult<ApiResponse<IEnumerable<Machine>>>> GetAll() => 
-            Ok(new ApiResponse<IEnumerable<Machine>> { Data = await _context.Machines.ToListAsync() });
+            Ok(new ApiResponse<IEnumerable<Machine>> { Data = await _context.Machines.Include(m => m.Contractor).ToListAsync() });
 
         [HttpGet("active")]
         public async Task<ActionResult<ApiResponse<IEnumerable<Machine>>>> GetActive() => 
-            Ok(new ApiResponse<IEnumerable<Machine>> { Data = await _context.Machines.Where(c => c.IsActive).ToListAsync() });
+            Ok(new ApiResponse<IEnumerable<Machine>> { Data = await _context.Machines.Include(m => m.Contractor).Where(c => c.IsActive).ToListAsync() });
+
+        [HttpGet("contractor/{contractorId}")]
+        public async Task<ActionResult<ApiResponse<IEnumerable<Machine>>>> GetByContractor(int contractorId) => 
+            Ok(new ApiResponse<IEnumerable<Machine>> { Data = await _context.Machines.Where(m => m.ContractorId == contractorId && m.IsActive).ToListAsync() });
 
         [HttpGet("{id}")]
         public async Task<ActionResult<ApiResponse<Machine>>> GetById(int id)
@@ -126,9 +164,14 @@ namespace net_backend.Controllers
         }
 
         [HttpPost]
-        public async Task<ActionResult<ApiResponse<Machine>>> Create([FromBody] CreateCompanyRequest request)
+        public async Task<ActionResult<ApiResponse<Machine>>> Create([FromBody] CreateMachineRequest request)
         {
-            var item = new Machine { Name = request.Name, IsActive = request.IsActive ?? true };
+            var item = new Machine 
+            { 
+                Name = request.Name, 
+                ContractorId = request.ContractorId,
+                IsActive = request.IsActive ?? true 
+            };
             _context.Machines.Add(item);
             await _context.SaveChangesAsync();
             return StatusCode(201, new ApiResponse<Machine> { Data = item });
@@ -136,11 +179,12 @@ namespace net_backend.Controllers
 
         [HttpPatch("{id}")]
         [HttpPut("{id}")]
-        public async Task<ActionResult<ApiResponse<Machine>>> Update(int id, [FromBody] CreateCompanyRequest request)
+        public async Task<ActionResult<ApiResponse<Machine>>> Update(int id, [FromBody] CreateMachineRequest request)
         {
             var item = await _context.Machines.FindAsync(id);
             if (item == null) return NotFound();
             if (!string.IsNullOrEmpty(request.Name)) item.Name = request.Name;
+            if (request.ContractorId > 0) item.ContractorId = request.ContractorId;
             if (request.IsActive.HasValue) item.IsActive = request.IsActive.Value;
             item.UpdatedAt = DateTime.Now;
             await _context.SaveChangesAsync();

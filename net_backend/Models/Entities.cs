@@ -71,6 +71,7 @@ namespace net_backend.Models
 
         public virtual ICollection<Issue> Issues { get; set; } = new List<Issue>();
         public virtual ICollection<Return> Returns { get; set; } = new List<Return>();
+        public virtual ICollection<Machine> Machines { get; set; } = new List<Machine>();
     }
 
     [Table("tool_categories")]
@@ -132,10 +133,13 @@ namespace net_backend.Models
         public int Id { get; set; }
         [Required]
         public string Name { get; set; } = string.Empty;
+        public int ContractorId { get; set; }
         public bool IsActive { get; set; } = true;
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime UpdatedAt { get; set; } = DateTime.Now;
 
+        [ForeignKey("ContractorId")]
+        public virtual Contractor? Contractor { get; set; }
         public virtual ICollection<Issue> Issues { get; set; } = new List<Issue>();
         public virtual ICollection<Return> Returns { get; set; } = new List<Return>();
     }

@@ -1,8 +1,6 @@
-import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { toast } from "react-hot-toast";
-import { ValidationResult } from "@/types";
 
 type ImportResult = {
   imported: number;
@@ -12,8 +10,6 @@ type ImportResult = {
 
 export function useMasterExportImport(endpoint: string, queryKey: string[]) {
   const queryClient = useQueryClient();
-  const [validationData, setValidationData] = useState<ValidationResult | null>(null);
-  const [pendingFile, setPendingFile] = useState<File | null>(null);
 
   const exportMutation = useMutation({
     mutationFn: async () => {
@@ -45,27 +41,6 @@ export function useMasterExportImport(endpoint: string, queryKey: string[]) {
     },
   });
 
-  const validateMutation = useMutation({
-    mutationFn: async (file: File) => {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await api.post(`/${endpoint}/validate`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      return res.data?.data as ValidationResult;
-    },
-    onSuccess: (data: ValidationResult, file: File) => {
-      setValidationData(data);
-      setPendingFile(file);
-    },
-    onError: (e: unknown) => {
-      const msg =
-        (e as { response?: { data?: { message?: string } } })?.response?.data
-          ?.message ?? "Validation failed.";
-      toast.error(msg);
-    },
-  });
-
   const importMutation = useMutation({
     mutationFn: async (file: File) => {
       const formData = new FormData();
@@ -83,8 +58,6 @@ export function useMasterExportImport(endpoint: string, queryKey: string[]) {
           ? `Successfully imported all ${imported} record${imported === 1 ? "" : "s"}.`
           : `Imported ${imported} from ${totalRows} masters.`
       );
-      setValidationData(null);
-      setPendingFile(null);
     },
     onError: (e: unknown) => {
       const msg =
@@ -96,14 +69,8 @@ export function useMasterExportImport(endpoint: string, queryKey: string[]) {
 
   return {
     handleExport: () => exportMutation.mutate(),
-    handleValidate: (file: File) => validateMutation.mutate(file),
     handleImport: (file: File) => importMutation.mutate(file),
     exportLoading: exportMutation.isPending,
-    validateLoading: validateMutation.isPending,
     importLoading: importMutation.isPending,
-    validationData,
-    setValidationData,
-    pendingFile,
-    setPendingFile,
   };
 }

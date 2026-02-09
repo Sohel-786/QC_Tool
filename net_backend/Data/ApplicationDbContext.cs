@@ -73,6 +73,12 @@ namespace net_backend.Data
                 .HasForeignKey(l => l.CompanyId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            modelBuilder.Entity<Machine>()
+                .HasOne(m => m.Contractor)
+                .WithMany(c => c.Machines)
+                .HasForeignKey(m => m.ContractorId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             modelBuilder.Entity<Item>()
                 .Property(i => i.Status);
         }

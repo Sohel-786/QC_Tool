@@ -86,6 +86,8 @@ export interface Status {
 export interface Machine {
   id: number;
   name: string;
+  contractorId: number;
+  contractor?: Contractor;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -184,19 +186,9 @@ export interface RolePermission {
   role: string;
   viewDashboard: boolean;
   viewMaster: boolean;
-  viewCompanyMaster: boolean;
-  viewLocationMaster: boolean;
-  viewContractorMaster: boolean;
-  viewStatusMaster: boolean;
-  viewMachineMaster: boolean;
-  viewItemMaster: boolean;
-  viewItemCategoryMaster: boolean;
   viewOutward: boolean;
   viewInward: boolean;
   viewReports: boolean;
-  viewActiveIssuesReport: boolean;
-  viewMissingItemsReport: boolean;
-  viewItemHistoryLedgerReport: boolean;
   importExportMaster: boolean;
   addOutward: boolean;
   editOutward: boolean;
@@ -209,18 +201,4 @@ export interface RolePermission {
   navigationLayout: 'VERTICAL' | 'HORIZONTAL';
   createdAt?: string;
   updatedAt?: string;
-}
-
-export interface ValidationEntry<T = any> {
-  row: number;
-  data: T;
-  message?: string;
-}
-
-export interface ValidationResult<T = any> {
-  valid: ValidationEntry<T>[];
-  duplicates: ValidationEntry<T>[];
-  alreadyExists: ValidationEntry<T>[];
-  invalid: ValidationEntry<T>[];
-  totalRows: number;
 }

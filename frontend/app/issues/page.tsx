@@ -81,7 +81,6 @@ export default function IssuesPage() {
   const { data: permissions } = useCurrentUserPermissions();
   const canAddOutward = permissions?.addOutward ?? false;
   const canEditOutward = permissions?.editOutward ?? false;
-  const canAddInward = permissions?.addInward ?? false;
   const isManager = currentUser?.role === Role.QC_MANAGER;
   const isAdmin = currentUser?.role === Role.QC_ADMIN;
   const isViewOnly = !!editingIssue?.isReturned;
@@ -283,7 +282,6 @@ export default function IssuesPage() {
       queryClient.invalidateQueries({ queryKey: ["issues"] });
       queryClient.invalidateQueries({ queryKey: ["active-issues"] });
       queryClient.invalidateQueries({ queryKey: ["items"] });
-      queryClient.invalidateQueries({ queryKey: ["returns"] });
       setInactiveTarget(null);
       toast.success("Outward marked inactive");
     },
@@ -304,7 +302,6 @@ export default function IssuesPage() {
       queryClient.invalidateQueries({ queryKey: ["issues"] });
       queryClient.invalidateQueries({ queryKey: ["active-issues"] });
       queryClient.invalidateQueries({ queryKey: ["items"] });
-      queryClient.invalidateQueries({ queryKey: ["returns"] });
       toast.success("Outward marked active");
     },
     onError: (e: unknown) => {
@@ -414,24 +411,23 @@ export default function IssuesPage() {
     return companies.map((c) => ({ value: c.id, label: c.name }));
   }, [companies]);
 
+  const contractorSelectOptions = useMemo(() => {
+    return contractors.map((c) => ({ value: c.id, label: c.name }));
+  }, [contractors]);
+
   const locationSelectOptions = useMemo(() => {
-    if (!watchedCompanyId || watchedCompanyId === 0) return [];
+    if (!watchedCompanyId) return [];
     return locations
       .filter((l) => l.companyId === watchedCompanyId)
       .map((l) => ({ value: l.id, label: l.name }));
   }, [locations, watchedCompanyId]);
 
-  const contractorSelectOptions = useMemo(() => {
-    return contractors.map((c) => ({ value: c.id, label: c.name }));
-  }, [contractors]);
-
   const machineSelectOptions = useMemo(() => {
-    return machines.map((m) => ({ value: m.id, label: m.name }));
-  }, [machines]);
-
-  // const locationSelectOptions = useMemo(() => {
-  //   return locations.map((l) => ({ value: l.id, label: l.name }));
-  // }, [locations]);
+    if (!watchedContractorId) return [];
+    return machines
+      .filter((m) => m.contractorId === watchedContractorId)
+      .map((m) => ({ value: m.id, label: m.name }));
+  }, [machines, watchedContractorId]);
 
   const itemSelectOptions = useMemo(() => {
     return itemsByCategory.map((item) => ({
@@ -526,9 +522,11 @@ export default function IssuesPage() {
                         {/* <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[100px]">
                           Inward Done
                         </th> */}
-                        <th className="px-4 py-3 font-semibold text-primary-900 text-center min-w-[200px]">
-                          Actions
-                        </th>
+                        {(canAddOutward || canEditOutward) && (
+                          <th className="px-4 py-3 font-semibold text-primary-900 text-center min-w-[200px]">
+                            Actions
+                          </th>
+                        )}
                       </tr>
                     </thead>
                     <tbody>
@@ -585,66 +583,68 @@ export default function IssuesPage() {
                               {issue.isReturned ? "Yes" : "No"}
                             </span>
                           </td> */}
-                          <td className="px-4 py-3 min-w-[200px]">
-                            <div className="flex flex-nowrap items-center justify-center gap-1 whitespace-nowrap">
-                              {!issue.isReturned && canAddInward && (
+                          {(canAddOutward || canEditOutward) && (
+                            <td className="px-4 py-3 min-w-[200px]">
+                              <div className="flex flex-nowrap items-center justify-center gap-1 whitespace-nowrap">
+                                {!issue.isReturned && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => goToInward(issue)}
+                                    className="shrink-0 text-primary-600 border-primary-200 hover:bg-primary-50 hover:border-primary-300"
+                                  >
+                                    <LogIn className="w-4 h-4 mr-1" />
+                                    Inward
+                                  </Button>
+                                )}
                                 <Button
-                                  variant="outline"
+                                  variant="ghost"
                                   size="sm"
-                                  onClick={() => goToInward(issue)}
-                                  className="shrink-0 text-primary-600 border-primary-200 hover:bg-primary-50 hover:border-primary-300"
+                                  onClick={() => handleOpenEdit(issue)}
+                                  title={
+                                    issue.isReturned
+                                      ? "View only (inward done)"
+                                      : canEditOutward
+                                        ? "Edit outward"
+                                        : "View outward (edit disabled)"
+                                  }
+                                  className="shrink-0"
                                 >
-                                  <LogIn className="w-4 h-4 mr-1" />
-                                  Inward
+                                  <Edit2 className="w-4 h-4" />
                                 </Button>
-                              )}
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleOpenEdit(issue)}
-                                title={
-                                  issue.isReturned
-                                    ? "View only (inward done)"
-                                    : canEditOutward
-                                      ? "Edit outward"
-                                      : "View outward (edit disabled)"
-                                }
-                                className="shrink-0"
-                              >
-                                <Edit2 className="w-4 h-4" />
-                              </Button>
-                              {isAdmin && (
-                                <>
-                                  {issue.isActive && !issue.isReturned && (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => setInactiveTarget(issue)}
-                                      title="Mark outward inactive"
-                                      className="shrink-0 text-amber-600 hover:bg-amber-50"
-                                      disabled={setInactiveMutation.isPending}
-                                    >
-                                      <Ban className="w-4 h-4" />
-                                    </Button>
-                                  )}
-                                  {!issue.isActive && (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() =>
-                                        setActiveMutation.mutate(issue.id)
-                                      }
-                                      title="Mark outward active"
-                                      className="shrink-0 text-green-600 hover:bg-green-50"
-                                      disabled={setActiveMutation.isPending}
-                                    >
-                                      <CheckCircle className="w-4 h-4" />
-                                    </Button>
-                                  )}
-                                </>
-                              )}
-                            </div>
-                          </td>
+                                {isAdmin && (
+                                  <>
+                                    {issue.isActive && !issue.isReturned && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setInactiveTarget(issue)}
+                                        title="Mark outward inactive"
+                                        className="shrink-0 text-amber-600 hover:bg-amber-50"
+                                        disabled={setInactiveMutation.isPending}
+                                      >
+                                        <Ban className="w-4 h-4" />
+                                      </Button>
+                                    )}
+                                    {!issue.isActive && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() =>
+                                          setActiveMutation.mutate(issue.id)
+                                        }
+                                        title="Mark outward active"
+                                        className="shrink-0 text-green-600 hover:bg-green-50"
+                                        disabled={setActiveMutation.isPending}
+                                      >
+                                        <CheckCircle className="w-4 h-4" />
+                                      </Button>
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          )}
                         </motion.tr>
                       ))}
                     </tbody>
@@ -849,16 +849,9 @@ export default function IssuesPage() {
                           options={companySelectOptions}
                           value={watchedCompanyId ?? ""}
                           onChange={(v) => {
-                            const newCompanyId = Number(v);
-                            setValue("companyId", newCompanyId);
-                            // Reset location if it doesn't belong to the new company
-                            const currentLocationId = watch("locationId");
-                            if (currentLocationId && currentLocationId !== 0) {
-                              const isValid = locations.some(l => l.id === currentLocationId && l.companyId === newCompanyId);
-                              if (!isValid) {
-                                setValue("locationId", 0);
-                              }
-                            }
+                            const n = Number(v);
+                            setValue("companyId", n);
+                            setValue("locationId", 0);
                           }}
                           disabled={isViewOnly}
                           placeholder="Select company"
@@ -879,7 +872,11 @@ export default function IssuesPage() {
                           id="outward-contractor-id"
                           options={contractorSelectOptions}
                           value={watchedContractorId ?? ""}
-                          onChange={(v) => setValue("contractorId", Number(v))}
+                          onChange={(v) => {
+                            const n = Number(v);
+                            setValue("contractorId", n);
+                            setValue("machineId", 0);
+                          }}
                           disabled={isViewOnly}
                           placeholder="Select contractor"
                           searchPlaceholder="Search contractors..."
@@ -900,8 +897,12 @@ export default function IssuesPage() {
                           options={machineSelectOptions}
                           value={watchedMachineId ?? ""}
                           onChange={(v) => setValue("machineId", Number(v))}
-                          disabled={isViewOnly}
-                          placeholder="Select machine"
+                          disabled={isViewOnly || !watchedContractorId}
+                          placeholder={
+                            watchedContractorId
+                              ? "Select machine"
+                              : "Select contractor first"
+                          }
                           searchPlaceholder="Search machines..."
                           error={errors.machineId?.message}
                         />
@@ -920,8 +921,12 @@ export default function IssuesPage() {
                           options={locationSelectOptions}
                           value={watchedLocationId ?? ""}
                           onChange={(v) => setValue("locationId", Number(v))}
-                          disabled={isViewOnly || !watchedCompanyId || watchedCompanyId === 0}
-                          placeholder={(!watchedCompanyId || watchedCompanyId === 0) ? "Select company first" : "Select location"}
+                          disabled={isViewOnly || !watchedCompanyId}
+                          placeholder={
+                            watchedCompanyId
+                              ? "Select location"
+                              : "Select company first"
+                          }
                           searchPlaceholder="Search locations..."
                           error={errors.locationId?.message}
                         />
@@ -1081,7 +1086,6 @@ export default function IssuesPage() {
           categories={categories}
           selectedCategoryId={selectedCategoryId ?? null}
           onSelectItem={(item) => setValue("itemId", item.id)}
-          isLoading={itemsLoading}
         />
       </motion.div>
     </div>

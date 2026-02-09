@@ -256,15 +256,6 @@ export default function ReturnsPage() {
   const isFromOutwardMode = entryMode === "from_outward";
   const imageRequired = isFromOutwardMode && condition !== "Missing";
 
-  const watchedCompanyId = watch("companyId");
-
-  const locationFormOptions = useMemo(() => {
-    if (!watchedCompanyId || watchedCompanyId === 0) return [];
-    return filterLocations
-      .filter((l: any) => l.companyId === watchedCompanyId)
-      .map((l: any) => ({ value: l.id, label: l.name }));
-  }, [filterLocations, watchedCompanyId]);
-
   const filterOptions = useMemo(
     () => ({
       company: filterCompanies.map((c: { id: number; name: string }) => ({
@@ -305,6 +296,23 @@ export default function ReturnsPage() {
       filterItems,
     ],
   );
+
+  const watchedCompanyId = watch("companyId");
+  const watchedContractorId = watch("contractorId");
+
+  const locationFormOptions = useMemo(() => {
+    if (!watchedCompanyId) return [];
+    return filterLocations
+      .filter((l: any) => l.companyId === watchedCompanyId)
+      .map((l: any) => ({ value: l.id, label: l.name }));
+  }, [filterLocations, watchedCompanyId]);
+
+  const machineFormOptions = useMemo(() => {
+    if (!watchedContractorId) return [];
+    return filterMachines
+      .filter((m: any) => m.contractorId === watchedContractorId)
+      .map((m) => ({ value: m.id, label: m.name }));
+  }, [filterMachines, watchedContractorId]);
 
   const createMutation = useMutation({
     mutationFn: async (data: { formData: FormData }) => {
@@ -451,7 +459,6 @@ export default function ReturnsPage() {
     setValue("statusId", r.statusId ?? 0);
     setValue("remarks", r.remarks ?? "");
     setValue("receivedBy", r.receivedBy ?? "");
-    setValue("condition", r.condition as any);
     setIsFormOpen(true);
   };
 
@@ -628,9 +635,11 @@ export default function ReturnsPage() {
                         <th className="px-4 py-3 font-semibold text-primary-900 text-center w-[60px] min-w-[60px]">
                           Image
                         </th>
-                        <th className="px-4 py-3 font-semibold text-primary-900 text-center min-w-[160px]">
-                          Actions
-                        </th>
+                        {(canAddInward || canEditInward) && (
+                          <th className="px-4 py-3 font-semibold text-primary-900 text-center min-w-[160px]">
+                            Actions
+                          </th>
+                        )}
                       </tr>
                     </thead>
                     <tbody>
@@ -730,56 +739,58 @@ export default function ReturnsPage() {
                               <span className="text-secondary-400">—</span>
                             )}
                           </td>
-                          <td className="px-4 py-3 min-w-[160px]">
-                            <div className="flex flex-nowrap items-center justify-center gap-1 whitespace-nowrap">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleOpenEdit(r)}
-                                title={canEditInward ? "Edit inward" : "View inward (edit disabled)"}
-                                className="shrink-0"
-                              >
-                                <Edit2 className="w-4 h-4" />
-                              </Button>
-                              {isAdmin && (
-                                <>
-                                  {r.isActive && (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => setInactiveTarget(r)}
-                                      title="Mark inward inactive"
-                                      className="shrink-0 text-amber-600 hover:bg-amber-50"
-                                      disabled={setInactiveMutation.isPending}
-                                    >
-                                      <Ban className="w-4 h-4" />
-                                    </Button>
-                                  )}
-                                  {!r.isActive && (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() =>
-                                        setActiveMutation.mutate(r.id)
-                                      }
-                                      title={
-                                        r.issueId && issueIdsWithActiveReturn.has(r.issueId)
-                                          ? "Another inward is already active for this outward"
-                                          : "Mark inward active"
-                                      }
-                                      className="shrink-0 text-green-600 hover:bg-green-50"
-                                      disabled={
-                                        setActiveMutation.isPending ||
-                                        (!!r.issueId && issueIdsWithActiveReturn.has(r.issueId))
-                                      }
-                                    >
-                                      <CheckCircle className="w-4 h-4" />
-                                    </Button>
-                                  )}
-                                </>
-                              )}
-                            </div>
-                          </td>
+                          {!isManager && (
+                            <td className="px-4 py-3 min-w-[160px]">
+                              <div className="flex flex-nowrap items-center justify-center gap-1 whitespace-nowrap">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleOpenEdit(r)}
+                                  title="Edit inward"
+                                  className="shrink-0"
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </Button>
+                                {isAdmin && (
+                                  <>
+                                    {r.isActive && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setInactiveTarget(r)}
+                                        title="Mark inward inactive"
+                                        className="shrink-0 text-amber-600 hover:bg-amber-50"
+                                        disabled={setInactiveMutation.isPending}
+                                      >
+                                        <Ban className="w-4 h-4" />
+                                      </Button>
+                                    )}
+                                    {!r.isActive && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() =>
+                                          setActiveMutation.mutate(r.id)
+                                        }
+                                        title={
+                                          r.issueId && issueIdsWithActiveReturn.has(r.issueId)
+                                            ? "Another inward is already active for this outward"
+                                            : "Mark inward active"
+                                        }
+                                        className="shrink-0 text-green-600 hover:bg-green-50"
+                                        disabled={
+                                          setActiveMutation.isPending ||
+                                          (!!r.issueId && issueIdsWithActiveReturn.has(r.issueId))
+                                        }
+                                      >
+                                        <CheckCircle className="w-4 h-4" />
+                                      </Button>
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          )}
                         </motion.tr>
                       ))}
                     </tbody>
@@ -1206,16 +1217,11 @@ export default function ReturnsPage() {
                                     : ""
                                 }
                                 onChange={(v) => {
-                                  const newCompanyId = v ? Number(v) : undefined;
-                                  setValue("companyId", newCompanyId);
-                                  // Reset location if it doesn't belong to the new company
-                                  const currentLocationId = watch("locationId");
-                                  if (currentLocationId && currentLocationId !== 0) {
-                                    const isValid = filterLocations.some((l: any) => l.id === currentLocationId && l.companyId === newCompanyId);
-                                    if (!isValid) {
-                                      setValue("locationId", undefined);
-                                    }
-                                  }
+                                  setValue(
+                                    "companyId",
+                                    v ? Number(v) : undefined,
+                                  );
+                                  setValue("locationId", undefined);
                                 }}
                                 placeholder="Select company"
                                 searchPlaceholder="Search company..."
@@ -1243,12 +1249,13 @@ export default function ReturnsPage() {
                                     ? Number(watch("contractorId"))
                                     : ""
                                 }
-                                onChange={(v) =>
+                                onChange={(v) => {
                                   setValue(
                                     "contractorId",
                                     v ? Number(v) : undefined,
-                                  )
-                                }
+                                  );
+                                  setValue("machineId", undefined);
+                                }}
                                 placeholder="Select contractor"
                                 searchPlaceholder="Search contractor..."
                                 aria-label="Contractor"
@@ -1268,7 +1275,7 @@ export default function ReturnsPage() {
                             <div className="mt-1.5">
                               <SearchableSelect
                                 id="inward-missing-machine"
-                                options={filterOptions.machine}
+                                options={machineFormOptions}
                                 value={
                                   watch("machineId") &&
                                     Number(watch("machineId")) >= 1
@@ -1281,7 +1288,12 @@ export default function ReturnsPage() {
                                     v ? Number(v) : undefined,
                                   )
                                 }
-                                placeholder="Select machine"
+                                disabled={!watchedContractorId}
+                                placeholder={
+                                  watchedContractorId
+                                    ? "Select machine"
+                                    : "Select contractor first"
+                                }
                                 searchPlaceholder="Search machine..."
                                 aria-label="Machine"
                               />
@@ -1313,8 +1325,12 @@ export default function ReturnsPage() {
                                     v ? Number(v) : undefined,
                                   )
                                 }
-                                disabled={!watchedCompanyId || watchedCompanyId === 0}
-                                placeholder={(!watchedCompanyId || watchedCompanyId === 0) ? "Select company first" : "Select location"}
+                                disabled={!watchedCompanyId}
+                                placeholder={
+                                  watchedCompanyId
+                                    ? "Select location"
+                                    : "Select company first"
+                                }
                                 searchPlaceholder="Search location..."
                                 aria-label="Location"
                               />
@@ -1494,13 +1510,12 @@ export default function ReturnsPage() {
               </div>
 
               <div className="flex-none flex gap-3 px-6 py-4 border-t border-secondary-200 bg-secondary-50/50">
-                {(editingReturn ? canEditInward : canAddInward) && (
+                {canAddInward && (
                   <Button
                     type="submit"
                     disabled={
                       createMutation.isPending ||
-                      updateMutation.isPending ||
-                      (imageRequired && !imageFile && !editingReturn) ||
+                      (imageRequired && !imageFile) ||
                       !watch("condition") ||
                       !watch("statusId") ||
                       (isFromOutwardMode && !hasValidIssue) ||
@@ -1508,11 +1523,7 @@ export default function ReturnsPage() {
                     }
                     className="flex-1 bg-primary-600 hover:bg-primary-700 text-white"
                   >
-                    {createMutation.isPending || updateMutation.isPending
-                      ? "Saving…"
-                      : editingReturn
-                        ? "Update"
-                        : "Save"}
+                    {createMutation.isPending ? "Saving…" : "Save"}
                   </Button>
                 )}
                 <Button

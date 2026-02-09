@@ -30,12 +30,39 @@ type TableView = "available" | "total" | "missing" | null;
 
 export default function DashboardPage() {
   const router = useRouter();
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [tableView, setTableView] = useState<TableView>(null);
   const [search, setSearch] = useState("");
   const [categoryId, setCategoryId] = useState<number | "">("");
-  const [isExporting, setIsExporting] = useState(false);
 
   const debouncedSearch = useDebouncedValue(search, 400);
+
+  useEffect(() => {
+    // First check localStorage for optimistic loading
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
+        setLoading(false);
+      } catch {
+        router.push("/login");
+        return;
+      }
+    }
+
+    // Validate in background
+    api
+      .post("/auth/validate")
+      .then(() => {
+        setLoading(false);
+      })
+      .catch(() => {
+        localStorage.removeItem("user");
+        router.push("/login");
+      });
+  }, [router]);
 
   const { data: metrics } = useQuery<DashboardMetrics>({
     queryKey: ["dashboard-metrics"],
@@ -124,7 +151,6 @@ export default function DashboardPage() {
 
   const handleExportExcel = async () => {
     if (!tableView) return;
-    setIsExporting(true);
     try {
       const endpoint =
         tableView === "available"
@@ -153,10 +179,22 @@ export default function DashboardPage() {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-    } finally {
-      setIsExporting(false);
+    } catch (err) {
+      console.error("Export failed:", err);
+      alert("Failed to export. Please try again.");
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-secondary-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+          <p className="mt-4 text-secondary-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleCardClick = (title: string) => {
     if (title === "Total Items") setTableView("total");
@@ -370,7 +408,7 @@ export default function DashboardPage() {
                   </div>
                   <Button
                     onClick={handleExportExcel}
-                    loading={isExporting}
+                    disabled={tableLoading}
                     className="shadow-sm"
                   >
                     <Download className="w-4 h-4 mr-2" />
@@ -456,7 +494,7 @@ export default function DashboardPage() {
                                 className="min-w-[30px] min-h-[30px] w-[30px] h-[30px] object-cover rounded border border-secondary-200"
                               />
                             ) : (
-                              <span className="min-w-[30px] min-h-[30px] w-[30px] h-[30px] rounded border border-secondary-200 bg-secondary-100 text-secondary-400 text-xs flex items-center justify-center">
+                              <span className="inline-block min-w-[30px] min-h-[30px] w-[30px] h-[30px] rounded border border-secondary-200 bg-secondary-100 text-secondary-400 text-xs flex items-center justify-center">
                                 —
                               </span>
                             )}
