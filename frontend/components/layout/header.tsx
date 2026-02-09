@@ -4,7 +4,9 @@ import { User } from '@/types';
 import { Avatar } from '@/components/ui/avatar';
 import { useAppSettings, useCurrentUserPermissions } from '@/hooks/use-settings';
 import { useSoftwareProfileDraft } from '@/contexts/software-profile-draft-context';
-import { Building2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Building2, ChevronDown, ChevronUp, LogOut } from 'lucide-react';
+import { useLogout } from '@/hooks/use-auth-mutations';
+import { Button } from '@/components/ui/button';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -24,6 +26,11 @@ export function Header({ user, isNavExpanded, onNavExpandChange }: HeaderProps) 
   const hasLogo = Boolean(logoUrl);
 
   const isHorizontal = permissions?.navigationLayout === 'HORIZONTAL';
+
+  const logoutMutation = useLogout();
+  const handleLogout = () => {
+    logoutMutation.mutate();
+  };
 
   return (
     <header
@@ -83,6 +90,19 @@ export function Header({ user, isNavExpanded, onNavExpandChange }: HeaderProps) 
             </span>
           </div>
         </div>
+        {isHorizontal && (
+          <div className="border-l border-secondary-200 pl-4 ml-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleLogout}
+              className="text-secondary-600 hover:text-red-600 hover:bg-red-50 flex items-center gap-2 px-3 h-9 rounded-lg transition-all duration-200 font-medium"
+            >
+              <LogOut className="h-4 w-4" />
+              <span className="hidden md:inline">Logout</span>
+            </Button>
+          </div>
+        )}
       </div>
     </header>
   );
