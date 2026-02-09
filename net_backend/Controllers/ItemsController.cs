@@ -384,9 +384,17 @@ namespace net_backend.Controllers
                 return BadRequest(new ApiResponse<Item> { Success = false, Message = "Item name and serial number are required" });
             }
 
-            if (await _context.Items.AnyAsync(i => i.SerialNumber == request.SerialNumber))
+            if (await _context.Items.AnyAsync(i => i.SerialNumber.ToLower() == request.SerialNumber.Trim().ToLower()))
             {
                 return Conflict(new ApiResponse<Item> { Success = false, Message = "Item with this serial number already exists" });
+            }
+
+            if (request.CategoryId.HasValue)
+            {
+                if (await _context.Items.AnyAsync(i => i.CategoryId == request.CategoryId && i.ItemName.ToLower() == request.ItemName.Trim().ToLower()))
+                {
+                    return BadRequest(new ApiResponse<Item> { Success = false, Message = "Item name already exists in this category" });
+                }
             }
 
             string? imagePath = null;
@@ -409,9 +417,9 @@ namespace net_backend.Controllers
 
             var item = new Item
             {
-                ItemName = request.ItemName,
-                SerialNumber = request.SerialNumber,
-                Description = request.Description,
+                ItemName = request.ItemName.Trim(),
+                SerialNumber = request.SerialNumber.Trim(),
+                Description = request.Description?.Trim(),
                 Image = imagePath,
                 CategoryId = request.CategoryId,
                 IsActive = request.IsActive ?? true,
@@ -435,8 +443,30 @@ namespace net_backend.Controllers
             var item = await _context.Items.FindAsync(id);
             if (item == null) return NotFound(new ApiResponse<Item> { Success = false, Message = "Item not found" });
 
-            if (!string.IsNullOrEmpty(request.ItemName)) item.ItemName = request.ItemName;
-            if (request.Description != null) item.Description = request.Description;
+            if (!string.IsNullOrEmpty(request.ItemName)) 
+            {
+                // Check for duplicate name if name or category is changed
+                // Note: request.CategoryId might be null if not updating category, but we need to check against current category
+                var currentCategoryId = request.CategoryId ?? item.CategoryId;
+                var newItemName = request.ItemName.Trim();
+                
+                if (currentCategoryId.HasValue && 
+                    await _context.Items.AnyAsync(i => i.Id != id && i.CategoryId == currentCategoryId && i.ItemName.ToLower() == newItemName.ToLower()))
+                {
+                     return BadRequest(new ApiResponse<Item> { Success = false, Message = "Item name already exists in this category" });
+                }
+                item.ItemName = newItemName;
+            }
+            else if (request.CategoryId.HasValue && request.CategoryId != item.CategoryId)
+            {
+                // Only category changed, check if current name exists in new category
+                 if (await _context.Items.AnyAsync(i => i.Id != id && i.CategoryId == request.CategoryId && i.ItemName.ToLower() == item.ItemName.ToLower()))
+                {
+                     return BadRequest(new ApiResponse<Item> { Success = false, Message = "Item name already exists in the new category" });
+                }
+            }
+
+            if (request.Description != null) item.Description = request.Description.Trim();
             if (request.CategoryId.HasValue) item.CategoryId = request.CategoryId;
             if (request.IsActive.HasValue) item.IsActive = request.IsActive.Value;
             

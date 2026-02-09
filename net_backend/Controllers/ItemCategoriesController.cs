@@ -128,7 +128,13 @@ namespace net_backend.Controllers
         [HttpPost]
         public async Task<ActionResult<ApiResponse<ItemCategory>>> Create([FromBody] CreateCompanyRequest request)
         {
-            var item = new ItemCategory { Name = request.Name, IsActive = request.IsActive ?? true };
+            if (string.IsNullOrWhiteSpace(request.Name))
+                return BadRequest(new ApiResponse<ItemCategory> { Success = false, Message = "Name is required" });
+
+            if (await _context.ItemCategories.AnyAsync(c => c.Name.ToLower() == request.Name.Trim().ToLower()))
+                return BadRequest(new ApiResponse<ItemCategory> { Success = false, Message = "Category name already exists" });
+
+            var item = new ItemCategory { Name = request.Name.Trim(), IsActive = request.IsActive ?? true };
             _context.ItemCategories.Add(item);
             await _context.SaveChangesAsync();
             return StatusCode(201, new ApiResponse<ItemCategory> { Data = item });
@@ -140,7 +146,15 @@ namespace net_backend.Controllers
         {
             var item = await _context.ItemCategories.FindAsync(id);
             if (item == null) return NotFound();
-            if (!string.IsNullOrEmpty(request.Name)) item.Name = request.Name;
+
+            if (!string.IsNullOrEmpty(request.Name))
+            {
+                var nameTrimmed = request.Name.Trim();
+                if (await _context.ItemCategories.AnyAsync(c => c.Id != id && c.Name.ToLower() == nameTrimmed.ToLower()))
+                    return BadRequest(new ApiResponse<ItemCategory> { Success = false, Message = "Category name already exists" });
+                item.Name = nameTrimmed;
+            }
+
             if (request.IsActive.HasValue) item.IsActive = request.IsActive.Value;
             item.UpdatedAt = DateTime.Now;
             await _context.SaveChangesAsync();

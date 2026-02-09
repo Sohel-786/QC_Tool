@@ -148,12 +148,26 @@ export default function StatusesPage() {
     updateMutation.reset();
   };
 
+  const checkDuplicate = (name: string, excludeId?: number) => {
+    return statuses.some(
+      (s) =>
+        s.name.trim().toLowerCase() === name.trim().toLowerCase() &&
+        s.id !== excludeId
+    );
+  };
+
   const onSubmit = (data: StatusForm) => {
     const name = (data.name ?? "").trim();
     if (!name) {
       toast.error("Status name is required");
       return;
     }
+
+    if (checkDuplicate(name, editingStatus?.id)) {
+      toast.error("Status name already exists");
+      return;
+    }
+
     if (editingStatus) {
       updateMutation.mutate({ id: editingStatus.id, data });
     } else {

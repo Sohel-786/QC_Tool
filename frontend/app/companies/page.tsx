@@ -147,12 +147,26 @@ export default function CompaniesPage() {
     updateMutation.reset();
   };
 
+  const checkDuplicate = (name: string, excludeId?: number) => {
+    return companies.some(
+      (c) =>
+        c.name.trim().toLowerCase() === name.trim().toLowerCase() &&
+        c.id !== excludeId
+    );
+  };
+
   const onSubmit = (data: CompanyForm) => {
     const name = (data.name ?? "").trim();
     if (!name) {
       toast.error("Company name is required");
       return;
     }
+
+    if (checkDuplicate(name, editingCompany?.id)) {
+      toast.error("Company name already exists");
+      return;
+    }
+
     if (editingCompany) {
       updateMutation.mutate({ id: editingCompany.id, data });
     } else {

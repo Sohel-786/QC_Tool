@@ -81,6 +81,45 @@ namespace net_backend.Data
 
             modelBuilder.Entity<Item>()
                 .Property(i => i.Status);
+
+            // Unique constraints for Master Entries
+            
+            // Global unique constraints
+            modelBuilder.Entity<Company>()
+                .HasIndex(c => c.Name)
+                .IsUnique()
+                .HasDatabaseName("IX_Companies_Name_Unique");
+
+            modelBuilder.Entity<Contractor>()
+                .HasIndex(c => c.Name)
+                .IsUnique()
+                .HasDatabaseName("IX_Contractors_Name_Unique");
+
+            modelBuilder.Entity<ItemCategory>()
+                .HasIndex(ic => ic.Name)
+                .IsUnique()
+                .HasDatabaseName("IX_ItemCategories_Name_Unique");
+
+            modelBuilder.Entity<Status>()
+                .HasIndex(s => s.Name)
+                .IsUnique()
+                .HasDatabaseName("IX_Statuses_Name_Unique");
+
+            // Composite unique constraints
+            modelBuilder.Entity<Location>()
+                .HasIndex(l => new { l.CompanyId, l.Name })
+                .IsUnique()
+                .HasDatabaseName("IX_Locations_CompanyId_Name_Unique");
+
+            modelBuilder.Entity<Machine>()
+                .HasIndex(m => new { m.ContractorId, m.Name })
+                .IsUnique()
+                .HasDatabaseName("IX_Machines_ContractorId_Name_Unique");
+
+            modelBuilder.Entity<Item>()
+                .HasIndex(i => new { i.CategoryId, i.ItemName })
+                .IsUnique()
+                .HasDatabaseName("IX_Items_CategoryId_ItemName_Unique");
         }
     }
 }

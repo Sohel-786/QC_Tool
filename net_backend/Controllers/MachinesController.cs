@@ -166,9 +166,18 @@ namespace net_backend.Controllers
         [HttpPost]
         public async Task<ActionResult<ApiResponse<Machine>>> Create([FromBody] CreateMachineRequest request)
         {
+            if (string.IsNullOrWhiteSpace(request.Name))
+                return BadRequest(new ApiResponse<Machine> { Success = false, Message = "Name is required" });
+
+            if (request.ContractorId <= 0)
+                return BadRequest(new ApiResponse<Machine> { Success = false, Message = "Contractor is required" });
+
+            if (await _context.Machines.AnyAsync(m => m.ContractorId == request.ContractorId && m.Name.ToLower() == request.Name.Trim().ToLower()))
+                return BadRequest(new ApiResponse<Machine> { Success = false, Message = "Machine name already exists for this contractor" });
+
             var item = new Machine 
             { 
-                Name = request.Name, 
+                Name = request.Name.Trim(), 
                 ContractorId = request.ContractorId,
                 IsActive = request.IsActive ?? true 
             };
@@ -183,7 +192,29 @@ namespace net_backend.Controllers
         {
             var item = await _context.Machines.FindAsync(id);
             if (item == null) return NotFound();
-            if (!string.IsNullOrEmpty(request.Name)) item.Name = request.Name;
+
+            string newName = item.Name;
+            int newContractorId = item.ContractorId;
+            bool checkDuplicate = false;
+
+            if (!string.IsNullOrEmpty(request.Name))
+            {
+                newName = request.Name.Trim();
+                checkDuplicate = true;
+            }
+            if (request.ContractorId > 0)
+            {
+                newContractorId = request.ContractorId;
+                checkDuplicate = true;
+            }
+
+            if (checkDuplicate)
+            {
+                if (await _context.Machines.AnyAsync(m => m.Id != id && m.ContractorId == newContractorId && m.Name.ToLower() == newName.ToLower()))
+                    return BadRequest(new ApiResponse<Machine> { Success = false, Message = "Machine name already exists for this contractor" });
+            }
+
+            if (!string.IsNullOrEmpty(request.Name)) item.Name = request.Name.Trim();
             if (request.ContractorId > 0) item.ContractorId = request.ContractorId;
             if (request.IsActive.HasValue) item.IsActive = request.IsActive.Value;
             item.UpdatedAt = DateTime.Now;

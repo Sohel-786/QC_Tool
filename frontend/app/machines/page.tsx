@@ -177,12 +177,27 @@ export default function MachinesPage() {
     updateMutation.reset();
   };
 
+  const checkDuplicate = (name: string, contractorId: number, excludeId?: number) => {
+    return machines.some(
+      (m) =>
+        m.name.trim().toLowerCase() === name.trim().toLowerCase() &&
+        m.contractorId === contractorId &&
+        m.id !== excludeId
+    );
+  };
+
   const onSubmit = (data: MachineForm) => {
     const name = (data.name ?? "").trim();
     if (!name) {
       toast.error("Machine name is required");
       return;
     }
+
+    if (checkDuplicate(name, data.contractorId, editingMachine?.id)) {
+      toast.error("Machine name already exists for this contractor");
+      return;
+    }
+
     if (editingMachine) {
       updateMutation.mutate({ id: editingMachine.id, data });
     } else {
@@ -367,8 +382,8 @@ export default function MachinesPage() {
                           <td className="px-4 py-3">
                             <span
                               className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${m.isActive
-                                  ? "bg-green-100 text-green-700 border border-green-200"
-                                  : "bg-red-100 text-red-700 border border-red-200"
+                                ? "bg-green-100 text-green-700 border border-green-200"
+                                : "bg-red-100 text-red-700 border border-red-200"
                                 }`}
                             >
                               {m.isActive ? "Active" : "Inactive"}

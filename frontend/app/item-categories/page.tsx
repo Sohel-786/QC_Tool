@@ -154,12 +154,26 @@ export default function ItemCategoriesPage() {
     updateMutation.reset();
   };
 
+  const checkDuplicate = (name: string, excludeId?: number) => {
+    return categories.some(
+      (c) =>
+        c.name.trim().toLowerCase() === name.trim().toLowerCase() &&
+        c.id !== excludeId
+    );
+  };
+
   const onSubmit = (data: CategoryForm) => {
     const name = (data.name ?? "").trim();
     if (!name || name.length < 2) {
       toast.error("Category name must be at least 2 characters");
       return;
     }
+
+    if (checkDuplicate(name, editingCategory?.id)) {
+      toast.error("Category name already exists");
+      return;
+    }
+
     if (editingCategory) {
       updateMutation.mutate({ id: editingCategory.id, data });
     } else {

@@ -128,7 +128,13 @@ namespace net_backend.Controllers
         [HttpPost]
         public async Task<ActionResult<ApiResponse<Status>>> Create([FromBody] CreateCompanyRequest request)
         {
-            var item = new Status { Name = request.Name, IsActive = request.IsActive ?? true };
+            if (string.IsNullOrWhiteSpace(request.Name))
+                return BadRequest(new ApiResponse<Status> { Success = false, Message = "Name is required" });
+
+            if (await _context.Statuses.AnyAsync(c => c.Name.ToLower() == request.Name.Trim().ToLower()))
+                return BadRequest(new ApiResponse<Status> { Success = false, Message = "Status name already exists" });
+
+            var item = new Status { Name = request.Name.Trim(), IsActive = request.IsActive ?? true };
             _context.Statuses.Add(item);
             await _context.SaveChangesAsync();
             return StatusCode(201, new ApiResponse<Status> { Data = item });
@@ -140,7 +146,15 @@ namespace net_backend.Controllers
         {
             var item = await _context.Statuses.FindAsync(id);
             if (item == null) return NotFound();
-            if (!string.IsNullOrEmpty(request.Name)) item.Name = request.Name;
+
+            if (!string.IsNullOrEmpty(request.Name))
+            {
+                var nameTrimmed = request.Name.Trim();
+                if (await _context.Statuses.AnyAsync(c => c.Id != id && c.Name.ToLower() == nameTrimmed.ToLower()))
+                    return BadRequest(new ApiResponse<Status> { Success = false, Message = "Status name already exists" });
+                item.Name = nameTrimmed;
+            }
+
             if (request.IsActive.HasValue) item.IsActive = request.IsActive.Value;
             item.UpdatedAt = DateTime.Now;
             await _context.SaveChangesAsync();

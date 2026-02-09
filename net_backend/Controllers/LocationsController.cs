@@ -169,9 +169,18 @@ namespace net_backend.Controllers
         [HttpPost]
         public async Task<ActionResult<ApiResponse<Location>>> Create([FromBody] CreateLocationRequest request)
         {
+            if (string.IsNullOrWhiteSpace(request.Name))
+                return BadRequest(new ApiResponse<Location> { Success = false, Message = "Name is required" });
+            
+            if (request.CompanyId <= 0)
+                return BadRequest(new ApiResponse<Location> { Success = false, Message = "Company is required" });
+
+            if (await _context.Locations.AnyAsync(l => l.CompanyId == request.CompanyId && l.Name.ToLower() == request.Name.Trim().ToLower()))
+                return BadRequest(new ApiResponse<Location> { Success = false, Message = "Location name already exists for this company" });
+
             var item = new Location 
             { 
-                Name = request.Name, 
+                Name = request.Name.Trim(), 
                 CompanyId = request.CompanyId,
                 IsActive = request.IsActive ?? true 
             };
@@ -186,7 +195,29 @@ namespace net_backend.Controllers
         {
             var item = await _context.Locations.FindAsync(id);
             if (item == null) return NotFound();
-            if (!string.IsNullOrEmpty(request.Name)) item.Name = request.Name;
+
+            string newName = item.Name;
+            int newCompanyId = item.CompanyId;
+            bool checkDuplicate = false;
+
+            if (!string.IsNullOrEmpty(request.Name)) 
+            {
+                newName = request.Name.Trim();
+                checkDuplicate = true;
+            }
+            if (request.CompanyId > 0) 
+            {
+                newCompanyId = request.CompanyId;
+                checkDuplicate = true;
+            }
+
+            if (checkDuplicate)
+            {
+                if (await _context.Locations.AnyAsync(l => l.Id != id && l.CompanyId == newCompanyId && l.Name.ToLower() == newName.ToLower()))
+                    return BadRequest(new ApiResponse<Location> { Success = false, Message = "Location name already exists for this company" });
+            }
+
+            if (!string.IsNullOrEmpty(request.Name)) item.Name = request.Name.Trim();
             if (request.CompanyId > 0) item.CompanyId = request.CompanyId;
             if (request.IsActive.HasValue) item.IsActive = request.IsActive.Value;
             item.UpdatedAt = DateTime.Now;

@@ -151,12 +151,26 @@ export default function ContractorsPage() {
     updateMutation.reset();
   };
 
+  const checkDuplicate = (name: string, excludeId?: number) => {
+    return contractors.some(
+      (c) =>
+        c.name.trim().toLowerCase() === name.trim().toLowerCase() &&
+        c.id !== excludeId
+    );
+  };
+
   const onSubmit = (data: ContractorForm) => {
     const name = (data.name ?? "").trim();
     if (!name) {
       toast.error("Contractor name is required");
       return;
     }
+
+    if (checkDuplicate(name, editingContractor?.id)) {
+      toast.error("Contractor name already exists");
+      return;
+    }
+
     if (editingContractor) {
       updateMutation.mutate({ id: editingContractor.id, data });
     } else {

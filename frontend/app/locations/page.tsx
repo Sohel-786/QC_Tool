@@ -177,12 +177,31 @@ export default function LocationsPage() {
     updateMutation.reset();
   };
 
+  const checkDuplicate = (name: string, companyId: number, excludeId?: number) => {
+    return locations.some(
+      (l) =>
+        l.name.trim().toLowerCase() === name.trim().toLowerCase() &&
+        l.companyId === companyId &&
+        l.id !== excludeId
+    );
+  };
+
   const onSubmit = (data: LocationForm) => {
     const name = (data.name ?? "").trim();
     if (!name) {
       toast.error("Location name is required");
       return;
     }
+    if (!data.companyId) {
+      toast.error("Company is required");
+      return;
+    }
+
+    if (checkDuplicate(name, data.companyId, editingLocation?.id)) {
+      toast.error("Location name already exists for this company");
+      return;
+    }
+
     if (editingLocation) {
       updateMutation.mutate({ id: editingLocation.id, data });
     } else {
@@ -367,8 +386,8 @@ export default function LocationsPage() {
                           <td className="px-4 py-3">
                             <span
                               className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${loc.isActive
-                                  ? "bg-green-100 text-green-700 border border-green-200"
-                                  : "bg-red-100 text-red-700 border border-red-200"
+                                ? "bg-green-100 text-green-700 border border-green-200"
+                                : "bg-red-100 text-red-700 border border-red-200"
                                 }`}
                             >
                               {loc.isActive ? "Active" : "Inactive"}

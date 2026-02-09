@@ -167,9 +167,15 @@ namespace net_backend.Controllers
                 return BadRequest(new ApiResponse<Company> { Success = false, Message = "Company name is required" });
             }
 
+            var exists = await _context.Companies.AnyAsync(c => c.Name.ToLower() == request.Name.Trim().ToLower());
+            if (exists)
+            {
+                return BadRequest(new ApiResponse<Company> { Success = false, Message = "Company name already exists" });
+            }
+
             var company = new Company
             {
-                Name = request.Name,
+                Name = request.Name.Trim(),
                 IsActive = request.IsActive ?? true,
                 CreatedAt = DateTime.Now,
                 UpdatedAt = DateTime.Now
@@ -191,7 +197,16 @@ namespace net_backend.Controllers
                 return NotFound(new ApiResponse<Company> { Success = false, Message = $"Company with ID {id} not found" });
             }
 
-            if (!string.IsNullOrEmpty(request.Name)) company.Name = request.Name;
+            if (!string.IsNullOrEmpty(request.Name)) 
+            {
+                var nameTrimmed = request.Name.Trim();
+                if (await _context.Companies.AnyAsync(c => c.Id != id && c.Name.ToLower() == nameTrimmed.ToLower()))
+                {
+                    return BadRequest(new ApiResponse<Company> { Success = false, Message = "Company name already exists" });
+                }
+                company.Name = nameTrimmed;
+            }
+
             if (request.IsActive.HasValue) company.IsActive = request.IsActive.Value;
             
             company.UpdatedAt = DateTime.Now;

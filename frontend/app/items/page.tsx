@@ -236,6 +236,23 @@ export default function ItemsPage() {
     if (!file) setImageRemovedByUser(true);
   };
 
+  const checkDuplicateSerial = (serial: string, excludeId?: number) => {
+    return items.some(
+      (i) =>
+        (i.serialNumber || "").trim().toLowerCase() === serial.trim().toLowerCase() &&
+        i.id !== excludeId
+    );
+  };
+
+  const checkDuplicateName = (name: string, categoryId: number, excludeId?: number) => {
+    return items.some(
+      (i) =>
+        i.itemName.trim().toLowerCase() === name.trim().toLowerCase() &&
+        i.categoryId === categoryId &&
+        i.id !== excludeId
+    );
+  };
+
   const onSubmit = (data: ItemForm) => {
     const hasImage =
       !!imageFile ||
@@ -250,9 +267,23 @@ export default function ItemsPage() {
       setImageError("Take a photo to continue.");
       return;
     }
+
+    const itemName = (data.itemName ?? "").trim();
+    const serialNumber = (data.serialNumber ?? "").trim();
+
+    if (checkDuplicateSerial(serialNumber, editingItem?.id)) {
+      toast.error("Serial number already exists");
+      return;
+    }
+
+    if (checkDuplicateName(itemName, data.categoryId, editingItem?.id)) {
+      toast.error("Item name already exists in this category");
+      return;
+    }
+
     const fd = new FormData();
-    fd.append("itemName", (data.itemName ?? "").trim());
-    fd.append("serialNumber", (data.serialNumber ?? "").trim());
+    fd.append("itemName", itemName);
+    fd.append("serialNumber", serialNumber);
     fd.append("categoryId", String(data.categoryId));
     if (data.description) fd.append("description", data.description.trim());
     if (!editingItem && data.status) fd.append("status", data.status);
