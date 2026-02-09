@@ -67,6 +67,12 @@ namespace net_backend.Data
                 .Property(o => o.FingerprintTemplate)
                 .HasColumnType("nvarchar(max)");
 
+            modelBuilder.Entity<Location>()
+                .HasOne(l => l.Company)
+                .WithMany(c => c.Locations)
+                .HasForeignKey(l => l.CompanyId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             modelBuilder.Entity<Item>()
                 .Property(i => i.Status);
         }

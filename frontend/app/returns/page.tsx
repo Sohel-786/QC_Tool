@@ -256,6 +256,15 @@ export default function ReturnsPage() {
   const isFromOutwardMode = entryMode === "from_outward";
   const imageRequired = isFromOutwardMode && condition !== "Missing";
 
+  const watchedCompanyId = watch("companyId");
+
+  const locationFormOptions = useMemo(() => {
+    if (!watchedCompanyId || watchedCompanyId === 0) return [];
+    return filterLocations
+      .filter((l: any) => l.companyId === watchedCompanyId)
+      .map((l: any) => ({ value: l.id, label: l.name }));
+  }, [filterLocations, watchedCompanyId]);
+
   const filterOptions = useMemo(
     () => ({
       company: filterCompanies.map((c: { id: number; name: string }) => ({
@@ -1196,12 +1205,18 @@ export default function ReturnsPage() {
                                     ? Number(watch("companyId"))
                                     : ""
                                 }
-                                onChange={(v) =>
-                                  setValue(
-                                    "companyId",
-                                    v ? Number(v) : undefined,
-                                  )
-                                }
+                                onChange={(v) => {
+                                  const newCompanyId = v ? Number(v) : undefined;
+                                  setValue("companyId", newCompanyId);
+                                  // Reset location if it doesn't belong to the new company
+                                  const currentLocationId = watch("locationId");
+                                  if (currentLocationId && currentLocationId !== 0) {
+                                    const isValid = filterLocations.some((l: any) => l.id === currentLocationId && l.companyId === newCompanyId);
+                                    if (!isValid) {
+                                      setValue("locationId", undefined);
+                                    }
+                                  }
+                                }}
                                 placeholder="Select company"
                                 searchPlaceholder="Search company..."
                                 aria-label="Company"
@@ -1285,7 +1300,7 @@ export default function ReturnsPage() {
                             <div className="mt-1.5">
                               <SearchableSelect
                                 id="inward-missing-location"
-                                options={filterOptions.location}
+                                options={locationFormOptions}
                                 value={
                                   watch("locationId") &&
                                     Number(watch("locationId")) >= 1
@@ -1298,7 +1313,8 @@ export default function ReturnsPage() {
                                     v ? Number(v) : undefined,
                                   )
                                 }
-                                placeholder="Select location"
+                                disabled={!watchedCompanyId || watchedCompanyId === 0}
+                                placeholder={(!watchedCompanyId || watchedCompanyId === 0) ? "Select company first" : "Select location"}
                                 searchPlaceholder="Search location..."
                                 aria-label="Location"
                               />

@@ -22,9 +22,10 @@ namespace net_backend.Controllers
         [HttpGet("export")]
         public async Task<IActionResult> Export()
         {
-            var data = (await _context.Locations.ToListAsync()).Select(c => new {
+            var data = (await _context.Locations.Include(l => l.Company).ToListAsync()).Select(c => new {
                 Id = c.Id,
                 Name = c.Name,
+                Company = c.Company?.Name ?? "—",
                 IsActive = c.IsActive ? "Yes" : "No",
                 CreatedAt = c.CreatedAt.ToString("yyyy-MM-dd HH:mm")
             });
@@ -59,7 +60,24 @@ namespace net_backend.Controllers
 
                 foreach (var validRow in validation.Valid)
                 {
-                    newItems.Add(new Location { Name = validRow.Data.Name.Trim(), IsActive = true });
+                    // Find company ID by name (case-insensitive) - name is guaranteed valid by ValidateLocations
+                    var company = await _context.Companies.FirstOrDefaultAsync(c => c.Name.ToLower() == validRow.Data.CompanyName.Trim().ToLower());
+                    if (company != null)
+                    {
+                        var isActive = true;
+                        if (!string.IsNullOrEmpty(validRow.Data.IsActive))
+                        {
+                            var statusStr = validRow.Data.IsActive.Trim().ToLower();
+                            isActive = statusStr == "yes" || statusStr == "true" || statusStr == "1" || statusStr == "active";
+                        }
+
+                        newItems.Add(new Location 
+                        { 
+                            Name = validRow.Data.Name.Trim(), 
+                            CompanyId = company.Id,
+                            IsActive = isActive 
+                        });
+                    }
                 }
 
                 if (newItems.Any())
@@ -77,7 +95,7 @@ namespace net_backend.Controllers
         private async Task<ValidationResultDto<LocationImportDto>> ValidateLocations(List<ExcelRow<LocationImportDto>> rows)
         {
             var validation = new ValidationResultDto<LocationImportDto>();
-            var existingNames = await _context.Locations.Select(c => c.Name.ToLower()).ToListAsync();
+            var companies = await _context.Companies.ToListAsync();
             var processedInFile = new HashSet<string>();
 
             foreach (var row in rows)
@@ -88,23 +106,42 @@ namespace net_backend.Controllers
                     validation.Invalid.Add(new ValidationEntry<LocationImportDto> { Row = row.RowNumber, Data = item, Message = "Name is mandatory" });
                     continue;
                 }
-                var nameLower = item.Name.Trim().ToLower();
 
-                if (processedInFile.Contains(nameLower))
+                if (string.IsNullOrWhiteSpace(item.CompanyName))
                 {
-                    validation.Duplicates.Add(new ValidationEntry<LocationImportDto> { Row = row.RowNumber, Data = item, Message = $"Duplicate Location Name in file: {item.Name}" });
+                    validation.Invalid.Add(new ValidationEntry<LocationImportDto> { Row = row.RowNumber, Data = item, Message = "Company Name is mandatory" });
                     continue;
                 }
 
-                if (existingNames.Contains(nameLower))
+                var company = companies.FirstOrDefault(c => c.Name.Trim().ToLower() == item.CompanyName.Trim().ToLower());
+                if (company == null)
                 {
-                    validation.AlreadyExists.Add(new ValidationEntry<LocationImportDto> { Row = row.RowNumber, Data = item, Message = $"Location '{item.Name}' already exists" });
-                    processedInFile.Add(nameLower);
+                    validation.Invalid.Add(new ValidationEntry<LocationImportDto> { Row = row.RowNumber, Data = item, Message = $"Company '{item.CompanyName}' not found" });
+                    continue;
+                }
+
+                var nameLower = item.Name.Trim().ToLower();
+                var companyId = company.Id;
+
+                // Check for duplicates in file (Name + CompanyId combination)
+                var fileKey = $"{nameLower}_{companyId}";
+                if (processedInFile.Contains(fileKey))
+                {
+                    validation.Duplicates.Add(new ValidationEntry<LocationImportDto> { Row = row.RowNumber, Data = item, Message = $"Duplicate Location Name '{item.Name}' for Company '{company.Name}' in file" });
+                    continue;
+                }
+
+                // Check if exists in DB (Name + CompanyId combination)
+                var existsInDb = await _context.Locations.AnyAsync(l => l.Name.ToLower() == nameLower && l.CompanyId == companyId);
+                if (existsInDb)
+                {
+                    validation.AlreadyExists.Add(new ValidationEntry<LocationImportDto> { Row = row.RowNumber, Data = item, Message = $"Location '{item.Name}' already exists for Company '{company.Name}'" });
+                    processedInFile.Add(fileKey);
                     continue;
                 }
 
                 validation.Valid.Add(new ValidationEntry<LocationImportDto> { Row = row.RowNumber, Data = item });
-                processedInFile.Add(nameLower);
+                processedInFile.Add(fileKey);
             }
 
             return validation;
@@ -112,11 +149,15 @@ namespace net_backend.Controllers
 
         [HttpGet]
         public async Task<ActionResult<ApiResponse<IEnumerable<Location>>>> GetAll() => 
-            Ok(new ApiResponse<IEnumerable<Location>> { Data = await _context.Locations.ToListAsync() });
+            Ok(new ApiResponse<IEnumerable<Location>> { Data = await _context.Locations.Include(l => l.Company).ToListAsync() });
 
         [HttpGet("active")]
         public async Task<ActionResult<ApiResponse<IEnumerable<Location>>>> GetActive() => 
-            Ok(new ApiResponse<IEnumerable<Location>> { Data = await _context.Locations.Where(c => c.IsActive).ToListAsync() });
+            Ok(new ApiResponse<IEnumerable<Location>> { Data = await _context.Locations.Include(l => l.Company).Where(c => c.IsActive).ToListAsync() });
+
+        [HttpGet("company/{companyId}")]
+        public async Task<ActionResult<ApiResponse<IEnumerable<Location>>>> GetByCompany(int companyId) => 
+            Ok(new ApiResponse<IEnumerable<Location>> { Data = await _context.Locations.Where(l => l.CompanyId == companyId && l.IsActive).ToListAsync() });
 
         [HttpGet("{id}")]
         public async Task<ActionResult<ApiResponse<Location>>> GetById(int id)
@@ -126,9 +167,14 @@ namespace net_backend.Controllers
         }
 
         [HttpPost]
-        public async Task<ActionResult<ApiResponse<Location>>> Create([FromBody] CreateCompanyRequest request)
+        public async Task<ActionResult<ApiResponse<Location>>> Create([FromBody] CreateLocationRequest request)
         {
-            var item = new Location { Name = request.Name, IsActive = request.IsActive ?? true };
+            var item = new Location 
+            { 
+                Name = request.Name, 
+                CompanyId = request.CompanyId,
+                IsActive = request.IsActive ?? true 
+            };
             _context.Locations.Add(item);
             await _context.SaveChangesAsync();
             return StatusCode(201, new ApiResponse<Location> { Data = item });
@@ -136,11 +182,12 @@ namespace net_backend.Controllers
 
         [HttpPatch("{id}")]
         [HttpPut("{id}")]
-        public async Task<ActionResult<ApiResponse<Location>>> Update(int id, [FromBody] CreateCompanyRequest request)
+        public async Task<ActionResult<ApiResponse<Location>>> Update(int id, [FromBody] CreateLocationRequest request)
         {
             var item = await _context.Locations.FindAsync(id);
             if (item == null) return NotFound();
             if (!string.IsNullOrEmpty(request.Name)) item.Name = request.Name;
+            if (request.CompanyId > 0) item.CompanyId = request.CompanyId;
             if (request.IsActive.HasValue) item.IsActive = request.IsActive.Value;
             item.UpdatedAt = DateTime.Now;
             await _context.SaveChangesAsync();

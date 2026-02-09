@@ -54,6 +54,7 @@ namespace net_backend.Models
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime UpdatedAt { get; set; } = DateTime.Now;
 
+        public virtual ICollection<Location> Locations { get; set; } = new List<Location>();
         public virtual ICollection<Issue> Issues { get; set; } = new List<Issue>();
         public virtual ICollection<Return> Returns { get; set; } = new List<Return>();
     }
@@ -114,10 +115,13 @@ namespace net_backend.Models
         public int Id { get; set; }
         [Required]
         public string Name { get; set; } = string.Empty;
+        public int CompanyId { get; set; }
         public bool IsActive { get; set; } = true;
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime UpdatedAt { get; set; } = DateTime.Now;
 
+        [ForeignKey("CompanyId")]
+        public virtual Company? Company { get; set; }
         public virtual ICollection<Issue> Issues { get; set; } = new List<Issue>();
         public virtual ICollection<Return> Returns { get; set; } = new List<Return>();
     }

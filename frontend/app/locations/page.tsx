@@ -4,7 +4,8 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import api from "@/lib/api";
-import { Location } from "@/types";
+import { Company, Location } from "@/types";
+import { Select } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +22,7 @@ import { toast } from "react-hot-toast";
 
 const locationSchema = z.object({
   name: z.string().min(1, "Location name is required"),
+  companyId: z.coerce.number().min(1, "Company is required"),
   isActive: z.boolean().optional(),
 });
 
@@ -60,6 +62,14 @@ export default function LocationsPage() {
     },
   });
 
+  const { data: companies = [] } = useQuery<Company[]>({
+    queryKey: ["companies", "active"],
+    queryFn: async () => {
+      const res = await api.get("/companies/active");
+      return res.data?.data ?? [];
+    },
+  });
+
   const {
     register,
     handleSubmit,
@@ -82,6 +92,7 @@ export default function LocationsPage() {
     mutationFn: async (data: {
       code?: string;
       name: string;
+      companyId: number;
       isActive?: boolean;
     }) => {
       const res = await api.post("/locations", data);
@@ -142,10 +153,15 @@ export default function LocationsPage() {
     if (location) {
       setEditingLocation(location);
       setValue("name", location.name);
+      setValue("companyId", location.companyId);
       setValue("isActive", location.isActive);
     } else {
       setEditingLocation(null);
-      reset();
+      reset({
+        name: "",
+        companyId: undefined,
+        isActive: true,
+      });
     }
     setIsFormOpen(true);
   };
@@ -169,6 +185,7 @@ export default function LocationsPage() {
     } else {
       createMutation.mutate({
         name,
+        companyId: data.companyId,
         isActive: data.isActive,
       });
     }
@@ -312,6 +329,9 @@ export default function LocationsPage() {
                           Name
                         </th>
                         <th className="px-4 py-3 font-semibold text-primary-900">
+                          Company
+                        </th>
+                        <th className="px-4 py-3 font-semibold text-primary-900">
                           Status
                         </th>
                         <th className="px-4 py-3 font-semibold text-primary-900 text-right">
@@ -333,6 +353,9 @@ export default function LocationsPage() {
                           </td>
                           <td className="px-4 py-3 font-medium text-text">
                             {loc.name}
+                          </td>
+                          <td className="px-4 py-3 text-secondary-600">
+                            {loc.company?.name || `ID: ${loc.companyId}`}
                           </td>
                           <td className="px-4 py-3">
                             <span
@@ -447,6 +470,28 @@ export default function LocationsPage() {
               editingLocation ? "Update location" : "Add new location"
             }
           >
+            <div>
+              <Label htmlFor="location-company-select">
+                Company *
+              </Label>
+              <Select
+                id="location-company-select"
+                {...register("companyId")}
+                className="mt-1"
+                aria-required="true"
+                aria-invalid={!!errors.companyId}
+              >
+                <option value="">Select Company</option>
+                {companies.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </Select>
+              {errors.companyId && (
+                <p className="text-sm text-red-600 mt-1" role="alert">
+                  {errors.companyId.message}
+                </p>
+              )}
+            </div>
             <div>
               <Label htmlFor="location-name-input">
                 Location Master Name *

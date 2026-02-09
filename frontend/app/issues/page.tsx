@@ -414,6 +414,13 @@ export default function IssuesPage() {
     return companies.map((c) => ({ value: c.id, label: c.name }));
   }, [companies]);
 
+  const locationSelectOptions = useMemo(() => {
+    if (!watchedCompanyId || watchedCompanyId === 0) return [];
+    return locations
+      .filter((l) => l.companyId === watchedCompanyId)
+      .map((l) => ({ value: l.id, label: l.name }));
+  }, [locations, watchedCompanyId]);
+
   const contractorSelectOptions = useMemo(() => {
     return contractors.map((c) => ({ value: c.id, label: c.name }));
   }, [contractors]);
@@ -422,9 +429,9 @@ export default function IssuesPage() {
     return machines.map((m) => ({ value: m.id, label: m.name }));
   }, [machines]);
 
-  const locationSelectOptions = useMemo(() => {
-    return locations.map((l) => ({ value: l.id, label: l.name }));
-  }, [locations]);
+  // const locationSelectOptions = useMemo(() => {
+  //   return locations.map((l) => ({ value: l.id, label: l.name }));
+  // }, [locations]);
 
   const itemSelectOptions = useMemo(() => {
     return itemsByCategory.map((item) => ({
@@ -841,7 +848,18 @@ export default function IssuesPage() {
                           id="outward-company-id"
                           options={companySelectOptions}
                           value={watchedCompanyId ?? ""}
-                          onChange={(v) => setValue("companyId", Number(v))}
+                          onChange={(v) => {
+                            const newCompanyId = Number(v);
+                            setValue("companyId", newCompanyId);
+                            // Reset location if it doesn't belong to the new company
+                            const currentLocationId = watch("locationId");
+                            if (currentLocationId && currentLocationId !== 0) {
+                              const isValid = locations.some(l => l.id === currentLocationId && l.companyId === newCompanyId);
+                              if (!isValid) {
+                                setValue("locationId", 0);
+                              }
+                            }
+                          }}
                           disabled={isViewOnly}
                           placeholder="Select company"
                           searchPlaceholder="Search companies..."
@@ -902,8 +920,8 @@ export default function IssuesPage() {
                           options={locationSelectOptions}
                           value={watchedLocationId ?? ""}
                           onChange={(v) => setValue("locationId", Number(v))}
-                          disabled={isViewOnly}
-                          placeholder="Select location"
+                          disabled={isViewOnly || !watchedCompanyId || watchedCompanyId === 0}
+                          placeholder={(!watchedCompanyId || watchedCompanyId === 0) ? "Select company first" : "Select location"}
                           searchPlaceholder="Search locations..."
                           error={errors.locationId?.message}
                         />

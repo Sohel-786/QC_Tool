@@ -60,6 +60,8 @@ export interface Company {
 export interface Location {
   id: number;
   name: string;
+  companyId: number;
+  company?: Company;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

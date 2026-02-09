@@ -21,4 +21,22 @@ namespace net_backend.DTOs
         public string Name { get; set; } = string.Empty;
         public bool? IsActive { get; set; }
     }
+
+    public class LocationDto
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public int CompanyId { get; set; }
+        public string? CompanyName { get; set; }
+        public bool IsActive { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
+    }
+
+    public class CreateLocationRequest
+    {
+        public string Name { get; set; } = string.Empty;
+        public int CompanyId { get; set; }
+        public bool? IsActive { get; set; }
+    }
 }

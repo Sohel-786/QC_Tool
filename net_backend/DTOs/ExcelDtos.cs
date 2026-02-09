@@ -13,6 +13,8 @@ namespace net_backend.DTOs
     public class LocationImportDto
     {
         public string Name { get; set; } = string.Empty;
+        public string CompanyName { get; set; } = string.Empty;
+        public string? IsActive { get; set; }
     }
 
     public class MachineImportDto

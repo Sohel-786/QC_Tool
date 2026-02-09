@@ -153,7 +153,7 @@ export function SearchableSelect({
           error && "border-red-500",
         )}
       >
-        <span className={selectedLabel ? "text-text" : "text-secondary-500"}>
+        <span className={cn("truncate min-w-0 text-left", selectedLabel ? "text-text" : "text-secondary-500")}>
           {selectedLabel || placeholder}
         </span>
         <svg
@@ -168,7 +168,7 @@ export function SearchableSelect({
 
       {isOpen && (
         <div
-          className="absolute z-50 mt-1 w-full rounded-md border border-secondary-200 bg-white shadow-lg"
+          className="absolute z-50 mt-1 min-w-full w-max max-w-[400px] rounded-md border border-secondary-200 bg-white shadow-lg"
           role="listbox"
         >
           <div className="border-b border-secondary-200 p-2">
@@ -203,7 +203,7 @@ export function SearchableSelect({
                   aria-selected={value === opt.value}
                   aria-disabled={opt.disabled}
                   className={cn(
-                    "px-3 py-2 text-sm",
+                    "px-3 py-2 text-sm whitespace-normal break-words",
                     opt.disabled
                       ? "cursor-not-allowed bg-secondary-50 text-secondary-400"
                       : "cursor-pointer",

@@ -98,7 +98,17 @@ namespace net_backend.Services
                 foreach (var cell in firstRow.CellsUsed())
                 {
                     var header = cell.Value.ToString().Replace(" ", "").ToLower();
-                    var prop = properties.FirstOrDefault(p => p.Name.ToLower() == header);
+                    
+                    // Match DTO properties with common Excel header aliases
+                    var prop = properties.FirstOrDefault(p => {
+                        var propName = p.Name.ToLower();
+                        return propName == header || 
+                               (propName == "companyname" && header == "company") ||
+                               (propName == "name" && (header == "location" || header == "locationname")) ||
+                               (propName == "itemname" && header == "item") ||
+                               (propName == "isactive" && (header == "status" || header == "active"));
+                    });
+                    
                     if (prop != null)
                     {
                         columnMap.Add(cell.Address.ColumnNumber, prop);
