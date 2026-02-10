@@ -19,7 +19,7 @@ namespace net_backend.Data
         public DbSet<Location> Locations { get; set; }
         public DbSet<Machine> Machines { get; set; }
         public DbSet<Return> Returns { get; set; }
-        public DbSet<RolePermission> RolePermissions { get; set; }
+        public DbSet<UserPermission> UserPermissions { get; set; }
         public DbSet<Status> Statuses { get; set; }
         public DbSet<User> Users { get; set; }
         public DbSet<Operator> Operators { get; set; }

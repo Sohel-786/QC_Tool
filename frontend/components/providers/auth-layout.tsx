@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import api from '@/lib/api';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
-import { User, RolePermission } from '@/types';
+import { User, UserPermission } from '@/types';
 import { SoftwareProfileDraftProvider } from '@/contexts/software-profile-draft-context';
 import { useCurrentUserPermissions } from '@/hooks/use-settings';
 import { ShieldAlert } from 'lucide-react';
@@ -15,8 +15,8 @@ import { HorizontalNav } from '@/components/layout/horizontal-nav';
 const SIDEBAR_WIDTH_EXPANDED = 256;
 const SIDEBAR_WIDTH_COLLAPSED = 64;
 
-// Map route prefixes to required permission keys in RolePermission
-const ROUTE_PERMISSIONS: Record<string, keyof RolePermission> = {
+// Map route prefixes to required permission keys in UserPermission
+const ROUTE_PERMISSIONS: Record<string, keyof UserPermission> = {
   '/dashboard': 'viewDashboard',
   '/companies': 'viewMaster',
   '/locations': 'viewMaster',

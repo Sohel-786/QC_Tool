@@ -504,12 +504,16 @@ namespace net_backend.Controllers
 
         private async Task<bool> CheckPermission(string permissionKey)
         {
-            var role = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
-            if (string.IsNullOrEmpty(role)) return false;
-            if (role == "QC_ADMIN") return true;
+            var userIdStr = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdStr) || !int.TryParse(userIdStr, out int userId)) return false;
 
-            var permissions = await _context.RolePermissions.FirstOrDefaultAsync(p => p.Role == role);
-            if (permissions == null) return false;
+            var permissions = await _context.UserPermissions.FirstOrDefaultAsync(p => p.UserId == userId);
+            if (permissions == null)
+            {
+                 var role = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+                 if (role == "QC_ADMIN") return true;
+                 return false;
+            }
 
             return permissionKey switch
             {

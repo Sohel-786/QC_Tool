@@ -58,87 +58,112 @@ namespace net_backend.Controllers
         }
 
         [HttpGet("permissions/me")]
-        public async Task<ActionResult<ApiResponse<RolePermission>>> GetMyPermissions()
+        public async Task<ActionResult<ApiResponse<UserPermission>>> GetMyPermissions()
         {
-            var role = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
-            if (string.IsNullOrEmpty(role))
+            var userIdStr = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdStr) || !int.TryParse(userIdStr, out int userId))
             {
-                return Unauthorized(new ApiResponse<RolePermission> { Success = false, Message = "User role not found" });
+                return Unauthorized(new ApiResponse<UserPermission> { Success = false, Message = "User ID not found" });
             }
 
-            var permissions = await _context.RolePermissions.FirstOrDefaultAsync(p => p.Role == role);
+            var permissions = await _context.UserPermissions.FirstOrDefaultAsync(p => p.UserId == userId);
+            
+            // If no permissions found, create default based on role
             if (permissions == null)
             {
-                return NotFound(new ApiResponse<RolePermission> { Success = false, Message = "Permissions not found for role: " + role });
-            }
-
-            return Ok(new ApiResponse<RolePermission> { Success = true, Data = permissions });
-        }
-
-        [HttpGet("permissions")]
-        public async Task<ActionResult<ApiResponse<IEnumerable<RolePermission>>>> GetPermissions()
-        {
-            if (!await CheckPermission("accessSettings"))
-                return Forbidden();
-
-            var permissions = await _context.RolePermissions.ToListAsync();
-            return Ok(new ApiResponse<IEnumerable<RolePermission>> { Data = permissions });
-        }
-
-        [HttpPatch("permissions")]
-        [HttpPut("permissions")]
-        public async Task<ActionResult<ApiResponse<IEnumerable<RolePermission>>>> UpdatePermissions([FromBody] UpdatePermissionsRequest request)
-        {
-            if (!await CheckPermission("accessSettings"))
-                return Forbidden();
-
-            foreach (var perm in request.Permissions)
-            {
-                var existing = await _context.RolePermissions.FirstOrDefaultAsync(p => p.Role == perm.Role);
-                if (existing != null)
+                var user = await _context.Users.FindAsync(userId);
+                if (user != null)
                 {
-                    // Update existing fields individually to avoid ID conflicts or unintended overwrites
-                    existing.ViewDashboard = perm.ViewDashboard;
-                    existing.ViewMaster = perm.ViewMaster;
-                    existing.ViewCompanyMaster = perm.ViewCompanyMaster;
-                    existing.ViewLocationMaster = perm.ViewLocationMaster;
-                    existing.ViewContractorMaster = perm.ViewContractorMaster;
-                    existing.ViewStatusMaster = perm.ViewStatusMaster;
-                    existing.ViewMachineMaster = perm.ViewMachineMaster;
-                    existing.ViewItemMaster = perm.ViewItemMaster;
-                    existing.ViewItemCategoryMaster = perm.ViewItemCategoryMaster;
-                    existing.ViewOutward = perm.ViewOutward;
-                    existing.ViewInward = perm.ViewInward;
-                    existing.ViewReports = perm.ViewReports;
-                    existing.ViewActiveIssuesReport = perm.ViewActiveIssuesReport;
-                    existing.ViewMissingItemsReport = perm.ViewMissingItemsReport;
-                    existing.ViewItemHistoryLedgerReport = perm.ViewItemHistoryLedgerReport;
-                    existing.ImportExportMaster = perm.ImportExportMaster;
-                    existing.AddOutward = perm.AddOutward;
-                    existing.EditOutward = perm.EditOutward;
-                    existing.AddInward = perm.AddInward;
-                    existing.EditInward = perm.EditInward;
-                    existing.AddMaster = perm.AddMaster;
-                    existing.EditMaster = perm.EditMaster;
-                    existing.ManageUsers = perm.ManageUsers;
-                    existing.AccessSettings = perm.AccessSettings;
-                    existing.NavigationLayout = perm.NavigationLayout ?? "VERTICAL";
-                    existing.UpdatedAt = DateTime.Now;
+                    permissions = CreateDefaultPermissions(user.Id, user.Role);
+                    _context.UserPermissions.Add(permissions);
+                    await _context.SaveChangesAsync();
                 }
                 else
                 {
-                    // Add new
-                    perm.CreatedAt = DateTime.Now;
-                    perm.UpdatedAt = DateTime.Now;
-                    if (string.IsNullOrEmpty(perm.NavigationLayout)) perm.NavigationLayout = "VERTICAL";
-                    _context.RolePermissions.Add(perm);
+                    return NotFound(new ApiResponse<UserPermission> { Success = false, Message = "User not found" });
                 }
             }
 
-            await _context.SaveChangesAsync();
-            var all = await _context.RolePermissions.ToListAsync();
-            return Ok(new ApiResponse<IEnumerable<RolePermission>> { Data = all });
+            return Ok(new ApiResponse<UserPermission> { Success = true, Data = permissions });
         }
+
+        [HttpGet("permissions/user/{userId}")]
+        public async Task<ActionResult<ApiResponse<UserPermission>>> GetUserPermissions(int userId)
+        {
+            if (!await CheckPermission("accessSettings"))
+                return Forbidden();
+
+            var permissions = await _context.UserPermissions.FirstOrDefaultAsync(p => p.UserId == userId);
+            
+            if (permissions == null)
+            {
+                var user = await _context.Users.FindAsync(userId);
+                if (user == null)
+                {
+                    return NotFound(new ApiResponse<UserPermission> { Success = false, Message = "User not found" });
+                }
+                
+                // Create default if not exists
+                permissions = CreateDefaultPermissions(user.Id, user.Role);
+                _context.UserPermissions.Add(permissions);
+                await _context.SaveChangesAsync();
+            }
+
+            return Ok(new ApiResponse<UserPermission> { Data = permissions });
+        }
+
+        [HttpPut("permissions/user/{userId}")]
+        public async Task<ActionResult<ApiResponse<UserPermission>>> UpdateUserPermissions(int userId, [FromBody] UserPermission updatedPerms)
+        {
+            if (!await CheckPermission("accessSettings"))
+                return Forbidden();
+
+            var permissions = await _context.UserPermissions.FirstOrDefaultAsync(p => p.UserId == userId);
+            
+            if (permissions == null)
+            {
+                 var user = await _context.Users.FindAsync(userId);
+                if (user == null)
+                {
+                    return NotFound(new ApiResponse<UserPermission> { Success = false, Message = "User not found" });
+                }
+                permissions = new UserPermission { UserId = userId };
+                _context.UserPermissions.Add(permissions);
+            }
+
+            // Update fields
+            permissions.ViewDashboard = updatedPerms.ViewDashboard;
+            permissions.ViewMaster = updatedPerms.ViewMaster;
+            permissions.ViewCompanyMaster = updatedPerms.ViewCompanyMaster;
+            permissions.ViewLocationMaster = updatedPerms.ViewLocationMaster;
+            permissions.ViewContractorMaster = updatedPerms.ViewContractorMaster;
+            permissions.ViewStatusMaster = updatedPerms.ViewStatusMaster;
+            permissions.ViewMachineMaster = updatedPerms.ViewMachineMaster;
+            permissions.ViewItemMaster = updatedPerms.ViewItemMaster;
+            permissions.ViewItemCategoryMaster = updatedPerms.ViewItemCategoryMaster;
+            permissions.ViewOutward = updatedPerms.ViewOutward;
+            permissions.ViewInward = updatedPerms.ViewInward;
+            permissions.ViewReports = updatedPerms.ViewReports;
+            permissions.ViewActiveIssuesReport = updatedPerms.ViewActiveIssuesReport;
+            permissions.ViewMissingItemsReport = updatedPerms.ViewMissingItemsReport;
+            permissions.ViewItemHistoryLedgerReport = updatedPerms.ViewItemHistoryLedgerReport;
+            permissions.ImportExportMaster = updatedPerms.ImportExportMaster;
+            permissions.AddOutward = updatedPerms.AddOutward;
+            permissions.EditOutward = updatedPerms.EditOutward;
+            permissions.AddInward = updatedPerms.AddInward;
+            permissions.EditInward = updatedPerms.EditInward;
+            permissions.AddMaster = updatedPerms.AddMaster;
+            permissions.EditMaster = updatedPerms.EditMaster;
+            permissions.ManageUsers = updatedPerms.ManageUsers;
+            permissions.AccessSettings = updatedPerms.AccessSettings;
+            if (updatedPerms.NavigationLayout != null) permissions.NavigationLayout = updatedPerms.NavigationLayout;
+            
+            permissions.UpdatedAt = DateTime.Now;
+
+            await _context.SaveChangesAsync();
+            return Ok(new ApiResponse<UserPermission> { Data = permissions });
+        }
+
         [HttpPost("software/logo")]
         public async Task<ActionResult<object>> UpdateLogo([FromForm] IFormFile logo)
         {
@@ -179,13 +204,21 @@ namespace net_backend.Controllers
 
         private async Task<bool> CheckPermission(string permissionKey)
         {
-            var role = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
-            if (string.IsNullOrEmpty(role)) return false;
+            var userIdStr = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdStr) || !int.TryParse(userIdStr, out int userId)) return false;
             
-            if (role == "QC_ADMIN") return true;
-
-            var permissions = await _context.RolePermissions.FirstOrDefaultAsync(p => p.Role == role);
-            if (permissions == null) return false;
+            // Check if admin role - admins always have full access potentially, 
+            // but for this granular path we check the permission record.
+            // However, to prevent lockout, if no permission record exists for an admin, we assume true or create one.
+            
+            var permissions = await _context.UserPermissions.FirstOrDefaultAsync(p => p.UserId == userId);
+            if (permissions == null)
+            {
+                // Fallback: If user is QC_ADMIN, grant success.
+                var role = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+                if (role == "QC_ADMIN") return true;
+                return false;
+            }
 
             return permissionKey switch
             {
@@ -217,9 +250,104 @@ namespace net_backend.Controllers
             };
         }
 
+        private UserPermission CreateDefaultPermissions(int userId, Role role)
+        {
+            var perm = new UserPermission
+            {
+                UserId = userId,
+                NavigationLayout = "VERTICAL",
+                CreatedAt = DateTime.Now,
+                UpdatedAt = DateTime.Now
+            };
+
+            if (role == Role.QC_ADMIN)
+            {
+                perm.ViewDashboard = true;
+                perm.ViewMaster = true;
+                perm.ViewCompanyMaster = true;
+                perm.ViewLocationMaster = true;
+                perm.ViewContractorMaster = true;
+                perm.ViewStatusMaster = true;
+                perm.ViewMachineMaster = true;
+                perm.ViewItemMaster = true;
+                perm.ViewItemCategoryMaster = true;
+                perm.ViewOutward = true;
+                perm.ViewInward = true;
+                perm.ViewReports = true;
+                perm.ViewActiveIssuesReport = true;
+                perm.ViewMissingItemsReport = true;
+                perm.ViewItemHistoryLedgerReport = true;
+                perm.ImportExportMaster = true;
+                perm.AddOutward = true;
+                perm.EditOutward = true;
+                perm.AddInward = true;
+                perm.EditInward = true;
+                perm.AddMaster = true;
+                perm.EditMaster = true;
+                perm.ManageUsers = true;
+                perm.AccessSettings = true;
+            }
+            else if (role == Role.QC_MANAGER)
+            {
+                perm.ViewDashboard = true;
+                perm.ViewMaster = true;
+                perm.ViewCompanyMaster = true;
+                perm.ViewLocationMaster = true;
+                perm.ViewContractorMaster = true;
+                perm.ViewStatusMaster = true;
+                perm.ViewMachineMaster = true;
+                perm.ViewItemMaster = true;
+                perm.ViewItemCategoryMaster = true;
+                perm.ViewOutward = true;
+                perm.ViewInward = true;
+                perm.ViewReports = true;
+                perm.ViewActiveIssuesReport = true;
+                perm.ViewMissingItemsReport = true;
+                perm.ViewItemHistoryLedgerReport = true;
+                perm.ImportExportMaster = true;
+                perm.AddOutward = true;
+                perm.EditOutward = true;
+                perm.AddInward = true;
+                perm.EditInward = true;
+                perm.AddMaster = true;
+                perm.EditMaster = true;
+                perm.ManageUsers = false;
+                perm.AccessSettings = false;
+            }
+            else
+            {
+                // QC_USER
+                perm.ViewDashboard = true;
+                perm.ViewMaster = true;
+                perm.ViewCompanyMaster = true;
+                perm.ViewLocationMaster = true;
+                perm.ViewContractorMaster = true;
+                perm.ViewStatusMaster = true;
+                perm.ViewMachineMaster = true;
+                perm.ViewItemMaster = true;
+                perm.ViewItemCategoryMaster = true;
+                perm.ViewOutward = true;
+                perm.ViewInward = true;
+                perm.ViewReports = true;
+                perm.ViewActiveIssuesReport = true;
+                perm.ViewMissingItemsReport = true;
+                perm.ViewItemHistoryLedgerReport = true;
+                perm.ImportExportMaster = false;
+                perm.AddOutward = true;
+                perm.EditOutward = true;
+                perm.AddInward = true;
+                perm.EditInward = true;
+                perm.AddMaster = true;
+                perm.EditMaster = true;
+                perm.ManageUsers = false;
+                perm.AccessSettings = false;
+            }
+
+            return perm;
+        }
         private ActionResult Forbidden()
         {
-            return StatusCode(403, new { Success = false, Message = "You do not have permission to perform this action." });
+            return StatusCode(403, new ApiResponse<object> { Success = false, Message = "You do not have permission to perform this action." });
         }
     }
 }

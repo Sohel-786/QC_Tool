@@ -176,6 +176,7 @@ namespace net_backend.Models
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime UpdatedAt { get; set; } = DateTime.Now;
 
+        public virtual UserPermission? Permission { get; set; }
         public virtual ICollection<Issue> IssuedIssues { get; set; } = new List<Issue>();
         public virtual ICollection<Return> ReturnedReturns { get; set; } = new List<Return>();
         public virtual ICollection<AuditLog> AuditLogs { get; set; } = new List<AuditLog>();
@@ -196,13 +197,11 @@ namespace net_backend.Models
         public DateTime UpdatedAt { get; set; } = DateTime.Now;
     }
 
-    [Table("role_permissions")]
-    public class RolePermission
+    [Table("user_permissions")]
+    public class UserPermission
     {
         public int Id { get; set; }
-        [Required]
-        [MaxLength(20)]
-        public string Role { get; set; } = string.Empty;
+        public int UserId { get; set; }
         public bool ViewDashboard { get; set; } = true;
         public bool ViewMaster { get; set; } = true;
         public bool ViewCompanyMaster { get; set; } = true;
@@ -231,6 +230,9 @@ namespace net_backend.Models
         public string NavigationLayout { get; set; } = "VERTICAL";
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime UpdatedAt { get; set; } = DateTime.Now;
+
+        [ForeignKey("UserId")]
+        public virtual User? User { get; set; }
     }
 
     [Table("issues")]

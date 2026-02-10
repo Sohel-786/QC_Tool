@@ -130,22 +130,26 @@ function ReportsContent() {
 
   useEffect(() => {
     const section = searchParams.get("section");
-    if (section === "missing" && permissions?.viewReports) {
+    if (section === "missing" && permissions?.viewMissingItemsReport) {
       setActiveReport("missing");
     } else if (
       (section === "active-issues" || section === "issued") &&
-      permissions?.viewReports
+      permissions?.viewActiveIssuesReport
     ) {
       setActiveReport("issued");
     } else if (
       (section === "history" || section === "ledger") &&
-      permissions?.viewReports
+      permissions?.viewItemHistoryLedgerReport
     ) {
       setActiveReport("history");
     } else {
       // Default to first available permission
-      if (permissions?.viewReports) {
+      if (permissions?.viewActiveIssuesReport) {
         setActiveReport("issued");
+      } else if (permissions?.viewMissingItemsReport) {
+        setActiveReport("missing");
+      } else if (permissions?.viewItemHistoryLedgerReport) {
+        setActiveReport("history");
       }
     }
   }, [searchParams, permissions]);
@@ -540,21 +544,21 @@ function ReportsContent() {
       label: "Active Issues",
       icon: FileText,
       count: issuedTotal,
-      visible: permissions?.viewReports ?? false,
+      visible: permissions?.viewActiveIssuesReport ?? false,
     },
     {
       id: "missing" as ReportType,
       label: "Missing Items",
       icon: AlertTriangle,
       count: missingTotal,
-      visible: permissions?.viewReports ?? false,
+      visible: permissions?.viewMissingItemsReport ?? false,
     },
     {
       id: "history" as ReportType,
       label: "Item History (Ledger)",
       icon: History,
       count: ledgerItemId != null ? ledgerTotal : 0,
-      visible: permissions?.viewReports ?? false,
+      visible: permissions?.viewItemHistoryLedgerReport ?? false,
     },
   ].filter((tab) => tab.visible);
 

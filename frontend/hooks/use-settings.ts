@@ -3,7 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-hot-toast';
 import api from '@/lib/api';
-import { AppSettings, RolePermission } from '@/types';
+import { AppSettings, UserPermission } from '@/types';
 
 export function useAppSettings() {
   return useQuery({
@@ -57,41 +57,46 @@ export function useUploadCompanyLogo() {
   });
 }
 
-export function usePermissions() {
+export function useUserPermissions(userId?: number) {
   return useQuery({
-    queryKey: ['settings', 'permissions'],
-    queryFn: async (): Promise<RolePermission[]> => {
-      const response = await api.get('/settings/permissions');
+    queryKey: ['settings', 'permissions', userId],
+    queryFn: async (): Promise<UserPermission | null> => {
+      if (!userId) return null;
+      const response = await api.get(`/settings/permissions/user/${userId}`);
       return response.data.data;
     },
+    enabled: !!userId,
   });
 }
 
-/** Current logged-in user's role permissions (from GET /settings/permissions/me). Use for view/add/edit checks on pages. */
+/** Current logged-in user's permissions (from GET /settings/permissions/me). Use for view/add/edit checks on pages. */
 export function useCurrentUserPermissions(enabled = true) {
   return useQuery({
     queryKey: ['settings', 'permissions', 'me'],
-    queryFn: async (): Promise<RolePermission | null> => {
+    queryFn: async (): Promise<UserPermission | null> => {
       const response = await api.get('/settings/permissions/me');
       return response.data.data ?? null;
     },
     retry: false,
-    staleTime: 2 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,
     enabled,
   });
 }
 
-export function useUpdatePermissions() {
+export function useUpdateUserPermissions() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (permissions: RolePermission[]): Promise<RolePermission[]> => {
-      const response = await api.patch('/settings/permissions', { permissions });
+    mutationFn: async ({ userId, permissions }: { userId: number; permissions: Partial<UserPermission> }): Promise<UserPermission> => {
+      const response = await api.put(`/settings/permissions/user/${userId}`, permissions);
       return response.data.data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['settings', 'permissions'] });
-      toast.success('Access permissions saved');
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['settings', 'permissions', variables.userId] });
+      // If we updated our own permissions, invalidate 'me' as well
+      // But usually this is done by admin for another user. If admin updates themselves, it matters.
+      queryClient.invalidateQueries({ queryKey: ['settings', 'permissions', 'me'] });
+      toast.success('User permissions saved');
     },
     onError: (error: any) => {
       const message = error.response?.data?.message || 'Failed to save permissions';

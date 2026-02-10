@@ -182,14 +182,24 @@ export interface AppSettings {
   updatedAt?: string;
 }
 
-export interface RolePermission {
+export interface UserPermission {
   id: number;
-  role: string;
+  userId: number;
   viewDashboard: boolean;
   viewMaster: boolean;
+  viewCompanyMaster: boolean;
+  viewLocationMaster: boolean;
+  viewContractorMaster: boolean;
+  viewStatusMaster: boolean;
+  viewMachineMaster: boolean;
+  viewItemMaster: boolean;
+  viewItemCategoryMaster: boolean;
   viewOutward: boolean;
   viewInward: boolean;
   viewReports: boolean;
+  viewActiveIssuesReport: boolean;
+  viewMissingItemsReport: boolean;
+  viewItemHistoryLedgerReport: boolean;
   importExportMaster: boolean;
   addOutward: boolean;
   editOutward: boolean;

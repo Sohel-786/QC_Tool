@@ -23,7 +23,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react";
-import { Role } from "@/types";
+import { Role, UserPermission } from "@/types";
 import { Button } from "@/components/ui/button";
 import api from "@/lib/api";
 import { useRouter } from "next/navigation";
@@ -72,14 +72,14 @@ const SidebarText = ({
   </AnimatePresence>
 );
 
-const masterEntries: NavLink[] = [
-  { href: "/companies", label: "Company Master", icon: Building2 },
-  { href: "/locations", label: "Location Master", icon: MapPin },
-  { href: "/contractors", label: "Contractor Master", icon: Briefcase },
-  { href: "/machines", label: "Machine Master", icon: Cog },
-  { href: "/item-categories", label: "Item Category Master", icon: Layers },
-  { href: "/items", label: "Item Master", icon: Package },
-  { href: "/statuses", label: "Status Master", icon: Tag },
+const masterEntries: (NavLink & { permission: keyof UserPermission })[] = [
+  { href: "/companies", label: "Company Master", icon: Building2, permission: "viewCompanyMaster" },
+  { href: "/locations", label: "Location Master", icon: MapPin, permission: "viewLocationMaster" },
+  { href: "/contractors", label: "Contractor Master", icon: Briefcase, permission: "viewContractorMaster" },
+  { href: "/machines", label: "Machine Master", icon: Cog, permission: "viewMachineMaster" },
+  { href: "/item-categories", label: "Item Category Master", icon: Layers, permission: "viewItemCategoryMaster" },
+  { href: "/items", label: "Item Master", icon: Package, permission: "viewItemMaster" },
+  { href: "/statuses", label: "Status Master", icon: Tag, permission: "viewStatusMaster" },
 ];
 
 const transactionEntriesAll: NavLink[] = [
@@ -255,6 +255,7 @@ export function Sidebar({
             </Link>
           )}
 
+
           {/* Master Entry */}
           {canViewMaster && (
             <div className="pt-1">
@@ -281,7 +282,7 @@ export function Sidebar({
                       animate={{ opacity: 1, height: "auto" }}
                       className="pl-1 mt-0.5 space-y-0.5"
                     >
-                      {masterEntries.map((item) => {
+                      {masterEntries.filter(item => permissions?.[item.permission]).map((item) => {
                         const Icon = item.icon;
                         return (
                           <Link key={item.href} href={item.href}>
@@ -305,7 +306,7 @@ export function Sidebar({
                 </>
               ) : (
                 <div className="space-y-0.5">
-                  {masterEntries.map((item) => {
+                  {masterEntries.filter(item => permissions?.[item.permission]).map((item) => {
                     const Icon = item.icon;
                     const cellClass = `flex items-center justify-center p-2 rounded-md transition-colors ${pathname === item.href
                       ? "bg-primary-50 text-primary-600"

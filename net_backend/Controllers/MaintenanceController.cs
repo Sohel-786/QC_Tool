@@ -57,8 +57,8 @@ namespace net_backend.Controllers
                     _context.Users.RemoveRange(nonAdminUsers);
                     await _context.SaveChangesAsync();
 
-                    // Delete Role Permissions to get a fresh seed
-                    _context.RolePermissions.RemoveRange(_context.RolePermissions);
+                    // Delete User Permissions to get a fresh seed
+                    _context.UserPermissions.RemoveRange(_context.UserPermissions);
                     await _context.SaveChangesAsync();
 
                     // Software/App Settings will be reset in DbInitializer, 

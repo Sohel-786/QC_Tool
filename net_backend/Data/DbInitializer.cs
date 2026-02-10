@@ -57,17 +57,45 @@ namespace net_backend.Data
                 context.SaveChanges();
             }
 
-            // 4. Seed Role Permissions
-            if (!context.RolePermissions.Any())
+            // 4. Seed User Permissions
+            if (!context.UserPermissions.Any())
             {
-                var permissions = new RolePermission[]
+                var adminUser = context.Users.FirstOrDefault(u => u.Role == Role.QC_ADMIN);
+                if (adminUser != null)
                 {
-                    new RolePermission { Role = "QC_ADMIN", ViewDashboard = true, ViewMaster = true, ViewCompanyMaster = true, ViewLocationMaster = true, ViewContractorMaster = true, ViewStatusMaster = true, ViewMachineMaster = true, ViewItemMaster = true, ViewItemCategoryMaster = true, ViewOutward = true, ViewInward = true, ViewReports = true, ViewActiveIssuesReport = true, ViewMissingItemsReport = true, ViewItemHistoryLedgerReport = true, ImportExportMaster = true, AddOutward = true, EditOutward = true, AddInward = true, EditInward = true, AddMaster = true, EditMaster = true, ManageUsers = true, AccessSettings = true, CreatedAt = DateTime.Now, UpdatedAt = DateTime.Now },
-                    new RolePermission { Role = "QC_MANAGER", ViewDashboard = true, ViewMaster = true, ViewCompanyMaster = true, ViewLocationMaster = true, ViewContractorMaster = true, ViewStatusMaster = true, ViewMachineMaster = true, ViewItemMaster = true, ViewItemCategoryMaster = true, ViewOutward = true, ViewInward = true, ViewReports = true, ViewActiveIssuesReport = true, ViewMissingItemsReport = true, ViewItemHistoryLedgerReport = true, ImportExportMaster = true, AddOutward = true, EditOutward = true, AddInward = true, EditInward = true, AddMaster = true, EditMaster = true, ManageUsers = false, AccessSettings = false, CreatedAt = DateTime.Now, UpdatedAt = DateTime.Now },
-                    new RolePermission { Role = "QC_USER", ViewDashboard = true, ViewMaster = true, ViewCompanyMaster = true, ViewLocationMaster = true, ViewContractorMaster = true, ViewStatusMaster = true, ViewMachineMaster = true, ViewItemMaster = true, ViewItemCategoryMaster = true, ViewOutward = true, ViewInward = true, ViewReports = true, ViewActiveIssuesReport = true, ViewMissingItemsReport = true, ViewItemHistoryLedgerReport = true, ImportExportMaster = false, AddOutward = true, EditOutward = true, AddInward = true, EditInward = true, AddMaster = true, EditMaster = true, ManageUsers = false, AccessSettings = false, CreatedAt = DateTime.Now, UpdatedAt = DateTime.Now }
-                };
-                context.RolePermissions.AddRange(permissions);
-                context.SaveChanges();
+                    var adminPerm = new UserPermission
+                    {
+                        UserId = adminUser.Id,
+                        ViewDashboard = true,
+                        ViewMaster = true,
+                        ViewCompanyMaster = true,
+                        ViewLocationMaster = true,
+                        ViewContractorMaster = true,
+                        ViewStatusMaster = true,
+                        ViewMachineMaster = true,
+                        ViewItemMaster = true,
+                        ViewItemCategoryMaster = true,
+                        ViewOutward = true,
+                        ViewInward = true,
+                        ViewReports = true,
+                        ViewActiveIssuesReport = true,
+                        ViewMissingItemsReport = true,
+                        ViewItemHistoryLedgerReport = true,
+                        ImportExportMaster = true,
+                        AddOutward = true,
+                        EditOutward = true,
+                        AddInward = true,
+                        EditInward = true,
+                        AddMaster = true,
+                        EditMaster = true,
+                        ManageUsers = true,
+                        AccessSettings = true,
+                        CreatedAt = DateTime.Now,
+                        UpdatedAt = DateTime.Now
+                    };
+                    context.UserPermissions.Add(adminPerm);
+                    context.SaveChanges();
+                }
             }
 
             // NOTE: Master data (Items, Companies, etc.) and Transactions (Issues, Returns)

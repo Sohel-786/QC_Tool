@@ -11,6 +11,6 @@ namespace net_backend.DTOs
 
     public class UpdatePermissionsRequest
     {
-        public List<RolePermission> Permissions { get; set; } = new List<RolePermission>();
+        public List<UserPermission> Permissions { get; set; } = new List<UserPermission>();
     }
 }
