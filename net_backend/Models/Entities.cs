@@ -65,6 +65,8 @@ namespace net_backend.Models
         public int Id { get; set; }
         [Required]
         public string Name { get; set; } = string.Empty;
+        [Required]
+        public string PhoneNumber { get; set; } = string.Empty;
         public bool IsActive { get; set; } = true;
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime UpdatedAt { get; set; } = DateTime.Now;
@@ -99,6 +101,7 @@ namespace net_backend.Models
         public string? Image { get; set; }
         [Column("categoryId")]
         public int? CategoryId { get; set; }
+        public string? InHouseLocation { get; set; }
         public ItemStatus Status { get; set; } = ItemStatus.AVAILABLE;
         public bool IsActive { get; set; } = true;
         public DateTime CreatedAt { get; set; } = DateTime.Now;

@@ -58,7 +58,7 @@ const issueSchema = z.object({
   contractorId: z.number().min(1, "Contractor is required"),
   machineId: z.number().min(1, "Machine is required"),
   locationId: z.number().min(1, "Location is required"),
-  issuedTo: z.string().optional(),
+  issuedTo: z.string().min(1, "Operator name is required"),
   remarks: z.string().optional(),
 });
 
@@ -173,6 +173,7 @@ export default function IssuesPage() {
   const watchedContractorId = watch("contractorId");
   const watchedMachineId = watch("machineId");
   const watchedLocationId = watch("locationId");
+  const watchedIssuedTo = watch("issuedTo");
 
   const hasAllRequired =
     typeof selectedCategoryId === "number" &&
@@ -192,7 +193,9 @@ export default function IssuesPage() {
     watchedMachineId >= 1 &&
     typeof watchedLocationId === "number" &&
     !Number.isNaN(watchedLocationId) &&
-    watchedLocationId >= 1;
+    watchedLocationId >= 1 &&
+    typeof watchedIssuedTo === "string" &&
+    watchedIssuedTo.trim().length > 0;
 
   const { data: itemsByCategory = [], isLoading: itemsLoading } = useQuery<
     Item[]
@@ -757,13 +760,13 @@ export default function IssuesPage() {
         >
           <form
             onSubmit={handleSubmit(onSubmit)}
-            className="flex flex-col flex-1 min-h-0 -m-6"
+            className="flex flex-col flex-1 min-h-0"
             aria-label="Outward entry form"
           >
-            <div className="flex-1 min-h-0 overflow-y-auto px-6 pt-6 pb-4">
-              <div className="grid grid-cols-1 lg:grid-cols-[70%_1fr] gap-6 lg:gap-8">
+            <div className="flex-1 min-h-0 overflow-y-auto px-6 pt-3 pb-2">
+              <div className="grid grid-cols-1 lg:grid-cols-[70%_1fr] gap-3 lg:gap-4">
                 {/* Left Column: Form Fields */}
-                <div className="space-y-5">
+                <div className="space-y-2.5">
                   {(nextIssueCode || editingIssue) && (
                     <div>
                       <Label
@@ -959,10 +962,7 @@ export default function IssuesPage() {
                         htmlFor="outward-operator"
                         className="text-sm font-medium text-secondary-700"
                       >
-                        Operator Name{" "}
-                        <span className="text-secondary-400 font-normal">
-                          (optional)
-                        </span>
+                        Operator Name <span className="text-red-500">*</span>
                       </Label>
                       <Input
                         id="outward-operator"
@@ -970,7 +970,14 @@ export default function IssuesPage() {
                         placeholder="Operator name"
                         disabled={isViewOnly}
                         className="mt-1.5 h-10 border-secondary-300 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 disabled:opacity-60 disabled:cursor-not-allowed"
+                        aria-required="true"
+                        aria-invalid={!!errors.issuedTo}
                       />
+                      {errors.issuedTo && (
+                        <p className="mt-1 text-xs text-red-500 font-medium">
+                          {errors.issuedTo.message}
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -988,19 +995,19 @@ export default function IssuesPage() {
                       id="outward-remarks"
                       {...register("remarks")}
                       placeholder="Optional remarks..."
-                      rows={3}
+                      rows={1}
                       disabled={isViewOnly}
-                      className="mt-1.5 border-secondary-300 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 resize-y disabled:opacity-60 disabled:cursor-not-allowed"
+                      className="mt-1 border-secondary-300 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 resize-none disabled:opacity-60 disabled:cursor-not-allowed"
                     />
                   </div>
                 </div>
 
                 {/* Right Column: Item Image Preview */}
-                <div className="lg:min-h-[360px]">
-                  <Label className="text-sm font-medium text-secondary-700 mb-1.5 block">
+                <div className="lg:min-h-[300px] flex flex-col">
+                  <Label className="text-sm font-medium text-secondary-700 mb-1 block">
                     Latest Condition Photo
                   </Label>
-                  <div className="rounded-xl border border-secondary-200 bg-secondary-50/50 overflow-hidden h-full min-h-[250px] flex flex-col items-center justify-center p-4">
+                  <div className="rounded-xl border border-secondary-200 bg-secondary-50/50 overflow-hidden flex-1 flex flex-col items-center justify-center p-2">
                     {selectedItem || (editingIssue && editingIssue.item) ? (
                       (selectedItem as any)?.latestImage || (selectedItem as any)?.image || (editingIssue?.item as any)?.latestImage || (editingIssue?.item as any)?.image ? (
                         <div className="relative group cursor-pointer w-full h-full flex items-center justify-center">
@@ -1054,11 +1061,7 @@ export default function IssuesPage() {
               </div>
             </div>
 
-            <p id="outward-form-hint" className="sr-only" aria-live="polite">
-              Press Enter to save.
-            </p>
-
-            <div className="flex-none flex gap-3 px-6 py-4 border-t border-secondary-200 bg-secondary-50/50">
+            <div className="flex-none flex gap-3 px-6 py-3 border-t border-secondary-200 bg-secondary-50/50">
               {!isViewOnly &&
                 (editingIssue ? canEditOutward : canAddOutward) && (
                   <Button

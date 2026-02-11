@@ -50,7 +50,7 @@ namespace net_backend.Controllers
             
             if (!string.IsNullOrEmpty(search))
             {
-                query = query.Where(i => i.ItemName.Contains(search) || (i.SerialNumber != null && i.SerialNumber.Contains(search)) || (i.Description != null && i.Description.Contains(search)));
+                query = query.Where(i => i.ItemName.Contains(search) || (i.SerialNumber != null && i.SerialNumber.Contains(search)) || (i.Description != null && i.Description.Contains(search)) || (i.InHouseLocation != null && i.InHouseLocation.Contains(search)));
             }
 
             if (!string.IsNullOrEmpty(categoryIds))
@@ -70,7 +70,7 @@ namespace net_backend.Controllers
             
             if (!string.IsNullOrEmpty(search))
             {
-                query = query.Where(i => i.ItemName.Contains(search) || (i.SerialNumber != null && i.SerialNumber.Contains(search)) || (i.Description != null && i.Description.Contains(search)));
+                query = query.Where(i => i.ItemName.Contains(search) || (i.SerialNumber != null && i.SerialNumber.Contains(search)) || (i.Description != null && i.Description.Contains(search)) || (i.InHouseLocation != null && i.InHouseLocation.Contains(search)));
             }
 
             if (!string.IsNullOrEmpty(categoryIds))
@@ -90,7 +90,7 @@ namespace net_backend.Controllers
             
             if (!string.IsNullOrEmpty(search))
             {
-                query = query.Where(i => i.ItemName.Contains(search) || (i.SerialNumber != null && i.SerialNumber.Contains(search)) || (i.Description != null && i.Description.Contains(search)));
+                query = query.Where(i => i.ItemName.Contains(search) || (i.SerialNumber != null && i.SerialNumber.Contains(search)) || (i.Description != null && i.Description.Contains(search)) || (i.InHouseLocation != null && i.InHouseLocation.Contains(search)));
             }
 
             if (!string.IsNullOrEmpty(categoryIds))
@@ -119,6 +119,7 @@ namespace net_backend.Controllers
             var data = items.Select(i => new {
                 ItemName = i.ItemName,
                 SerialNumber = i.SerialNumber,
+                InHouseLocation = i.InHouseLocation,
                 Category = i.Category?.Name,
                 Status = i.Status.ToString(),
                 CreatedAt = i.CreatedAt.ToString("yyyy-MM-dd HH:mm")
@@ -144,6 +145,7 @@ namespace net_backend.Controllers
             var data = items.Select(i => new {
                 ItemName = i.ItemName,
                 SerialNumber = i.SerialNumber,
+                InHouseLocation = i.InHouseLocation,
                 Category = i.Category?.Name,
                 CreatedAt = i.CreatedAt.ToString("yyyy-MM-dd HH:mm")
             });
@@ -168,6 +170,7 @@ namespace net_backend.Controllers
             var data = items.Select(i => new {
                 ItemName = i.ItemName,
                 SerialNumber = i.SerialNumber,
+                InHouseLocation = i.InHouseLocation,
                 Category = i.Category?.Name,
                 CreatedAt = i.CreatedAt.ToString("yyyy-MM-dd HH:mm")
             });

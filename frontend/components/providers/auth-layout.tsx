@@ -37,7 +37,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
-  const [navExpanded, setNavExpanded] = useState(false);
+  const [navExpanded, setNavExpanded] = useState(true);
   const sidebarWidth = sidebarExpanded ? SIDEBAR_WIDTH_EXPANDED : SIDEBAR_WIDTH_COLLAPSED;
 
   const { data: permissions, isLoading: permissionsLoading } = useCurrentUserPermissions(
@@ -189,7 +189,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
           />
         )}
         <div
-          className="transition-[margin] duration-200 ease-in-out relative z-0"
+          className="transition-[margin] duration-200 ease-in-out relative z-0 flex flex-col min-h-screen"
           style={{ marginLeft: permissions?.navigationLayout === 'HORIZONTAL' ? 0 : sidebarWidth }}
         >
           <Header
@@ -200,7 +200,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
           {permissions?.navigationLayout === 'HORIZONTAL' && (
             <HorizontalNav isExpanded={navExpanded} />
           )}
-          <main className="min-h-[calc(100vh-4rem)]">{children}</main>
+          <main className="flex-1 overflow-y-auto">{children}</main>
         </div>
       </div>
     </SoftwareProfileDraftProvider>

@@ -25,6 +25,7 @@ namespace net_backend.Controllers
             var data = (await _context.Contractors.ToListAsync()).Select(c => new {
                 Id = c.Id,
                 Name = c.Name,
+                PhoneNumber = c.PhoneNumber,
                 IsActive = c.IsActive ? "Yes" : "No",
                 CreatedAt = c.CreatedAt.ToString("yyyy-MM-dd HH:mm")
             });
@@ -59,7 +60,7 @@ namespace net_backend.Controllers
 
                 foreach (var validRow in validation.Valid)
                 {
-                    newItems.Add(new Contractor { Name = validRow.Data.Name.Trim(), IsActive = true });
+                    newItems.Add(new Contractor { Name = validRow.Data.Name.Trim(), PhoneNumber = validRow.Data.PhoneNumber.Trim(), IsActive = true });
                 }
 
                 if (newItems.Any())
@@ -103,6 +104,18 @@ namespace net_backend.Controllers
                     continue;
                 }
 
+                if (string.IsNullOrWhiteSpace(item.PhoneNumber))
+                {
+                    validation.Invalid.Add(new ValidationEntry<ContractorImportDto> { Row = row.RowNumber, Data = item, Message = "Phone number is mandatory" });
+                    continue;
+                }
+
+                if (!System.Text.RegularExpressions.Regex.IsMatch(item.PhoneNumber.Trim(), @"^[6-9]\d{9}$"))
+                {
+                    validation.Invalid.Add(new ValidationEntry<ContractorImportDto> { Row = row.RowNumber, Data = item, Message = "Invalid Indian mobile number" });
+                    continue;
+                }
+
                 validation.Valid.Add(new ValidationEntry<ContractorImportDto> { Row = row.RowNumber, Data = item });
                 processedInFile.Add(nameLower);
             }
@@ -126,15 +139,21 @@ namespace net_backend.Controllers
         }
 
         [HttpPost]
-        public async Task<ActionResult<ApiResponse<Contractor>>> Create([FromBody] CreateCompanyRequest request)
+        public async Task<ActionResult<ApiResponse<Contractor>>> Create([FromBody] CreateContractorRequest request)
         {
             if (string.IsNullOrWhiteSpace(request.Name))
                 return BadRequest(new ApiResponse<Contractor> { Success = false, Message = "Name is required" });
 
+            if (string.IsNullOrWhiteSpace(request.PhoneNumber))
+                return BadRequest(new ApiResponse<Contractor> { Success = false, Message = "Phone number is required" });
+
+            if (!System.Text.RegularExpressions.Regex.IsMatch(request.PhoneNumber.Trim(), @"^[6-9]\d{9}$"))
+                return BadRequest(new ApiResponse<Contractor> { Success = false, Message = "Invalid Indian mobile number (should be 10 digits starting with 6-9)" });
+
             if (await _context.Contractors.AnyAsync(c => c.Name.ToLower() == request.Name.Trim().ToLower()))
                 return BadRequest(new ApiResponse<Contractor> { Success = false, Message = "Contractor name already exists" });
 
-            var item = new Contractor { Name = request.Name.Trim(), IsActive = request.IsActive ?? true };
+            var item = new Contractor { Name = request.Name.Trim(), PhoneNumber = request.PhoneNumber.Trim(), IsActive = request.IsActive ?? true };
             _context.Contractors.Add(item);
             await _context.SaveChangesAsync();
             return StatusCode(201, new ApiResponse<Contractor> { Data = item });
@@ -142,7 +161,7 @@ namespace net_backend.Controllers
 
         [HttpPatch("{id}")]
         [HttpPut("{id}")]
-        public async Task<ActionResult<ApiResponse<Contractor>>> Update(int id, [FromBody] CreateCompanyRequest request)
+        public async Task<ActionResult<ApiResponse<Contractor>>> Update(int id, [FromBody] CreateContractorRequest request)
         {
             var item = await _context.Contractors.FindAsync(id);
             if (item == null) return NotFound();
@@ -153,6 +172,14 @@ namespace net_backend.Controllers
                 if (await _context.Contractors.AnyAsync(c => c.Id != id && c.Name.ToLower() == nameTrimmed.ToLower()))
                     return BadRequest(new ApiResponse<Contractor> { Success = false, Message = "Contractor name already exists" });
                 item.Name = nameTrimmed;
+            }
+
+            if (!string.IsNullOrEmpty(request.PhoneNumber))
+            {
+                var phoneTrimmed = request.PhoneNumber.Trim();
+                if (!System.Text.RegularExpressions.Regex.IsMatch(phoneTrimmed, @"^[6-9]\d{9}$"))
+                    return BadRequest(new ApiResponse<Contractor> { Success = false, Message = "Invalid Indian mobile number (should be 10 digits starting with 6-9)" });
+                item.PhoneNumber = phoneTrimmed;
             }
 
             if (request.IsActive.HasValue) item.IsActive = request.IsActive.Value;

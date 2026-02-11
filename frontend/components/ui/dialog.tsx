@@ -23,6 +23,9 @@ interface DialogProps {
   closeButtonDisabled?: boolean;
 }
 
+// Global stack to track open dialogs and handle nested ESC key behavior
+const dialogStack: (() => void)[] = [];
+
 export function Dialog({
   isOpen,
   onClose,
@@ -31,26 +34,51 @@ export function Dialog({
   size = "md",
   overlayClassName,
   contentScroll = true,
-  closeOnBackdropClick = true,
+  closeOnBackdropClick = false,
   closeButtonDisabled = false,
 }: DialogProps) {
-  // Lock body scroll when dialog is open
+  // Lock body scroll and handle ESC key when dialog is open
   useEffect(() => {
-    if (isOpen) {
-      // Save original styles
-      const originalBodyOverflow = document.body.style.overflow;
-      const originalHtmlOverflow = document.documentElement.style.overflow;
+    const closeFn = () => onClose();
 
-      // Lock scroll
-      document.body.style.overflow = "hidden";
-      document.documentElement.style.overflow = "hidden";
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen && !closeButtonDisabled) {
+        // Only trigger onClose if this dialog is at the top of the stack
+        if (dialogStack[dialogStack.length - 1] === closeFn) {
+          onClose();
+        }
+      }
+    };
+
+    if (isOpen) {
+      // Add this dialog to the stack
+      dialogStack.push(closeFn);
+
+      // Lock scroll only if it's the first dialog opening
+      if (dialogStack.length === 1) {
+        document.body.style.overflow = "hidden";
+        document.documentElement.style.overflow = "hidden";
+      }
+
+      window.addEventListener("keydown", handleKeyDown);
 
       return () => {
-        document.body.style.overflow = originalBodyOverflow;
-        document.documentElement.style.overflow = originalHtmlOverflow;
+        // Remove from stack on unmount or when closed
+        const index = dialogStack.indexOf(closeFn);
+        if (index > -1) {
+          dialogStack.splice(index, 1);
+        }
+
+        // Unlock scroll only if No more dialogs are open
+        if (dialogStack.length === 0) {
+          document.body.style.overflow = "";
+          document.documentElement.style.overflow = "";
+        }
+
+        window.removeEventListener("keydown", handleKeyDown);
       };
     }
-  }, [isOpen]);
+  }, [isOpen, onClose, closeButtonDisabled]);
 
   const sizeClasses: Record<NonNullable<DialogProps["size"]>, string> = {
     sm: "max-w-md",
@@ -75,7 +103,7 @@ export function Dialog({
               if (closeOnBackdropClick) onClose();
             }}
             className={cn(
-              "fixed inset-0 bg-black/50 backdrop-blur-sm z-[1000] flex items-start justify-center p-4 pt-20",
+              "fixed inset-0 bg-black/50 backdrop-blur-sm z-[1000] flex items-center justify-center p-4",
               overlayClassName,
             )}
           >
@@ -86,7 +114,7 @@ export function Dialog({
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               onClick={(e) => e.stopPropagation()}
               className={cn(
-                "bg-white rounded-xl shadow-2xl w-full max-h-[90vh] flex flex-col",
+                "bg-white rounded-xl shadow-2xl w-full max-h-[96vh] flex flex-col",
                 sizeClasses[size]
               )}
             >
@@ -113,9 +141,9 @@ export function Dialog({
               {/* Content - scrollable by default; use contentScroll={false} for internal scroll + sticky footer */}
               <div
                 className={cn(
-                  "flex-1 min-h-0 p-6",
+                  "flex-1 min-h-0",
                   contentScroll
-                    ? "overflow-y-auto"
+                    ? "overflow-y-auto p-6"
                     : "overflow-hidden flex flex-col"
                 )}
               >

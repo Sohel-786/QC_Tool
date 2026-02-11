@@ -154,43 +154,45 @@ export function HorizontalNav({ isExpanded }: HorizontalNavProps) {
     const Icon = item.icon;
     const isActive =
       pathname === item.href || pathname.startsWith(`${item.href}/`);
-    const itemColor = item.hoverColor.split("-")[1]; // e.g., 'blue', 'violet'
 
     return (
       <Link key={item.href} href={item.href}>
         <div
           className={cn(
-            "flex flex-col items-center gap-2 px-4 py-3 rounded-xl transition-all duration-300 min-w-[95px] group cursor-pointer relative border",
+            "flex flex-col items-center gap-1.5 px-3 py-2.5 rounded-2xl transition-all duration-500 min-w-[95px] group cursor-pointer relative",
+            "border-[1.5px]",
             isActive
-              ? "bg-white shadow-[0_12px_40px_rgb(0,0,0,0.1)] scale-105 border-b-2 border-primary-500 -translate-y-1"
-              : "border-primary-200 hover:bg-white hover:shadow-xl hover:border-primary-300 hover:-translate-y-1 active:scale-95",
+              ? "bg-white shadow-[0_20px_50px_rgba(0,0,0,0.1)] scale-105 -translate-y-1.5 border-primary-600"
+              : "border-primary-600/20 hover:border-primary-600/40 hover:bg-white hover:shadow-2xl hover:-translate-y-1 active:scale-95",
           )}
         >
           <div
             className={cn(
-              "p-2.5 rounded-xl transition-all duration-300",
+              "p-2.5 rounded-xl transition-all duration-500 flex items-center justify-center shadow-sm",
+              "bg-gradient-to-br",
+              item.gradient,
               isActive
-                ? `bg-${itemColor}-50 text-${itemColor}-600 shadow-sm ring-1 ring-${itemColor}-200`
-                : `text-${itemColor}-600 bg-${itemColor}-50/30 border border-transparent group-hover:border-${itemColor}-200 group-hover:bg-${itemColor}-50 group-hover:shadow-md group-hover:scale-110`,
+                ? "scale-110 shadow-lg"
+                : "opacity-90 group-hover:opacity-100 group-hover:scale-110"
             )}
           >
-            <Icon className="w-6 h-6" strokeWidth={isActive ? 2.5 : 2} />
+            <Icon className="w-5 h-5 text-white drop-shadow-sm" strokeWidth={2.5} />
           </div>
           <span
             className={cn(
-              "text-[12px] font-bold text-center whitespace-nowrap transition-colors leading-tight",
+              "text-[10px] uppercase font-extrabold text-center whitespace-nowrap transition-colors tracking-widest",
               isActive
                 ? "text-primary-700"
-                : "text-secondary-600 group-hover:text-primary-600",
+                : "text-secondary-400 group-hover:text-primary-600",
             )}
           >
             {item.label}
           </span>
           {isActive && (
             <motion.div
-              layoutId="activeTabGlow"
-              className="absolute inset-0 rounded-xl bg-primary-500/5 -z-10"
-              transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+              layoutId="activeTabIndicator"
+              className="absolute -bottom-1.5 inset-x-0 mx-auto w-10 h-1 rounded-full bg-gradient-to-r from-primary-400 to-primary-600 shadow-[0_2px_10px_rgba(59,130,246,0.3)]"
+              transition={{ type: "spring", bounce: 0.3, duration: 0.6 }}
             />
           )}
         </div>
@@ -226,7 +228,7 @@ export function HorizontalNav({ isExpanded }: HorizontalNavProps) {
             )}
 
             {/* Master Entries Section */}
-            {visibleMasterEntries.length > 0 && (
+            {visibleMasterEntries.length > 0 && permissions?.viewMaster && (
               <div className="flex flex-col items-center gap-2">
                 <h3 className="text-[10px] font-bold text-primary-600 uppercase tracking-widest flex items-center gap-1.5 px-4">
                   Master Entry

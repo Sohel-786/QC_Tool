@@ -21,6 +21,9 @@ import { toast } from "react-hot-toast";
 const contractorSchema = z.object({
   code: z.string().optional(),
   name: z.string().min(1, "Contractor name is required"),
+  phoneNumber: z.string()
+    .min(1, "Phone number is required")
+    .regex(/^[6-9]\d{9}$/, "Invalid Indian mobile number (10 digits starting with 6-9)"),
   isActive: z.boolean().optional(),
 });
 
@@ -75,6 +78,7 @@ export default function ContractorsPage() {
     mutationFn: async (data: {
       code?: string;
       name: string;
+      phoneNumber: string;
       isActive?: boolean;
     }) => {
       const res = await api.post("/contractors", data);
@@ -135,6 +139,7 @@ export default function ContractorsPage() {
     if (contractor) {
       setEditingContractor(contractor);
       setValue("name", contractor.name);
+      setValue("phoneNumber", contractor.phoneNumber);
       setValue("isActive", contractor.isActive);
     } else {
       setEditingContractor(null);
@@ -176,6 +181,7 @@ export default function ContractorsPage() {
     } else {
       createMutation.mutate({
         name,
+        phoneNumber: data.phoneNumber,
         isActive: data.isActive,
       });
     }
@@ -321,6 +327,9 @@ export default function ContractorsPage() {
                           Name
                         </th>
                         <th className="px-4 py-3 font-semibold text-primary-900">
+                          Phone Number
+                        </th>
+                        <th className="px-4 py-3 font-semibold text-primary-900">
                           Status
                         </th>
                         <th className="px-4 py-3 font-semibold text-primary-900 text-right">
@@ -342,6 +351,9 @@ export default function ContractorsPage() {
                           </td>
                           <td className="px-4 py-3 font-medium text-text">
                             {c.name}
+                          </td>
+                          <td className="px-4 py-3 text-secondary-600">
+                            {c.phoneNumber}
                           </td>
                           <td className="px-4 py-3">
                             <span
@@ -476,6 +488,29 @@ export default function ContractorsPage() {
                   role="alert"
                 >
                   {errors.name.message}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <Label htmlFor="contractor-phone-input">
+                Phone Number *
+              </Label>
+              <Input
+                id="contractor-phone-input"
+                {...register("phoneNumber")}
+                placeholder="10-digit mobile number"
+                className="mt-1"
+                aria-required="true"
+                maxLength={10}
+                onInput={(e) => {
+                  e.currentTarget.value = e.currentTarget.value.replace(/\D/g, '').slice(0, 10);
+                }}
+                aria-invalid={!!errors.phoneNumber}
+              />
+              {errors.phoneNumber && (
+                <p className="text-sm text-red-600 mt-1" role="alert">
+                  {errors.phoneNumber.message}
                 </p>
               )}
             </div>

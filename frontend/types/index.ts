@@ -30,6 +30,7 @@ export interface Item {
   image?: string | null;
   serialNumber?: string | null;
   categoryId?: number | null;
+  inHouseLocation?: string | null;
   status: ItemStatus;
   isActive: boolean;
   latestImage?: string | null;
@@ -71,6 +72,7 @@ export interface Location {
 export interface Contractor {
   id: number;
   name: string;
+  phoneNumber: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

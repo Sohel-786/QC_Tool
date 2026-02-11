@@ -112,7 +112,6 @@ export function FullScreenImageViewer({
       {/* Image area: scrollable, centered */}
       <div
         className="flex-1 min-h-0 overflow-auto flex items-center justify-center p-4"
-        onClick={(e) => e.target === e.currentTarget && onClose()}
       >
         {imageSrc ? (
           <img

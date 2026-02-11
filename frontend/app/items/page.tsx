@@ -24,8 +24,11 @@ import {
   X,
   Upload,
   Download,
+  Trash2,
+  Camera,
 } from "lucide-react";
-import { CameraPhotoInput } from "@/components/ui/camera-photo-input";
+import { cn } from "@/lib/utils";
+import { CameraPhotoInput, CameraPhotoInputRef } from "@/components/ui/camera-photo-input";
 import { FullScreenImageViewer } from "@/components/ui/full-screen-image-viewer";
 import { useMasterExportImport } from "@/hooks/use-master-export-import";
 import { useCurrentUserPermissions } from "@/hooks/use-settings";
@@ -40,6 +43,7 @@ const itemSchema = z.object({
   itemName: z.string().min(1, "Item name is required"),
   serialNumber: z.string().min(1, "Serial number is required"),
   categoryId: z.number().min(1, "Item category is required"),
+  inHouseLocation: z.string().optional(),
   description: z.string().optional(),
   status: z.nativeEnum(ItemStatus).optional(),
   isActive: z.boolean().optional(),
@@ -59,6 +63,7 @@ export default function ItemsPage() {
   const [imageError, setImageError] = useState<string | null>(null);
   const [imageRemovedByUser, setImageRemovedByUser] = useState(false);
   const [fullScreenImageSrc, setFullScreenImageSrc] = useState<string | null>(null);
+  const cameraInputRef = useRef<CameraPhotoInputRef>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const importFileRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
@@ -108,6 +113,7 @@ export default function ItemsPage() {
 
   const watchedItemName = watch("itemName");
   const watchedSerialNumber = watch("serialNumber");
+  const watchedInHouseLocation = watch("inHouseLocation");
   const watchedCategoryId = watch("categoryId");
 
   // Suggestion logic: Filter unique item names based on selected category
@@ -121,6 +127,12 @@ export default function ItemsPage() {
     const names = new Set(categoryItems.map(i => i.itemName));
     return Array.from(names).sort();
   }, [items, watchedCategoryId]);
+
+  // Suggestion logic for In House Location
+  const filteredInHouseLocations = useMemo(() => {
+    const locations = new Set(items.map(i => i.inHouseLocation).filter(Boolean) as string[]);
+    return Array.from(locations).sort();
+  }, [items]);
 
   const hasRequiredFields =
     typeof watchedItemName === "string" &&
@@ -155,7 +167,17 @@ export default function ItemsPage() {
       queryClient.invalidateQueries({ queryKey: ["items"] });
       queryClient.invalidateQueries({ queryKey: ["items-by-category"] });
       queryClient.invalidateQueries({ queryKey: ["available-items"] });
+
+      // Reset form fields
       reset();
+
+      // Clear image state for the next potential entry
+      setImageFile(null);
+      setImagePreview(null);
+      setImageRemovedByUser(false);
+      setImageError(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+
       toast.success("Item created successfully");
     },
     onError: (e: unknown) => {
@@ -217,6 +239,7 @@ export default function ItemsPage() {
       setEditingItem(item);
       setValue("itemName", item.itemName);
       setValue("serialNumber", item.serialNumber ?? "");
+      setValue("inHouseLocation", item.inHouseLocation ?? "");
       setValue("description", item.description ?? "");
       setValue("categoryId", item.categoryId ?? categories[0]?.id ?? 0);
       setValue("status", item.status);
@@ -315,6 +338,7 @@ export default function ItemsPage() {
     fd.append("itemName", itemName);
     fd.append("serialNumber", serialNumber);
     fd.append("categoryId", String(data.categoryId));
+    if (data.inHouseLocation) fd.append("inHouseLocation", data.inHouseLocation.trim());
     if (data.description) fd.append("description", data.description.trim());
     if (!editingItem && data.status) fd.append("status", data.status);
     if (data.isActive !== undefined)
@@ -349,7 +373,8 @@ export default function ItemsPage() {
       list = list.filter(
         (i) =>
           i.itemName.toLowerCase().includes(q) ||
-          (i.serialNumber?.toLowerCase().includes(q) ?? false),
+          (i.serialNumber?.toLowerCase().includes(q) ?? false) ||
+          (i.inHouseLocation?.toLowerCase().includes(q) ?? false),
       );
     }
     if (activeFilter === "active") list = list.filter((i) => i.isActive);
@@ -490,6 +515,9 @@ export default function ItemsPage() {
                           Category
                         </th>
                         <th className="px-4 py-3 font-semibold text-text">
+                          In-House Location
+                        </th>
+                        <th className="px-4 py-3 font-semibold text-text">
                           Status
                         </th>
                         <th className="px-4 py-3 font-semibold text-text">
@@ -525,6 +553,9 @@ export default function ItemsPage() {
                             {i.categoryId != null
                               ? (categoryMap[i.categoryId] ?? "—")
                               : "—"}
+                          </td>
+                          <td className="px-4 py-3 text-secondary-600">
+                            {i.inHouseLocation ?? "—"}
                           </td>
                           <td className="px-4 py-3">
                             <span
@@ -663,8 +694,11 @@ export default function ItemsPage() {
           contentScroll={false}
         >
           <form
-            onSubmit={handleSubmit(onSubmit)}
-            className="flex flex-col flex-1 min-h-0 -m-6"
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSubmit(onSubmit)(e);
+            }}
+            className="flex flex-col flex-1 min-h-0"
             aria-label={editingItem ? "Update item" : "Add new item"}
           >
             <div className="flex-1 min-h-0 overflow-y-auto px-6 pt-6 pb-4">
@@ -752,6 +786,26 @@ export default function ItemsPage() {
                         </p>
                       )}
                     </div>
+
+                    <div>
+                      <Label
+                        htmlFor="inHouseLocation"
+                        className="text-sm font-medium text-secondary-700"
+                      >
+                        In House Location{" "}
+                        <span className="text-secondary-400 font-normal">
+                          (optional)
+                        </span>
+                      </Label>
+                      <Autocomplete
+                        id="inHouseLocation"
+                        value={watchedInHouseLocation || ""}
+                        onChange={(val) => setValue("inHouseLocation", val)}
+                        options={filteredInHouseLocations}
+                        placeholder="e.g. Rack A-1"
+                        className="mt-1.5"
+                      />
+                    </div>
                   </div>
 
                   <div>
@@ -807,69 +861,183 @@ export default function ItemsPage() {
                   )}
                 </div>
 
-                {/* Right column – camera photo */}
+                {/* Right column – Image management */}
                 <div className="lg:min-h-[320px]">
-                  <div className="rounded-xl border border-secondary-200 bg-secondary-50/50 overflow-hidden h-full min-h-[260px] flex flex-col">
-                    <div className="flex-1 p-4 flex flex-col">
+                  <div className="rounded-xl border border-secondary-200 bg-white overflow-hidden h-full min-h-[260px] flex flex-col shadow-sm">
+                    <div className="flex-1 p-5 flex flex-col space-y-4">
                       {editingItem && (editingItem._count?.issues ?? 0) > 0 ? (
                         <div className="space-y-4">
-                          <Label className="text-sm font-medium text-secondary-700">Item Image</Label>
-                          <div className="relative group cursor-pointer aspect-square rounded-lg overflow-hidden border border-secondary-200">
+                          <Label className="text-sm font-semibold text-secondary-900">Item Master Image</Label>
+                          <div
+                            className="relative group cursor-pointer aspect-square rounded-xl overflow-hidden border border-secondary-200 bg-secondary-50"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setFullScreenImageSrc(editingItem.image ? (editingItem.image.startsWith("/") ? `${API_BASE}${editingItem.image}` : `${API_BASE}/storage/${editingItem.image}`) : null);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setFullScreenImageSrc(editingItem.image ? (editingItem.image.startsWith("/") ? `${API_BASE}${editingItem.image}` : `${API_BASE}/storage/${editingItem.image}`) : null);
+                              }
+                            }}
+                            role="button"
+                            tabIndex={0}
+                          >
                             <img
-                              src={`${API_BASE}/storage/${editingItem.image}`}
+                              src={editingItem.image ? (editingItem.image.startsWith("/") ? `${API_BASE}${editingItem.image}` : `${API_BASE}/storage/${editingItem.image}`) : ""}
                               alt={editingItem.itemName}
-                              className="w-full h-full object-contain bg-white group-hover:opacity-90 transition-opacity"
+                              className="w-full h-full object-contain bg-white group-hover:scale-105 transition-transform duration-300"
                             />
-                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
                               <Button
                                 type="button"
                                 variant="secondary"
                                 size="sm"
-                                className="bg-white/90 backdrop-blur-sm shadow-sm"
-                                onClick={() => setFullScreenImageSrc(`${API_BASE}/storage/${editingItem.image}`)}
+                                className="opacity-0 group-hover:opacity-100 scale-90 group-hover:scale-100 transition-all shadow-lg"
                               >
-                                View full screen
+                                View Full Screen
                               </Button>
                             </div>
                           </div>
-                          <div className="p-3 bg-amber-50 border border-amber-100 rounded-lg">
+                          <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl flex gap-3">
+                            <div className="shrink-0 w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5" />
                             <p className="text-xs text-amber-700 leading-relaxed font-medium">
-                              This item has already been issued. The Master image is locked to preserve the initial condition.
+                              This item has transaction history. To maintain audit records, the <strong>initial master image</strong> is locked and cannot be changed.
                             </p>
                           </div>
                         </div>
                       ) : (
-                        <>
-                          <CameraPhotoInput
-                            label="Item Image"
-                            required={!editingItem}
-                            hint="Use your camera to capture the item photo"
-                            previewUrl={
-                              imagePreview ??
-                              (!imageRemovedByUser &&
-                                editingItem?.image &&
-                                !imageFile
-                                ? (editingItem.image.startsWith("/") ? `${API_BASE}${editingItem.image}` : `${API_BASE}/storage/${editingItem.image}`)
-                                : null)
-                            }
-                            onCapture={handleImageCapture}
-                            hasExistingImage={
-                              !!editingItem?.image &&
-                              !imageFile &&
-                              !imageRemovedByUser
-                            }
-                            aspectRatio="square"
-                            onPreviewClick={(url) => setFullScreenImageSrc(url)}
-                          />
-                          {imageError && (
-                            <p
-                              className="mt-2 text-xs text-red-600"
-                              role="alert"
-                            >
-                              {imageError}
+                        <div className="flex flex-col h-full">
+                          <div className="flex items-center justify-between mb-3">
+                            <Label className="text-sm font-semibold text-secondary-900">Item Master Image <span className="text-red-500">*</span></Label>
+                            {(imagePreview || (editingItem?.image && !imageRemovedByUser)) && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleImageCapture(null)}
+                                className="h-8 text-red-600 hover:text-red-700 hover:bg-red-50 px-2"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 mr-1" /> Remove
+                              </Button>
+                            )}
+                          </div>
+
+                          <div className="flex-1 flex flex-col min-h-[220px]">
+                            {imagePreview || (editingItem?.image && !imageRemovedByUser) ? (
+                              <div
+                                className="flex-1 relative rounded-xl overflow-hidden border border-secondary-200 bg-secondary-50 cursor-pointer group"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setFullScreenImageSrc(imagePreview || (editingItem?.image ? (editingItem.image.startsWith("/") ? `${API_BASE}${editingItem.image}` : `${API_BASE}/storage/${editingItem.image}`) : null));
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setFullScreenImageSrc(imagePreview || (editingItem?.image ? (editingItem.image.startsWith("/") ? `${API_BASE}${editingItem.image}` : `${API_BASE}/storage/${editingItem.image}`) : null));
+                                  }
+                                }}
+                                role="button"
+                                tabIndex={0}
+                              >
+                                <img
+                                  src={imagePreview || (editingItem!.image!.startsWith("/") ? `${API_BASE}${editingItem!.image}` : `${API_BASE}/storage/${editingItem!.image}`)}
+                                  alt="Preview"
+                                  className="w-full h-full object-contain bg-white"
+                                />
+                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all bg-black/5">
+                                  <Button variant="secondary" size="sm" className="shadow-md">View Full Screen</Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex-1 flex flex-col gap-3">
+                                <div
+                                  className={cn(
+                                    "flex-1 border-2 border-dashed rounded-xl transition-all flex flex-col items-center justify-center p-4 text-center group",
+                                    "border-secondary-300 bg-secondary-50/50 hover:border-primary-400 hover:bg-primary-50/30",
+                                    "hover:shadow-inner cursor-pointer"
+                                  )}
+                                  onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-primary-500', 'bg-primary-50'); }}
+                                  onDragLeave={(e) => { e.preventDefault(); e.currentTarget.classList.remove('border-primary-500', 'bg-primary-50'); }}
+                                  onDrop={(e) => {
+                                    e.preventDefault();
+                                    e.currentTarget.classList.remove('border-primary-500', 'bg-primary-50');
+                                    const file = e.dataTransfer.files?.[0];
+                                    if (file && file.type.startsWith('image/')) {
+                                      handleImageCapture(file);
+                                    } else if (file) {
+                                      toast.error("Please drop an image file (jpg, png, webp)");
+                                    }
+                                  }}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    const input = document.createElement('input');
+                                    input.type = 'file';
+                                    input.accept = 'image/*';
+                                    input.onchange = (e) => {
+                                      const file = (e.target as HTMLInputElement).files?.[0];
+                                      if (file) handleImageCapture(file);
+                                    };
+                                    input.click();
+                                  }}
+                                >
+                                  <div className="w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                                    <Upload className="w-6 h-6 text-primary-600" />
+                                  </div>
+                                  <p className="text-sm font-bold text-secondary-900">Upload or Drag & Drop</p>
+                                  <p className="text-[11px] text-secondary-500 mt-1 px-4">
+                                    JPG, PNG or WEBP (Standard formats)
+                                  </p>
+                                </div>
+
+                                <div className="flex items-center gap-3">
+                                  <div className="h-px flex-1 bg-secondary-200" />
+                                  <span className="text-[10px] font-bold text-secondary-400 uppercase tracking-widest">Or</span>
+                                  <div className="h-px flex-1 bg-secondary-200" />
+                                </div>
+
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  className="h-12 border-secondary-300 hover:border-primary-400 hover:bg-primary-50 text-secondary-700 hover:text-primary-700 font-bold shadow-sm"
+                                  onClick={() => {
+                                    cameraInputRef.current?.open();
+                                  }}
+                                >
+                                  <Camera className="w-5 h-5 mr-2" />
+                                  Capture from Camera
+                                </Button>
+
+                                <div className="hidden">
+                                  <CameraPhotoInput
+                                    ref={cameraInputRef}
+                                    onCapture={handleImageCapture}
+                                    previewUrl={null}
+                                    hideDefaultTrigger={true}
+                                  />
+                                </div>
+                              </div>
+                            )}
+
+                            {imageError && (
+                              <p className="mt-2 text-xs text-red-600 flex items-center gap-1.5 font-medium" role="alert">
+                                <span className="w-1 h-1 rounded-full bg-red-600" />
+                                {imageError}
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="mt-4 pt-4 border-t border-secondary-100">
+                            <p className="text-[11px] text-secondary-500 leading-relaxed italic">
+                              Tip: Ensure the item is clearly visible in the photo for accurate quality check records.
                             </p>
-                          )}
-                        </>
+                          </div>
+                        </div>
                       )}
                     </div>
                   </div>

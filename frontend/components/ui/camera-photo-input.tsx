@@ -1,12 +1,17 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useImperativeHandle, forwardRef } from "react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Camera, RefreshCw, Trash2, X, VideoOff } from "lucide-react";
 
 const CAPTURE_JPEG_QUALITY = 0.92;
 const MAX_DIMENSION = 1920;
+
+export type CameraPhotoInputRef = {
+  open: () => void;
+  close: () => void;
+};
 
 export type CameraPhotoInputProps = {
   /** Current preview URL (existing image or object URL from capture) */
@@ -27,9 +32,11 @@ export type CameraPhotoInputProps = {
   aspectRatio?: "square" | "video";
   /** When provided, clicking the preview image calls this with the preview URL (e.g. open full screen viewer) */
   onPreviewClick?: (url: string) => void;
+  /** When true, hides the default trigger button/preview area */
+  hideDefaultTrigger?: boolean;
 };
 
-export function CameraPhotoInput({
+export const CameraPhotoInput = forwardRef<CameraPhotoInputRef, CameraPhotoInputProps>(({
   previewUrl,
   onCapture,
   label = "Photo",
@@ -39,7 +46,8 @@ export function CameraPhotoInput({
   className = "",
   aspectRatio = "square",
   onPreviewClick,
-}: CameraPhotoInputProps) {
+  hideDefaultTrigger = false,
+}, ref) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -48,6 +56,11 @@ export function CameraPhotoInput({
   const streamRef = useRef<MediaStream | null>(null);
   const isModalOpenRef = useRef(isModalOpen);
   isModalOpenRef.current = isModalOpen;
+
+  useImperativeHandle(ref, () => ({
+    open: openModal,
+    close: closeModal,
+  }));
 
   const stopStream = useCallback(() => {
     if (streamRef.current) {
@@ -164,6 +177,106 @@ export function CameraPhotoInput({
     aspectRatio === "video"
       ? "aspect-video max-h-48"
       : "aspect-square max-h-[220px]";
+
+  if (hideDefaultTrigger) {
+    return (
+      <>
+        <canvas ref={canvasRef} className="hidden" />
+        <Dialog
+          isOpen={isModalOpen}
+          onClose={handleCloseRequest}
+          title="Take Photo"
+          size="xl"
+          overlayClassName="z-[1100]"
+          closeOnBackdropClick={false}
+          closeButtonDisabled={isLoading}
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-secondary-600">
+              Position the item in frame, then click Capture.
+            </p>
+            <div className="relative rounded-xl overflow-hidden bg-black min-h-[300px] flex items-center justify-center">
+              {isLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-secondary-900/80 z-10">
+                  <div className="animate-spin rounded-full h-12 w-12 border-2 border-white border-t-transparent" />
+                  <span className="sr-only">Starting camera…</span>
+                </div>
+              )}
+              {cameraError && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-secondary-900/95 text-white p-4 z-10">
+                  <VideoOff className="w-12 h-12 text-red-300" />
+                  <p className="text-sm text-center max-w-sm">{cameraError}</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setCameraError(null);
+                      setIsLoading(true);
+                      navigator.mediaDevices
+                        .getUserMedia({ video: true, audio: false })
+                        .then((stream) => {
+                          if (!isModalOpenRef.current) {
+                            stream.getTracks().forEach((t) => t.stop());
+                            return;
+                          }
+                          streamRef.current = stream;
+                          if (videoRef.current) {
+                            videoRef.current.srcObject = stream;
+                            videoRef.current.play().catch(() => { });
+                          }
+                          setIsLoading(false);
+                        })
+                        .catch((err) => {
+                          setIsLoading(false);
+                          setCameraError(
+                            err.name === "NotAllowedError"
+                              ? "Camera access was denied."
+                              : "Could not access camera.",
+                          );
+                        });
+                    }}
+                    className="border-white/50 text-white hover:bg-white/10"
+                  >
+                    Try again
+                  </Button>
+                </div>
+              )}
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full max-h-[70vh] object-contain"
+                style={{ display: cameraError || isLoading ? "none" : "block" }}
+              />
+            </div>
+            <div className="flex gap-3 justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCloseRequest}
+                disabled={isLoading}
+                title={isLoading ? "Please wait for camera to load" : undefined}
+              >
+                <X className="w-4 h-4 mr-1.5" />
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleCapture}
+                disabled={!!cameraError || isLoading}
+                className="bg-primary-600 hover:bg-primary-700 text-white"
+              >
+                <Camera className="w-4 h-4 mr-1.5" />
+                Capture
+              </Button>
+            </div>
+          </div>
+        </Dialog>
+      </>
+    );
+  }
 
   return (
     <div className={className}>
@@ -329,4 +442,6 @@ export function CameraPhotoInput({
       </Dialog>
     </div>
   );
-}
+});
+
+CameraPhotoInput.displayName = "CameraPhotoInput";

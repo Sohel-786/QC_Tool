@@ -172,8 +172,11 @@ namespace net_backend.Controllers
         public async Task<ActionResult<ApiResponse<Issue>>> Create([FromBody] CreateIssueRequest request)
         {
             if (!await CheckPermission("addOutward")) return Forbidden();
-
-            // Validation logic matching Node.js
+            
+            if (string.IsNullOrWhiteSpace(request.IssuedTo))
+            {
+                return BadRequest(new ApiResponse<Issue> { Success = false, Message = "Operator name is required" });
+            }
             var item = await _context.Items.FindAsync(request.ItemId);
             if (item == null) return NotFound(new ApiResponse<Issue> { Success = false, Message = "Item not found" });
             if (item.Status != ItemStatus.AVAILABLE) return BadRequest(new ApiResponse<Issue> { Success = false, Message = "Item is not available" });
@@ -247,7 +250,14 @@ namespace net_backend.Controllers
                 newItem.Status = ItemStatus.ISSUED;
             }
 
-            if (request.IssuedTo != null) issue.IssuedTo = request.IssuedTo;
+            if (request.IssuedTo != null)
+            {
+                if (string.IsNullOrWhiteSpace(request.IssuedTo))
+                {
+                    return BadRequest(new ApiResponse<Issue> { Success = false, Message = "Operator name is required" });
+                }
+                issue.IssuedTo = request.IssuedTo;
+            }
             if (request.Remarks != null) issue.Remarks = request.Remarks;
             if (request.CompanyId.HasValue) issue.CompanyId = request.CompanyId.Value;
             if (request.ContractorId.HasValue) issue.ContractorId = request.ContractorId.Value;

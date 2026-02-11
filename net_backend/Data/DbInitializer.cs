@@ -97,6 +97,13 @@ namespace net_backend.Data
                     context.SaveChanges();
                 }
             }
+            // 5. Update Existing Contractors Phone Number
+            var contractorsToUpdate = context.Contractors.ToList();
+            foreach (var c in contractorsToUpdate)
+            {
+                c.PhoneNumber = "9662106701";
+            }
+            context.SaveChanges();
 
             // NOTE: Master data (Items, Companies, etc.) and Transactions (Issues, Returns)
             // are NOT seeded to ensure a completely fresh start as requested by the user.

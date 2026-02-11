@@ -29,6 +29,7 @@ namespace net_backend.Controllers
                 Id = i.Id,
                 ItemName = i.ItemName,
                 SerialNumber = i.SerialNumber,
+                InHouseLocation = i.InHouseLocation,
                 Category = i.Category?.Name,
                 Status = i.Status.ToString(),
                 IsActive = i.IsActive ? "Yes" : "No",
@@ -82,6 +83,7 @@ namespace net_backend.Controllers
                         SerialNumber = item.SerialNumber!.Trim(),
                         Description = item.Description?.Trim(),
                         CategoryId = categoryId,
+                        InHouseLocation = item.InHouseLocation?.Trim(),
                         Status = ItemStatus.AVAILABLE,
                         IsActive = true,
                         CreatedAt = DateTime.Now,
@@ -139,13 +141,21 @@ namespace net_backend.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<ApiResponse<IEnumerable<Item>>>> GetAll([FromQuery] string? status)
+        public async Task<ActionResult<ApiResponse<IEnumerable<Item>>>> GetAll([FromQuery] string? search, [FromQuery] string? status)
         {
             var query = _context.Items.Include(i => i.Category).AsQueryable();
             
             if (!string.IsNullOrEmpty(status) && Enum.TryParse<ItemStatus>(status, true, out var itemStatus))
             {
                 query = query.Where(i => i.Status == itemStatus);
+            }
+
+            if (!string.IsNullOrEmpty(search))
+            {
+                query = query.Where(i => i.ItemName.Contains(search) || 
+                                       (i.SerialNumber != null && i.SerialNumber.Contains(search)) || 
+                                       (i.Description != null && i.Description.Contains(search)) || 
+                                       (i.InHouseLocation != null && i.InHouseLocation.Contains(search)));
             }
 
             var items = await query.ToListAsync();
@@ -184,6 +194,7 @@ namespace net_backend.Controllers
                 i.SerialNumber,
                 i.Description,
                 i.CategoryId,
+                i.InHouseLocation,
                 i.Category,
                 i.Status,
                 i.IsActive,
@@ -230,6 +241,7 @@ namespace net_backend.Controllers
                     i.SerialNumber,
                     i.Description,
                     i.CategoryId,
+                    i.InHouseLocation,
                     i.Category,
                     i.Status,
                     i.IsActive,
@@ -282,6 +294,7 @@ namespace net_backend.Controllers
                     i.SerialNumber,
                     i.Description,
                     i.CategoryId,
+                    i.InHouseLocation,
                     i.Category,
                     i.Status,
                     i.IsActive,
@@ -329,6 +342,7 @@ namespace net_backend.Controllers
                     i.SerialNumber,
                     i.Description,
                     i.CategoryId,
+                    i.InHouseLocation,
                     i.Category,
                     i.Status,
                     i.IsActive,
@@ -362,6 +376,7 @@ namespace net_backend.Controllers
                 item.SerialNumber,
                 item.Description,
                 item.CategoryId,
+                item.InHouseLocation,
                 item.Category,
                 item.Status,
                 item.IsActive,
@@ -422,6 +437,7 @@ namespace net_backend.Controllers
                 Description = request.Description?.Trim(),
                 Image = imagePath,
                 CategoryId = request.CategoryId,
+                InHouseLocation = request.InHouseLocation?.Trim(),
                 IsActive = request.IsActive ?? true,
                 CreatedAt = DateTime.Now,
                 UpdatedAt = DateTime.Now,
@@ -468,6 +484,7 @@ namespace net_backend.Controllers
 
             if (request.Description != null) item.Description = request.Description.Trim();
             if (request.CategoryId.HasValue) item.CategoryId = request.CategoryId;
+            if (request.InHouseLocation != null) item.InHouseLocation = request.InHouseLocation.Trim();
 
             // Restrict inactivation when item is in outward
             if (request.IsActive.HasValue && !request.IsActive.Value && item.Status == ItemStatus.ISSUED)

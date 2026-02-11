@@ -514,6 +514,7 @@ export default function ReturnsPage() {
     setEditingReturn(r);
     setValue("issueId", r.issueId as number);
     setValue("statusId", r.statusId ?? 0);
+    setValue("condition", r.condition as any);
     setValue("remarks", r.remarks ?? "");
     setValue("receivedBy", r.receivedBy ?? "");
     setIsFormOpen(true);
@@ -728,14 +729,14 @@ export default function ReturnsPage() {
                           <td className="px-4 py-3 text-center">
                             <span
                               className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium border ${r.condition === "OK"
-                                  ? "bg-green-100 text-green-700 border-green-200"
-                                  : r.condition === "Damaged"
-                                    ? "bg-amber-100 text-amber-700 border-amber-200"
-                                    : r.condition === "Calibration Required"
-                                      ? "bg-blue-100 text-blue-700 border-blue-200"
-                                      : r.condition === "Missing"
-                                        ? "bg-red-100 text-red-700 border-red-200"
-                                        : "bg-secondary-100 text-secondary-700 border-secondary-200"
+                                ? "bg-green-100 text-green-700 border-green-200"
+                                : r.condition === "Damaged"
+                                  ? "bg-amber-100 text-amber-700 border-amber-200"
+                                  : r.condition === "Calibration Required"
+                                    ? "bg-blue-100 text-blue-700 border-blue-200"
+                                    : r.condition === "Missing"
+                                      ? "bg-red-100 text-red-700 border-red-200"
+                                      : "bg-secondary-100 text-secondary-700 border-secondary-200"
                                 }`}
                             >
                               {r.condition ?? "—"}
@@ -770,8 +771,8 @@ export default function ReturnsPage() {
                           <td className="px-4 py-3 text-center">
                             <span
                               className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${r.isActive
-                                  ? "bg-green-100 text-green-700 border border-green-200"
-                                  : "bg-red-100 text-red-700 border border-red-200"
+                                ? "bg-green-100 text-green-700 border border-green-200"
+                                : "bg-red-100 text-red-700 border border-red-200"
                                 }`}
                             >
                               {r.isActive ? "Active" : "Inactive"}
@@ -927,13 +928,13 @@ export default function ReturnsPage() {
           {editingReturn ? (
             <form
               onSubmit={handleSubmit(onEditSubmit)}
-              className="flex flex-col flex-1 min-h-0 -m-6"
+              className="flex flex-col flex-1 min-h-0"
               aria-label="Edit inward form"
             >
-              <div className="flex-1 min-h-0 overflow-y-auto px-6 pt-6 pb-4">
-                <div className="grid grid-cols-1 lg:grid-cols-[65%_1fr] gap-6 lg:gap-8">
+              <div className="flex-1 min-h-0 overflow-y-auto px-6 pt-3 pb-2">
+                <div className="grid grid-cols-1 lg:grid-cols-[65%_1fr] gap-3 lg:gap-4">
                   {/* Left column – form fields */}
-                  <div className="space-y-5">
+                  <div className="space-y-3">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <Label className="text-sm font-medium text-secondary-700">
@@ -1020,84 +1021,74 @@ export default function ReturnsPage() {
                         </div>
                       </div>
                     )}
-                    <div>
-                      <Label
-                        htmlFor="edit-inward-condition"
-                        className="text-sm font-medium text-secondary-700"
-                      >
-                        Condition <span className="text-red-500">*</span>
-                      </Label>
-                      <select
-                        id="edit-inward-condition"
-                        {...register("condition")}
-                        className="mt-1.5 flex h-10 w-full rounded-md border border-secondary-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
-                      >
-                        {RETURN_CONDITIONS.map((c) => (
-                          <option key={c} value={c}>
-                            {c}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <Label
-                        htmlFor="edit-inward-status-id"
-                        className="text-sm font-medium text-secondary-700"
-                      >
-                        Status
-                      </Label>
-                      <select
-                        id="edit-inward-status-id"
-                        {...register("statusId", { valueAsNumber: true })}
-                        className="mt-1.5 flex h-10 w-full rounded-md border border-secondary-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
-                        aria-required="true"
-                      >
-                        <option value="">Select status</option>
-                        {statuses.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.name}
-                          </option>
-                        ))}
-                      </select>
-                      {errors.statusId && (
-                        <p className="mt-1 text-sm text-red-600" role="alert">
-                          {errors.statusId.message}
-                        </p>
-                      )}
-                    </div>
-                    <div>
-                      <Label
-                        htmlFor="edit-inward-received-by"
-                        className="text-sm font-medium text-secondary-700"
-                      >
-                        Received by{" "}
-                        <span className="text-secondary-400 font-normal">
-                          (optional)
-                        </span>
-                      </Label>
-                      <Input
-                        id="edit-inward-received-by"
-                        {...register("receivedBy")}
-                        placeholder="Who received the inward"
-                        className="mt-1.5 border-secondary-300 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
-                      />
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <Label
+                          htmlFor="edit-inward-condition"
+                          className="text-sm font-medium text-secondary-700"
+                        >
+                          Condition <span className="text-red-500">*</span>
+                        </Label>
+                        <select
+                          id="edit-inward-condition"
+                          {...register("condition")}
+                          className="mt-1 flex h-10 w-full rounded-md border border-secondary-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
+                        >
+                          {RETURN_CONDITIONS.map((c) => (
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <Label
+                          htmlFor="edit-inward-status-id"
+                          className="text-sm font-medium text-secondary-700"
+                        >
+                          Status <span className="text-red-500">*</span>
+                        </Label>
+                        <select
+                          id="edit-inward-status-id"
+                          {...register("statusId", { valueAsNumber: true })}
+                          className="mt-1 flex h-10 w-full rounded-md border border-secondary-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
+                          aria-required="true"
+                        >
+                          {statuses.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <Label
+                          htmlFor="edit-inward-received-by"
+                          className="text-sm font-medium text-secondary-700"
+                        >
+                          Received by <span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                          id="edit-inward-received-by"
+                          {...register("receivedBy")}
+                          placeholder="Who received"
+                          className="mt-1 h-10 border-secondary-300"
+                        />
+                      </div>
                     </div>
                     <div>
                       <Label
                         htmlFor="edit-inward-remarks"
                         className="text-sm font-medium text-secondary-700"
                       >
-                        Remarks{" "}
-                        <span className="text-secondary-400 font-normal">
-                          (optional)
-                        </span>
+                        Remarks <span className="text-secondary-400 font-normal">(opt)</span>
                       </Label>
                       <Textarea
                         id="edit-inward-remarks"
                         {...register("remarks")}
                         placeholder="Optional remarks..."
-                        rows={3}
-                        className="mt-1.5 border-secondary-300 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 resize-y"
+                        rows={1}
+                        className="mt-1 border-secondary-300 resize-none h-12"
                       />
                     </div>
                   </div>
@@ -1136,11 +1127,11 @@ export default function ReturnsPage() {
                   </div>
                 </div>
               </div>
-              <div className="flex-none flex gap-3 px-6 py-4 border-t border-secondary-200 bg-secondary-50/50">
+              <div className="flex-none flex gap-3 px-6 py-3 border-t border-secondary-200 bg-secondary-50/50">
                 {canEditInward && (
                   <Button
                     type="submit"
-                    disabled={updateMutation.isPending || !watch("condition")}
+                    disabled={updateMutation.isPending || !watch("condition") || !watch("statusId") || !watch("receivedBy")?.trim()}
                     className="flex-1 bg-primary-600 hover:bg-primary-700 text-white"
                   >
                     {updateMutation.isPending ? "Updating…" : "Update"}
@@ -1159,13 +1150,13 @@ export default function ReturnsPage() {
           ) : (
             <form
               onSubmit={handleSubmit(onSubmit)}
-              className="flex flex-col flex-1 min-h-0 -m-6"
+              className="flex flex-col flex-1 min-h-0"
               aria-label="Inward entry form"
             >
-              <div className="flex-1 min-h-0 overflow-y-auto px-6 pt-6 pb-4">
-                <div className="grid grid-cols-1 lg:grid-cols-[65%_1fr] gap-6 lg:gap-8">
+              <div className="flex-1 min-h-0 overflow-y-auto px-6 pt-3 pb-2">
+                <div className="grid grid-cols-1 lg:grid-cols-[65%_1fr] gap-3 lg:gap-4">
                   {/* Left column – form fields */}
-                  <div className="space-y-5">
+                  <div className="space-y-3">
                     {nextInwardCode && (
                       <div>
                         <Label
@@ -1252,10 +1243,7 @@ export default function ReturnsPage() {
                               htmlFor="inward-missing-company"
                               className="text-sm font-medium text-secondary-700"
                             >
-                              Company{" "}
-                              <span className="text-secondary-400 font-normal">
-                                (optional)
-                              </span>
+                              Company
                             </Label>
                             <div className="mt-1.5">
                               <SearchableSelect
@@ -1285,10 +1273,7 @@ export default function ReturnsPage() {
                               htmlFor="inward-missing-location"
                               className="text-sm font-medium text-secondary-700"
                             >
-                              Location{" "}
-                              <span className="text-secondary-400 font-normal">
-                                (optional)
-                              </span>
+                              Location
                             </Label>
                             <div className="mt-1.5">
                               <SearchableSelect
@@ -1322,10 +1307,7 @@ export default function ReturnsPage() {
                               htmlFor="inward-missing-contractor"
                               className="text-sm font-medium text-secondary-700"
                             >
-                              Contractor{" "}
-                              <span className="text-secondary-400 font-normal">
-                                (optional)
-                              </span>
+                              Contractor
                             </Label>
                             <div className="mt-1.5">
                               <SearchableSelect
@@ -1355,10 +1337,7 @@ export default function ReturnsPage() {
                               htmlFor="inward-missing-machine"
                               className="text-sm font-medium text-secondary-700"
                             >
-                              Machine{" "}
-                              <span className="text-secondary-400 font-normal">
-                                (optional)
-                              </span>
+                              Machine
                             </Label>
                             <div className="mt-1.5">
                               <SearchableSelect
@@ -1395,10 +1374,7 @@ export default function ReturnsPage() {
                               htmlFor="inward-category-id"
                               className="text-sm font-medium text-secondary-700"
                             >
-                              Item Category{" "}
-                              <span className="text-secondary-400 font-normal">
-                                (optional)
-                              </span>
+                              Item Category
                             </Label>
                             <div className="mt-1.5">
                               <SearchableSelect
@@ -1442,7 +1418,7 @@ export default function ReturnsPage() {
                                 aria-label="Missing item"
                               />
                             </div>
-                            <p className="mt-1 text-xs text-secondary-500">
+                            <p className="mt-1 text-[11px] text-secondary-500">
                               Items previously inwarded as Missing appear here.
                             </p>
                           </div>
@@ -1450,68 +1426,62 @@ export default function ReturnsPage() {
                       </>
                     )}
 
-                    <div>
-                      <Label
-                        htmlFor="inward-condition"
-                        className="text-sm font-medium text-secondary-700"
-                      >
-                        Condition <span className="text-red-500">*</span>
-                      </Label>
-                      <select
-                        id="inward-condition"
-                        {...register("condition")}
-                        className="mt-1.5 flex h-10 w-full rounded-md border border-secondary-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
-                        aria-required="true"
-                      >
-                        {RETURN_CONDITIONS.map((c) => (
-                          <option key={c} value={c}>
-                            {c}
-                          </option>
-                        ))}
-                      </select>
-                      <p className="mt-1 text-xs text-secondary-500">
-                        OK / Damaged / Calibration Required → Available, Missing
-                        → Missing
-                      </p>
-                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <Label
+                          htmlFor="inward-condition"
+                          className="text-sm font-medium text-secondary-700"
+                        >
+                          Condition <span className="text-red-500">*</span>
+                        </Label>
+                        <select
+                          id="inward-condition"
+                          {...register("condition")}
+                          className="mt-1 flex h-10 w-full rounded-md border border-secondary-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
+                          aria-required="true"
+                        >
+                          {RETURN_CONDITIONS.map((c) => (
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-                    <div>
-                      <Label
-                        htmlFor="inward-status-id"
-                        className="text-sm font-medium text-secondary-700"
-                      >
-                        Status{" "}
-                      </Label>
-                      <select
-                        id="inward-status-id"
-                        {...register("statusId", { valueAsNumber: true })}
-                        className="mt-1.5 flex h-10 w-full rounded-md border border-secondary-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
-                      >
-                        <option value="">Select status</option>
-                        {statuses.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                      <div>
+                        <Label
+                          htmlFor="inward-status-id"
+                          className="text-sm font-medium text-secondary-700"
+                        >
+                          Status <span className="text-red-500">*</span>
+                        </Label>
+                        <select
+                          id="inward-status-id"
+                          {...register("statusId", { valueAsNumber: true })}
+                          className="mt-1 flex h-10 w-full rounded-md border border-secondary-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
+                        >
+                          {statuses.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-                    <div>
-                      <Label
-                        htmlFor="inward-received-by"
-                        className="text-sm font-medium text-secondary-700"
-                      >
-                        Received by{" "}
-                        <span className="text-secondary-400 font-normal">
-                          (optional)
-                        </span>
-                      </Label>
-                      <Input
-                        id="inward-received-by"
-                        {...register("receivedBy")}
-                        placeholder="Who received the inward"
-                        className="mt-1.5 border-secondary-300 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
-                      />
+                      <div>
+                        <Label
+                          htmlFor="inward-received-by"
+                          className="text-sm font-medium text-secondary-700"
+                        >
+                          Received by <span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                          id="inward-received-by"
+                          {...register("receivedBy")}
+                          placeholder="Who received"
+                          className="mt-1 border-secondary-300 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 h-10"
+                        />
+                      </div>
                     </div>
 
                     {displayIssue && isFromOutwardMode && (
@@ -1603,8 +1573,8 @@ export default function ReturnsPage() {
                         id="inward-remarks"
                         {...register("remarks")}
                         placeholder="Optional remarks..."
-                        rows={3}
-                        className="mt-1.5 border-secondary-300 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 resize-y"
+                        rows={1}
+                        className="mt-1 border-secondary-300 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 resize-none"
                       />
                     </div>
                   </div>
@@ -1632,7 +1602,7 @@ export default function ReturnsPage() {
                 </div>
               </div>
 
-              <div className="flex-none flex gap-3 px-6 py-4 border-t border-secondary-200 bg-secondary-50/50">
+              <div className="flex-none flex gap-3 px-6 py-3 border-t border-secondary-200 bg-secondary-50/50">
                 {canAddInward && (
                   <Button
                     type="submit"
@@ -1641,6 +1611,7 @@ export default function ReturnsPage() {
                       (imageRequired && !imageFile) ||
                       !watch("condition") ||
                       !watch("statusId") ||
+                      !watch("receivedBy")?.trim() ||
                       (isFromOutwardMode && !hasValidIssue) ||
                       (isMissingItemMode && !hasValidMissingItem)
                     }
@@ -1669,6 +1640,6 @@ export default function ReturnsPage() {
           alt="Inward"
         />
       </motion.div>
-    </div>
+    </div >
   );
 }

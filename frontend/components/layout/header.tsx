@@ -67,12 +67,12 @@ export function Header({ user, isNavExpanded, onNavExpandChange }: HeaderProps) 
             {isNavExpanded ? (
               <>
                 <ChevronUp className="h-4 w-4" />
-                <span className="text-sm">Collapse Nav</span>
+                <span className="text-sm">Hide</span>
               </>
             ) : (
               <>
                 <ChevronDown className="h-4 w-4" />
-                <span className="text-sm">Expand Nav</span>
+                <span className="text-sm">Show</span>
               </>
             )}
           </button>

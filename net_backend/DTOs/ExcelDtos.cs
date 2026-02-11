@@ -8,6 +8,7 @@ namespace net_backend.DTOs
     public class ContractorImportDto
     {
         public string Name { get; set; } = string.Empty;
+        public string PhoneNumber { get; set; } = string.Empty;
     }
 
     public class LocationImportDto
@@ -40,6 +41,7 @@ namespace net_backend.DTOs
         public string? SerialNumber { get; set; }
         public string? Description { get; set; }
         public string? Category { get; set; }
+        public string? InHouseLocation { get; set; }
     }
 
     public class RowError

@@ -7,6 +7,7 @@ type CreateItemInput = {
   description?: string | null;
   image?: string | null;
   categoryId?: number | null;
+  inHouseLocation?: string | null;
   isActive?: boolean;
 };
 
@@ -17,6 +18,7 @@ type UpdateItemInput = {
   image?: string | null;
   status?: ItemStatus;
   categoryId?: number | null;
+  inHouseLocation?: string | null;
   isActive?: boolean;
 };
 
@@ -29,6 +31,7 @@ const Item = {
         description: data.description ?? null,
         image: data.image ?? null,
         categoryId: data.categoryId ?? null,
+        inHouseLocation: data.inHouseLocation ?? null,
         isActive: data.isActive !== undefined ? data.isActive : true,
       },
     });
