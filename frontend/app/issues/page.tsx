@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
@@ -33,7 +33,17 @@ import {
   CheckCircle,
   LogIn,
   Image as ImageIcon,
+  Camera,
+  Upload,
+  Trash2,
+  ZoomIn,
+  RefreshCw,
+  Info,
 } from "lucide-react";
+import {
+  CameraPhotoInput,
+  CameraPhotoInputRef,
+} from "@/components/ui/camera-photo-input";
 import { FullScreenImageViewer } from "@/components/ui/full-screen-image-viewer";
 import { formatDate } from "@/lib/utils";
 import { useCurrentUser } from "@/hooks/use-current-user";
@@ -75,6 +85,13 @@ export default function IssuesPage() {
   const [fullScreenImageSrc, setFullScreenImageSrc] = useState<string | null>(
     null,
   );
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [activeImageTab, setActiveImageTab] = useState<"reference" | "live">(
+    "live",
+  );
+  const cameraInputRef = useRef<CameraPhotoInputRef>(null);
+
   const queryClient = useQueryClient();
   const router = useRouter();
   const { user: currentUser } = useCurrentUser();
@@ -216,14 +233,18 @@ export default function IssuesPage() {
 
   const createMutation = useMutation({
     mutationFn: async (data: IssueForm) => {
-      const res = await api.post("/issues", {
-        ...data,
-        categoryId: data.categoryId,
-        itemId: data.itemId,
-        companyId: data.companyId || undefined,
-        contractorId: data.contractorId || undefined,
-        machineId: data.machineId || undefined,
-        locationId: data.locationId || undefined,
+      const formData = new FormData();
+      Object.entries(data).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          formData.append(key, value.toString());
+        }
+      });
+      if (imageFile) {
+        formData.append("Image", imageFile);
+      }
+
+      const res = await api.post("/issues", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
       });
       return res.data;
     },
@@ -255,14 +276,18 @@ export default function IssuesPage() {
       id: number;
       data: Partial<IssueForm>;
     }) => {
-      const res = await api.patch(`/issues/${id}`, {
-        itemId: data.itemId,
-        companyId: data.companyId ?? undefined,
-        contractorId: data.contractorId ?? undefined,
-        machineId: data.machineId ?? undefined,
-        locationId: data.locationId ?? undefined,
-        issuedTo: data.issuedTo ?? undefined,
-        remarks: data.remarks ?? undefined,
+      const formData = new FormData();
+      Object.entries(data).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          formData.append(key, value.toString());
+        }
+      });
+      if (imageFile) {
+        formData.append("Image", imageFile);
+      }
+
+      const res = await api.put(`/issues/${id}`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
       });
       return res.data;
     },
@@ -363,6 +388,16 @@ export default function IssuesPage() {
     setValue("locationId", issue.locationId ?? 0);
     setValue("issuedTo", issue.issuedTo ?? "");
     setValue("remarks", issue.remarks ?? "");
+
+    if (issue.issueImage) {
+      const src = issue.issueImage.startsWith("/")
+        ? `${API_BASE}${issue.issueImage}`
+        : `${API_BASE}/storage/${issue.issueImage}`;
+      setImagePreview(src);
+    } else {
+      setImagePreview(null);
+    }
+
     setIsFormOpen(true);
   };
 
@@ -372,11 +407,33 @@ export default function IssuesPage() {
     reset();
     setNextIssueCode("");
     setIsItemDialogOpen(false);
+    setImageFile(null);
+    setImagePreview(null);
+    setActiveImageTab("live");
     createMutation.reset();
     updateMutation.reset();
   };
 
+  const handleImageCapture = (file: File | null) => {
+    if (file) {
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setImageFile(null);
+      setImagePreview(null);
+    }
+  };
+
   const onSubmit = (data: IssueForm) => {
+    if (!editingIssue && !imageFile) {
+      toast.error("Please capture or upload an outward photo.");
+      return;
+    }
+
     if (editingIssue) {
       if (editingIssue.isReturned) return;
       updateMutation.mutate({
@@ -413,9 +470,7 @@ export default function IssuesPage() {
 
     const filteredMachines =
       filters.contractorIds.length > 0
-        ? machines.filter((m) =>
-          filters.contractorIds.includes(m.contractorId),
-        )
+        ? machines.filter((m) => filters.contractorIds.includes(m.contractorId))
         : machines;
 
     const filteredItems =
@@ -567,6 +622,9 @@ export default function IssuesPage() {
                         <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[90px]">
                           Status
                         </th>
+                        <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[100px]">
+                          Image
+                        </th>
                         {/* <th className="px-4 py-3 font-semibold text-primary-900 text-center whitespace-nowrap min-w-[100px]">
                           Inward Done
                         </th> */}
@@ -578,7 +636,7 @@ export default function IssuesPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {issues.map((issue, idx) => (
+                      {issues.map((issue: any, idx) => (
                         <motion.tr
                           key={issue.id}
                           initial={{ opacity: 0, y: 10 }}
@@ -619,6 +677,35 @@ export default function IssuesPage() {
                             >
                               {issue.isActive ? "Active" : "Inactive"}
                             </span>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            {issue.issueImage ? (
+                              <div className="relative group/thumb inline-block">
+                                <img
+                                  src={
+                                    issue.issueImage.startsWith("/")
+                                      ? `${API_BASE}${issue.issueImage}`
+                                      : `${API_BASE}/storage/${issue.issueImage}`
+                                  }
+                                  alt="Outward"
+                                  className="w-10 h-10 object-cover rounded-lg border border-secondary-200 shadow-sm transition-transform group-hover/thumb:scale-105 cursor-pointer"
+                                  onClick={() =>
+                                    setFullScreenImageSrc(
+                                      issue?.issueImage.startsWith("/")
+                                        ? `${API_BASE}${issue.issueImage}`
+                                        : `${API_BASE}/storage/${issue.issueImage}`,
+                                    )
+                                  }
+                                />
+                                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/thumb:opacity-100 transition-opacity rounded-lg flex items-center justify-center pointer-events-none">
+                                  <ZoomIn className="w-4 h-4 text-white" />
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="w-10 h-10 bg-secondary-50 border border-dashed border-secondary-200 rounded-lg flex items-center justify-center mx-auto text-secondary-300">
+                                <Camera className="w-4 h-4" />
+                              </div>
+                            )}
                           </td>
                           {/* <td className="px-4 py-3 text-center">
                             <span
@@ -760,66 +847,64 @@ export default function IssuesPage() {
         >
           <form
             onSubmit={handleSubmit(onSubmit)}
-            className="flex flex-col flex-1 min-h-0"
+            className="flex flex-col h-full overflow-hidden bg-white"
             aria-label="Outward entry form"
           >
-            <div className="flex-1 min-h-0 overflow-y-auto px-6 pt-3 pb-2">
-              <div className="grid grid-cols-1 lg:grid-cols-[70%_1fr] gap-3 lg:gap-4">
+            <div className="flex-1 overflow-y-auto px-6 py-4 custom-scrollbar">
+              <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-8">
                 {/* Left Column: Form Fields */}
-                <div className="space-y-2.5">
-                  {(nextIssueCode || editingIssue) && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 gap-3.5">
+                    {/* Outward Number - Aligned with returns/page.tsx */}
                     <div>
                       <Label
-                        htmlFor="outward-issue-no"
+                        htmlFor="outward-no"
                         className="text-sm font-medium text-secondary-700"
                       >
-                        Issue No
+                        Outward No
                       </Label>
                       <Input
-                        id="outward-issue-no"
+                        id="outward-no"
                         value={
-                          editingIssue ? editingIssue.issueNo : nextIssueCode
+                          editingIssue
+                            ? editingIssue.issueNo
+                            : nextIssueCode || "Generating..."
                         }
                         disabled
                         readOnly
                         className="mt-1.5 h-10 bg-secondary-50 border-secondary-200"
                       />
                     </div>
-                  )}
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <Label
-                        htmlFor="outward-company-id"
-                        className="text-sm font-medium text-secondary-700"
-                      >
-                        Company <span className="text-red-500">*</span>
-                      </Label>
-                      <div className="mt-1.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                      <div>
+                        <Label
+                          htmlFor="outward-company-id"
+                          className="text-xs font-bold text-secondary-500 uppercase tracking-wider mb-1 block"
+                        >
+                          Company <span className="text-red-500">*</span>
+                        </Label>
                         <SearchableSelect
                           id="outward-company-id"
                           options={companySelectOptions}
                           value={watchedCompanyId ?? ""}
                           onChange={(v) => {
-                            const n = Number(v);
-                            setValue("companyId", n);
+                            setValue("companyId", Number(v));
                             setValue("locationId", 0);
                           }}
                           disabled={isViewOnly}
                           placeholder="Select company"
-                          searchPlaceholder="Search companies..."
                           error={errors.companyId?.message}
                         />
                       </div>
-                    </div>
-                    <div>
-                      <Label
-                        htmlFor="outward-location-id"
-                        className="text-sm font-medium text-secondary-700"
-                      >
-                        Location <span className="text-red-500">*</span>
-                      </Label>
-                      <div className="mt-1.5">
+
+                      <div>
+                        <Label
+                          htmlFor="outward-location-id"
+                          className="text-xs font-bold text-secondary-500 uppercase tracking-wider mb-1 block"
+                        >
+                          Location <span className="text-red-500">*</span>
+                        </Label>
                         <SearchableSelect
                           id="outward-location-id"
                           options={locationSelectOptions}
@@ -831,43 +916,38 @@ export default function IssuesPage() {
                               ? "Select location"
                               : "Select company first"
                           }
-                          searchPlaceholder="Search locations..."
                           error={errors.locationId?.message}
                         />
                       </div>
-                    </div>
-                    <div>
-                      <Label
-                        htmlFor="outward-contractor-id"
-                        className="text-sm font-medium text-secondary-700"
-                      >
-                        Contractor <span className="text-red-500">*</span>
-                      </Label>
-                      <div className="mt-1.5">
+
+                      <div>
+                        <Label
+                          htmlFor="outward-contractor-id"
+                          className="text-xs font-bold text-secondary-500 uppercase tracking-wider mb-1 block"
+                        >
+                          Contractor <span className="text-red-500">*</span>
+                        </Label>
                         <SearchableSelect
                           id="outward-contractor-id"
                           options={contractorSelectOptions}
                           value={watchedContractorId ?? ""}
                           onChange={(v) => {
-                            const n = Number(v);
-                            setValue("contractorId", n);
+                            setValue("contractorId", Number(v));
                             setValue("machineId", 0);
                           }}
                           disabled={isViewOnly}
                           placeholder="Select contractor"
-                          searchPlaceholder="Search contractors..."
                           error={errors.contractorId?.message}
                         />
                       </div>
-                    </div>
-                    <div>
-                      <Label
-                        htmlFor="outward-machine-id"
-                        className="text-sm font-medium text-secondary-700"
-                      >
-                        Machine <span className="text-red-500">*</span>
-                      </Label>
-                      <div className="mt-1.5">
+
+                      <div>
+                        <Label
+                          htmlFor="outward-machine-id"
+                          className="text-xs font-bold text-secondary-500 uppercase tracking-wider mb-1 block"
+                        >
+                          Machine <span className="text-red-500">*</span>
+                        </Label>
                         <SearchableSelect
                           id="outward-machine-id"
                           options={machineSelectOptions}
@@ -879,23 +959,17 @@ export default function IssuesPage() {
                               ? "Select machine"
                               : "Select contractor first"
                           }
-                          searchPlaceholder="Search machines..."
                           error={errors.machineId?.message}
                         />
                       </div>
-                    </div>
-                  </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <Label
-                        htmlFor="outward-category-id"
-                        className="text-sm font-medium text-secondary-700"
-                      >
-                        Item Category{" "}
-                        <span className="text-red-500">*</span>
-                      </Label>
-                      <div className="mt-1.5">
+                      <div>
+                        <Label
+                          htmlFor="outward-category-id"
+                          className="text-xs font-bold text-secondary-500 uppercase tracking-wider mb-1 block"
+                        >
+                          Category <span className="text-red-500">*</span>
+                        </Label>
                         <SearchableSelect
                           id="outward-category-id"
                           options={categorySelectOptions}
@@ -904,156 +978,225 @@ export default function IssuesPage() {
                             const n = v ? Number(v) : 0;
                             setValue("categoryId", n);
                             setValue("itemId", 0);
-                            if (n !== 0) {
-                              setIsItemDialogOpen(true);
-                            }
+                            if (n !== 0) setIsItemDialogOpen(true);
                           }}
                           disabled={isViewOnly}
                           placeholder="Select category"
-                          searchPlaceholder="Search categories..."
                           error={errors.categoryId?.message}
                         />
                       </div>
-                    </div>
-                    <div>
-                      <Label
-                        htmlFor="outward-item-id"
-                        className="text-sm font-medium text-secondary-700"
-                      >
-                        Item <span className="text-red-500">*</span>
-                      </Label>
-                      <div className="mt-1.5">
+
+                      <div>
+                        <Label
+                          htmlFor="outward-item-id"
+                          className="text-xs font-bold text-secondary-500 uppercase tracking-wider mb-1 block"
+                        >
+                          Item <span className="text-red-500">*</span>
+                        </Label>
                         <div
-                          onClick={() => {
-                            if (!isViewOnly && selectedCategoryId && selectedCategoryId !== 0) {
-                              setIsItemDialogOpen(true);
-                            }
-                          }}
+                          onClick={() =>
+                            !isViewOnly &&
+                            selectedCategoryId &&
+                            setIsItemDialogOpen(true)
+                          }
                           className={cn(
-                            "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
-                            isViewOnly || !selectedCategoryId || selectedCategoryId === 0
-                              ? "cursor-not-allowed opacity-50 bg-secondary-100/50"
-                              : "cursor-pointer hover:bg-secondary-50"
+                            "flex h-10 w-full items-center justify-between rounded-lg border px-3 py-2 text-sm transition-all",
+                            isViewOnly || !selectedCategoryId
+                              ? "bg-secondary-50 cursor-not-allowed opacity-60 border-secondary-200"
+                              : "bg-white border-secondary-300 hover:border-primary-400 cursor-pointer shadow-sm hover:shadow-md active:scale-[0.98]",
                           )}
                         >
-                          <span className={cn(
-                            "truncate",
-                            !selectedItemId && "text-muted-foreground"
-                          )}>
+                          <span
+                            className={cn(
+                              "truncate font-medium",
+                              !selectedItemId
+                                ? "text-secondary-400 italic"
+                                : "text-secondary-900",
+                            )}
+                          >
                             {selectedItemId
-                              ? filterItems.find((i) => i.id === selectedItemId)?.itemName || "Select item"
-                              : selectedCategoryId
-                                ? "Select item"
-                                : "Select category first"}
+                              ? filterItems.find((i) => i.id === selectedItemId)
+                                ?.itemName || "Select item"
+                              : "Browse..."}
                           </span>
                         </div>
                         {errors.itemId?.message && (
-                          <p className="mt-1 text-xs text-red-500 font-medium">
+                          <p className="mt-1 text-[10px] text-red-500 font-bold uppercase tracking-tight">
                             {errors.itemId.message}
                           </p>
                         )}
                       </div>
                     </div>
-                  </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <Label
                         htmlFor="outward-operator"
-                        className="text-sm font-medium text-secondary-700"
+                        className="text-xs font-bold text-secondary-500 uppercase tracking-wider mb-1 block"
                       >
                         Operator Name <span className="text-red-500">*</span>
                       </Label>
                       <Input
                         id="outward-operator"
                         {...register("issuedTo")}
-                        placeholder="Operator name"
+                        placeholder="Type operator name"
                         disabled={isViewOnly}
-                        className="mt-1.5 h-10 border-secondary-300 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 disabled:opacity-60 disabled:cursor-not-allowed"
-                        aria-required="true"
-                        aria-invalid={!!errors.issuedTo}
+                        className="h-10 border-secondary-300 shadow-sm focus:ring-primary-500 text-sm"
                       />
                       {errors.issuedTo && (
-                        <p className="mt-1 text-xs text-red-500 font-medium">
+                        <p className="mt-1 text-[10px] text-red-500 font-bold uppercase tracking-tight">
                           {errors.issuedTo.message}
                         </p>
                       )}
                     </div>
-                  </div>
 
-                  <div>
-                    <Label
-                      htmlFor="outward-remarks"
-                      className="text-sm font-medium text-secondary-700"
-                    >
-                      Remarks{" "}
-                      <span className="text-secondary-400 font-normal">
-                        (optional)
-                      </span>
-                    </Label>
-                    <Textarea
-                      id="outward-remarks"
-                      {...register("remarks")}
-                      placeholder="Optional remarks..."
-                      rows={1}
-                      disabled={isViewOnly}
-                      className="mt-1 border-secondary-300 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 resize-none disabled:opacity-60 disabled:cursor-not-allowed"
-                    />
+                    <div>
+                      <Label
+                        htmlFor="outward-remarks"
+                        className="text-xs font-bold text-secondary-500 uppercase tracking-wider mb-1 block"
+                      >
+                        Remarks{" "}
+                        <span className="text-secondary-400 font-normal ml-1">
+                          (Optional)
+                        </span>
+                      </Label>
+                      <Textarea
+                        id="outward-remarks"
+                        {...register("remarks")}
+                        placeholder="Add outward notes..."
+                        rows={1}
+                        disabled={isViewOnly}
+                        className="border-secondary-300 shadow-sm focus:ring-primary-500 resize-none min-h-[60px]"
+                      />
+                    </div>
                   </div>
                 </div>
 
-                {/* Right Column: Item Image Preview */}
-                <div className="lg:min-h-[300px] flex flex-col">
-                  <Label className="text-sm font-medium text-secondary-700 mb-1 block">
-                    Latest Condition Photo
-                  </Label>
-                  <div className="rounded-xl border border-secondary-200 bg-secondary-50/50 overflow-hidden flex-1 flex flex-col items-center justify-center p-2">
-                    {selectedItem || (editingIssue && editingIssue.item) ? (
-                      (selectedItem as any)?.latestImage || (selectedItem as any)?.image || (editingIssue?.item as any)?.latestImage || (editingIssue?.item as any)?.image ? (
-                        <div className="relative group cursor-pointer w-full h-full flex items-center justify-center">
-                          <img
-                            src={((selectedItem as any)?.latestImage || (selectedItem as any)?.image || (editingIssue?.item as any)?.latestImage || (editingIssue?.item as any)?.image)?.startsWith("/")
-                              ? `${API_BASE}${(selectedItem as any)?.latestImage || (selectedItem as any)?.image || (editingIssue?.item as any)?.latestImage || (editingIssue?.item as any)?.image}`
-                              : `${API_BASE}/storage/${(selectedItem as any)?.latestImage || (selectedItem as any)?.image || (editingIssue?.item as any)?.latestImage || (editingIssue?.item as any)?.image}`}
-                            alt="Latest condition"
-                            className="max-w-full max-h-full object-contain rounded-lg shadow-sm group-hover:opacity-90 transition-opacity"
+                {/* Right Column: Tabbed Visual Documentation */}
+                <div className="flex flex-col h-full space-y-4">
+                  {/* Professional Tab Switcher */}
+                  <div className="flex items-center justify-between bg-secondary-100/50 p-1 rounded-xl border border-secondary-200 shadow-inner">
+                    <div className="flex w-full gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setActiveImageTab("live")}
+                        className={cn(
+                          "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg transition-all duration-300 font-black text-[11px] uppercase tracking-widest",
+                          activeImageTab === "live"
+                            ? "bg-primary-600 text-white shadow-lg ring-1 ring-primary-500"
+                            : "text-secondary-500 hover:bg-secondary-200/50 hover:text-secondary-700",
+                        )}
+                      >
+                        <Camera
+                          className={cn(
+                            "w-4 h-4",
+                            activeImageTab === "live" ? "animate-pulse" : "",
+                          )}
+                        />
+                        Capture Photo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActiveImageTab("reference")}
+                        className={cn(
+                          "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg transition-all duration-300 font-black text-[11px] uppercase tracking-widest",
+                          activeImageTab === "reference"
+                            ? "bg-slate-600 text-white shadow-lg ring-1 ring-slate-500"
+                            : "text-secondary-500 hover:bg-secondary-200/50 hover:text-secondary-700",
+                        )}
+                      >
+                        <ImageIcon className="w-4 h-4" />
+                        Item Condition
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Active Tab Content - FIXED HEIGHT */}
+                  <div className="h-[430px] flex flex-col">
+                    {activeImageTab === "live" ? (
+                      <div className="flex-1 rounded-2xl border border-secondary-200 bg-white shadow-2xl overflow-hidden flex flex-col group relative">
+                        <div className="flex-1 p-4 flex flex-col overflow-hidden">
+                          <CameraPhotoInput
+                            label="Outward Condition"
+                            required={true}
+                            hint="Use your camera to capture the outward photo"
+                            previewUrl={imagePreview}
+                            onCapture={handleImageCapture}
+                            aspectRatio="video"
+                            onPreviewClick={(url) => setFullScreenImageSrc(url)}
                           />
-                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button
-                              type="button"
-                              variant="secondary"
-                              size="sm"
-                              className="bg-white/90 backdrop-blur-sm"
-                              onClick={() => {
-                                const src = (selectedItem as any)?.latestImage || (selectedItem as any)?.image || (editingIssue?.item as any)?.latestImage || (editingIssue?.item as any)?.image;
-                                if (src)
-                                  setFullScreenImageSrc(
-                                    src.startsWith("/") ? `${API_BASE}${src}` : `${API_BASE}/storage/${src}`
-                                  );
-                              }}
-                            >
-                              View full screen
-                            </Button>
+                        </div>
+
+                        <div className="px-5 py-3 bg-secondary-50/50 border-t border-secondary-100 flex items-center justify-center">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                           </div>
                         </div>
-                      ) : (
-                        <div className="text-center space-y-2">
-                          <div className="w-16 h-16 rounded-full bg-secondary-100 flex items-center justify-center mx-auto">
-                            <ImageIcon className="w-8 h-8 text-secondary-400" />
-                          </div>
-                          <p className="text-sm text-secondary-500">
-                            No image available
-                          </p>
-                        </div>
-                      )
+                      </div>
                     ) : (
-                      <div className="text-center space-y-2">
-                        <div className="w-16 h-16 rounded-full bg-secondary-100 flex items-center justify-center mx-auto">
-                          <ImageIcon className="w-8 h-8 text-secondary-400" />
+                      <div className="flex-1 rounded-2xl border border-secondary-200 bg-white shadow-xl overflow-hidden flex flex-col relative group">
+                        <div className="px-5 py-3 bg-secondary-50 border-b border-secondary-100 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="p-1.5 bg-slate-600 rounded-lg shadow-sm">
+                              <ImageIcon className="w-3.5 h-3.5 text-white" />
+                            </div>
+                            <span className="text-[10px] font-black text-secondary-700 uppercase tracking-widest">
+                              Recent Condition Of Item
+                            </span>
+                          </div>
                         </div>
-                        <p className="text-sm text-secondary-500">
-                          Select an item to view its latest condition
-                        </p>
+
+                        <div className="flex-1 p-6 bg-white flex items-center justify-center overflow-hidden">
+                          <div className="w-full h-full rounded-xl border border-secondary-100 bg-secondary-50/30 flex items-center justify-center overflow-hidden relative group/ref shadow-inner">
+                            {selectedItem || editingIssue?.item ? (
+                              (() => {
+                                const item = selectedItem || editingIssue?.item;
+                                const imagePath =
+                                  (item as any)?.latestImage ||
+                                  (item as any)?.image;
+                                if (imagePath) {
+                                  const src = imagePath.startsWith("/")
+                                    ? `${API_BASE}${imagePath}`
+                                    : `${API_BASE}/storage/${imagePath}`;
+                                  return (
+                                    <>
+                                      <img
+                                        src={src}
+                                        alt="Condition Reference"
+                                        className="w-full h-full object-contain p-2"
+                                      />
+                                      <div
+                                        className="absolute inset-0 bg-black/40 opacity-0 group-hover/ref:opacity-100 transition-all flex items-center justify-center backdrop-blur-sm cursor-zoom-in"
+                                        onClick={() =>
+                                          setFullScreenImageSrc(src)
+                                        }
+                                      >
+                                        <button
+                                          type="button"
+                                          className="p-4 bg-white rounded-full shadow-2xl text-secondary-900 transform scale-75 group-hover/ref:scale-100 transition-transform"
+                                        >
+                                          <ZoomIn className="w-8 h-8" />
+                                        </button>
+                                      </div>
+                                    </>
+                                  );
+                                }
+                                return (
+                                  <div className="text-center opacity-30 flex flex-col items-center gap-3">
+                                    <div className="p-4 bg-secondary-200 rounded-full">
+                                      <ImageIcon className="w-12 h-12 text-secondary-500" />
+                                    </div>
+                                  </div>
+                                );
+                              })()
+                            ) : (
+                              <div className="text-center opacity-30 px-6 space-y-3">
+                                <div className="p-4 bg-secondary-200/50 rounded-full mx-auto w-fit">
+                                  <ImageIcon className="w-12 h-12 text-secondary-500" />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1069,25 +1212,28 @@ export default function IssuesPage() {
                     disabled={
                       createMutation.isPending ||
                       updateMutation.isPending ||
-                      !hasAllRequired
+                      !hasAllRequired ||
+                      (!editingIssue && !imageFile)
                     }
                     className="flex-1 bg-primary-600 hover:bg-primary-700 text-white"
-                    aria-describedby="outward-form-hint"
                   >
-                    {createMutation.isPending || updateMutation.isPending
-                      ? "Saving…"
-                      : editingIssue
-                        ? "Update"
-                        : "Save"}
+                    {createMutation.isPending || updateMutation.isPending ? (
+                      <div className="flex items-center gap-2">
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        Saving...
+                      </div>
+                    ) : editingIssue ? (
+                      "Update"
+                    ) : (
+                      "Save"
+                    )}
                   </Button>
                 )}
               <Button
                 type="button"
                 variant="outline"
                 onClick={handleCloseForm}
-                className={
-                  isViewOnly ? "flex-1" : "flex-1 border-secondary-300"
-                }
+                className="flex-1 border-secondary-300"
               >
                 Close
               </Button>

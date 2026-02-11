@@ -100,6 +100,7 @@ export interface Issue {
   id: number;
   issueNo: string;
   itemId: number;
+  issueImage?: string | null;
   issuedBy: number;
   issuedTo?: string;
   remarks?: string;

@@ -4,6 +4,7 @@ import { useEffect, useCallback, useState } from "react";
 import { createPortal } from "react-dom";
 import { X, ZoomIn, ZoomOut } from "lucide-react";
 import { Button } from "./button";
+import { registerDialog, isTopDialog } from "@/lib/dialog-stack";
 import { cn } from "@/lib/utils";
 
 const ZOOM_LEVELS = [0.5, 0.75, 1, 1.25, 1.5, 2];
@@ -39,18 +40,27 @@ export function FullScreenImageViewer({
     });
   }, []);
 
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (!isOpen) return;
-      if (e.key === "Escape") onClose();
-    },
-    [isOpen, onClose],
-  );
-
   useEffect(() => {
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [handleKeyDown]);
+    if (!isOpen) return;
+
+    const closeFn = () => onClose();
+    const cleanup = registerDialog(closeFn);
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (isTopDialog(closeFn)) {
+          onClose();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      cleanup();
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen, onClose]);
 
   useEffect(() => {
     if (isOpen) setZoom(1);

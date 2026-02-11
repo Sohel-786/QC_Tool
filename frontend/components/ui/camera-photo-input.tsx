@@ -291,41 +291,56 @@ export const CameraPhotoInput = forwardRef<CameraPhotoInputRef, CameraPhotoInput
       )}
 
       {previewUrl ? (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col w-full h-full gap-2">
           <div
-            className={`relative rounded-lg overflow-hidden border border-secondary-200 bg-white flex-shrink-0 ${aspectClass} ${onPreviewClick ? "cursor-pointer hover:ring-2 hover:ring-primary-500 hover:ring-offset-1 transition-shadow" : ""}`}
+            className={`relative rounded-lg overflow-hidden border border-secondary-200 bg-secondary-100 flex-1 min-h-0 ${onPreviewClick ? "cursor-pointer hover:ring-2 hover:ring-primary-500 hover:ring-offset-1 transition-shadow" : ""}`}
             role={onPreviewClick ? "button" : undefined}
             onClick={() => onPreviewClick?.(previewUrl)}
             title={onPreviewClick ? "View full screen" : undefined}
             tabIndex={onPreviewClick ? 0 : undefined}
             onKeyDown={onPreviewClick ? (e) => e.key === "Enter" && onPreviewClick(previewUrl) : undefined}
           >
+            {/* Background Blur */}
+            <div
+              className="absolute inset-0 bg-cover bg-center blur-xl opacity-20 scale-110"
+              style={{ backgroundImage: `url(${previewUrl})` }}
+            />
+
             <img
               src={previewUrl}
               alt="Captured preview"
-              className="w-full h-full object-contain pointer-events-none"
+              className="relative w-full h-full object-contain pointer-events-none z-10"
             />
+
+            {/* View prompt overlay */}
+            {onPreviewClick && (
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none flex justify-center z-20">
+                <span className="text-[10px] text-white font-medium uppercase tracking-wider bg-black/40 px-2 py-0.5 rounded backdrop-blur-sm">Full Screen</span>
+              </div>
+            )}
           </div>
-          <div className="flex gap-2">
+
+          {/* Controls row - now more prominent */}
+          <div className="flex gap-2 shrink-0 pt-1">
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="sm"
-              onClick={openModal}
-              className="flex-1"
+              onClick={(e) => { e.stopPropagation(); openModal(); }}
+              className="flex-1 h-9 text-[11px] font-bold bg-primary-50 text-primary-700 hover:bg-primary-100 border-primary-100 shadow-sm"
             >
-              <RefreshCw className="w-4 h-4 mr-1.5" />
-              Take Photo Again
+              <RefreshCw className="w-3.5 h-3.5 mr-2" />
+              Replace Photo
             </Button>
             <Button
               type="button"
-              variant="outline"
+              variant="destructive"
               size="sm"
-              onClick={handleRemove}
-              className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
+              onClick={(e) => { e.stopPropagation(); handleRemove(); }}
+              className="h-9 px-4 text-[11px] font-bold shadow-sm"
             >
-              <Trash2 className="w-4 h-4 mr-1.5" />
-              Remove
+              <Trash2 className="w-3.5 h-3.5 mr-2" />
+              Delete
             </Button>
           </div>
         </div>
@@ -333,16 +348,13 @@ export const CameraPhotoInput = forwardRef<CameraPhotoInputRef, CameraPhotoInput
         <button
           type="button"
           onClick={openModal}
-          className="w-full min-h-[200px] rounded-xl border-2 border-dashed border-secondary-300 bg-white hover:border-primary-400 hover:bg-primary-50/40 transition-colors flex flex-col items-center justify-center gap-3 text-secondary-600 hover:text-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+          className="w-full h-full rounded-xl border-2 border-dashed border-secondary-300 bg-secondary-50 hover:bg-secondary-100 hover:border-primary-400 transition-all flex flex-col items-center justify-center gap-2 text-secondary-500 hover:text-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 py-4 group"
           aria-label="Take photo with camera"
         >
-          <div className="rounded-full bg-primary-100 p-4">
-            <Camera className="w-10 h-10 text-primary-600" />
+          <div className="rounded-full bg-secondary-100 p-3 group-hover:scale-110 group-hover:bg-primary-50 transition-all duration-300 ring-1 ring-secondary-200 group-hover:ring-primary-200">
+            <Camera className="w-6 h-6 text-secondary-500 group-hover:text-primary-600" />
           </div>
-          <span className="text-sm font-medium">Take Photo</span>
-          <span className="text-xs text-secondary-500">
-            Use your camera to capture a photo
-          </span>
+          <span className="text-xs font-semibold uppercase tracking-wide">Tap to Capture</span>
         </button>
       )}
 

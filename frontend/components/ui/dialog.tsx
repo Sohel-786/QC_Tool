@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./button";
+import { registerDialog, isTopDialog, getOpenDialogCount } from "@/lib/dialog-stack";
 
 interface DialogProps {
   isOpen: boolean;
@@ -22,9 +23,6 @@ interface DialogProps {
   /** When true, the header close (X) button is disabled */
   closeButtonDisabled?: boolean;
 }
-
-// Global stack to track open dialogs and handle nested ESC key behavior
-const dialogStack: (() => void)[] = [];
 
 export function Dialog({
   isOpen,
@@ -44,18 +42,18 @@ export function Dialog({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && isOpen && !closeButtonDisabled) {
         // Only trigger onClose if this dialog is at the top of the stack
-        if (dialogStack[dialogStack.length - 1] === closeFn) {
+        if (isTopDialog(closeFn)) {
           onClose();
         }
       }
     };
 
     if (isOpen) {
-      // Add this dialog to the stack
-      dialogStack.push(closeFn);
+      // Add this dialog to the stack using the utility
+      const cleanup = registerDialog(closeFn);
 
       // Lock scroll only if it's the first dialog opening
-      if (dialogStack.length === 1) {
+      if (getOpenDialogCount() === 1) {
         document.body.style.overflow = "hidden";
         document.documentElement.style.overflow = "hidden";
       }
@@ -63,14 +61,11 @@ export function Dialog({
       window.addEventListener("keydown", handleKeyDown);
 
       return () => {
-        // Remove from stack on unmount or when closed
-        const index = dialogStack.indexOf(closeFn);
-        if (index > -1) {
-          dialogStack.splice(index, 1);
-        }
+        // Remove from stack on unmount or when closed using cleanup
+        cleanup();
 
         // Unlock scroll only if No more dialogs are open
-        if (dialogStack.length === 0) {
+        if (getOpenDialogCount() === 0) {
           document.body.style.overflow = "";
           document.documentElement.style.overflow = "";
         }

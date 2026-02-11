@@ -248,6 +248,7 @@ namespace net_backend.Models
         public int ItemId { get; set; }
         public int IssuedBy { get; set; }
         public string? IssuedTo { get; set; }
+        public string? IssueImage { get; set; }
         public string? Remarks { get; set; }
         public int CompanyId { get; set; }
         public int ContractorId { get; set; }

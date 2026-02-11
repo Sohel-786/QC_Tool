@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Http;
+
 namespace net_backend.DTOs
 {
     public class CreateIssueRequest
@@ -10,6 +12,7 @@ namespace net_backend.DTOs
         public int MachineId { get; set; }
         public int LocationId { get; set; }
         public int? CategoryId { get; set; }
+        public IFormFile? Image { get; set; }
     }
 
     public class UpdateIssueRequest
@@ -22,5 +25,6 @@ namespace net_backend.DTOs
         public int? ContractorId { get; set; }
         public int? MachineId { get; set; }
         public int? LocationId { get; set; }
+        public IFormFile? Image { get; set; }
     }
 }

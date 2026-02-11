@@ -950,7 +950,19 @@ export default function ItemsPage() {
                                   className="w-full h-full object-contain bg-white"
                                 />
                                 <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all bg-black/5">
-                                  <Button variant="secondary" size="sm" className="shadow-md">View Full Screen</Button>
+                                  <Button
+                                    type="button"
+                                    variant="secondary"
+                                    size="sm"
+                                    className="shadow-md"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      setFullScreenImageSrc(imagePreview || (editingItem?.image ? (editingItem.image.startsWith("/") ? `${API_BASE}${editingItem.image}` : `${API_BASE}/storage/${editingItem.image}`) : null));
+                                    }}
+                                  >
+                                    View Full Screen
+                                  </Button>
                                 </div>
                               </div>
                             ) : (

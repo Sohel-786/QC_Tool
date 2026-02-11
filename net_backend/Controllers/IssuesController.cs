@@ -4,6 +4,7 @@ using net_backend.Data;
 using net_backend.DTOs;
 using net_backend.Models;
 using net_backend.Services;
+using net_backend.Utils;
 
 namespace net_backend.Controllers
 {
@@ -169,7 +170,7 @@ namespace net_backend.Controllers
         }
 
         [HttpPost]
-        public async Task<ActionResult<ApiResponse<Issue>>> Create([FromBody] CreateIssueRequest request)
+        public async Task<ActionResult<ApiResponse<Issue>>> Create([FromForm] CreateIssueRequest request)
         {
             if (!await CheckPermission("addOutward")) return Forbidden();
             
@@ -177,15 +178,45 @@ namespace net_backend.Controllers
             {
                 return BadRequest(new ApiResponse<Issue> { Success = false, Message = "Operator name is required" });
             }
+
+            if (request.Image == null || request.Image.Length == 0)
+            {
+                return BadRequest(new ApiResponse<Issue> { Success = false, Message = "Outward photo is mandatory." });
+            }
+
             var item = await _context.Items.FindAsync(request.ItemId);
             if (item == null) return NotFound(new ApiResponse<Issue> { Success = false, Message = "Item not found" });
             if (item.Status != ItemStatus.AVAILABLE) return BadRequest(new ApiResponse<Issue> { Success = false, Message = "Item is not available" });
 
-            // Image Validation
+            // Image Validation (Item Image)
+            // Existing logic: even if we are taking a new photo for this transaction, 
+            // the system might still require the Item Master to have an image.
+            // Based on user request "keep it and add one more feature of capture photo", 
+            // I assume the existing validation should remain.
             var hasReturnImage = await _context.Returns.AnyAsync(r => r.ItemId == item.Id && r.IsActive && !string.IsNullOrEmpty(r.ReturnImage));
             if (string.IsNullOrEmpty(item.Image) && !hasReturnImage)
             {
                  return BadRequest(new ApiResponse<Issue> { Success = false, Message = "This item does not have an image. Items without images cannot be issued." });
+            }
+
+            // Save Outward Image
+            string? issueImagePath = null;
+            if (request.Image != null)
+            {
+                var serialNumber = item.SerialNumber ?? "unknown";
+                var safeSerial = PathUtils.SanitizeSerialForPath(serialNumber);
+                
+                var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "storage", "items", safeSerial, "outward");
+                if (!Directory.Exists(uploadsFolder)) Directory.CreateDirectory(uploadsFolder);
+
+                var uniqueFileName = Guid.NewGuid().ToString() + "_" + request.Image.FileName;
+                var filePath = Path.Combine(uploadsFolder, uniqueFileName);
+
+                using (var fileStream = new FileStream(filePath, FileMode.Create))
+                {
+                    await request.Image.CopyToAsync(fileStream);
+                }
+                issueImagePath = $"items/{safeSerial}/outward/{uniqueFileName}";
             }
 
             var count = await _context.Issues.CountAsync();
@@ -195,13 +226,14 @@ namespace net_backend.Controllers
             {
                 IssueNo = issueNo,
                 ItemId = request.ItemId,
-                IssuedBy = 1, // Placeholder for actual User ID from Claims
+                IssuedBy = 1, // Placeholder for actual User ID
                 IssuedTo = request.IssuedTo,
                 Remarks = request.Remarks,
                 CompanyId = request.CompanyId,
                 ContractorId = request.ContractorId,
                 MachineId = request.MachineId,
                 LocationId = request.LocationId,
+                IssueImage = issueImagePath,
                 IsActive = true,
                 IsReturned = false,
                 IssuedAt = DateTime.Now,
