@@ -105,6 +105,7 @@ export function useLogout() {
     onSuccess: () => {
       // Clear all local storage
       localStorage.removeItem('user');
+      sessionStorage.removeItem('divisionSelected');
       // Clear all query cache
       queryClient.clear();
       toast.success('Logged out successfully');

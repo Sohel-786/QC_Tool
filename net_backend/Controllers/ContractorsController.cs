@@ -9,11 +9,13 @@ namespace net_backend.Controllers
 {
     [Route("contractors")]
     [ApiController]
-    public class ContractorsController : ControllerBase
+    public class ContractorsController : DivisionIsolatedController
     {
         private readonly ApplicationDbContext _context;
         private readonly IExcelService _excelService;
-        public ContractorsController(ApplicationDbContext context, IExcelService excelService)
+
+        public ContractorsController(ApplicationDbContext context, IExcelService excelService, IDivisionService divisionService)
+            : base(divisionService)
         {
             _context = context;
             _excelService = excelService;
@@ -22,7 +24,9 @@ namespace net_backend.Controllers
         [HttpGet("export")]
         public async Task<IActionResult> Export()
         {
-            var data = (await _context.Contractors.ToListAsync()).Select(c => new {
+            var data = (await _context.Contractors
+                .Where(c => c.DivisionId == CurrentDivisionId)
+                .ToListAsync()).Select(c => new {
                 Id = c.Id,
                 Name = c.Name,
                 PhoneNumber = c.PhoneNumber,
@@ -60,7 +64,12 @@ namespace net_backend.Controllers
 
                 foreach (var validRow in validation.Valid)
                 {
-                    newItems.Add(new Contractor { Name = validRow.Data.Name.Trim(), PhoneNumber = validRow.Data.PhoneNumber.Trim(), IsActive = true });
+                    newItems.Add(new Contractor { 
+                        Name = validRow.Data.Name.Trim(), 
+                        PhoneNumber = validRow.Data.PhoneNumber.Trim(), 
+                        DivisionId = CurrentDivisionId,
+                        IsActive = true 
+                    });
                 }
 
                 if (newItems.Any())
@@ -78,7 +87,10 @@ namespace net_backend.Controllers
         private async Task<ValidationResultDto<ContractorImportDto>> ValidateContractors(List<ExcelRow<ContractorImportDto>> rows)
         {
             var validation = new ValidationResultDto<ContractorImportDto>();
-            var existingNames = await _context.Contractors.Select(c => c.Name.ToLower()).ToListAsync();
+            var existingNames = await _context.Contractors
+                .Where(c => c.DivisionId == CurrentDivisionId)
+                .Select(c => c.Name.ToLower())
+                .ToListAsync();
             var processedInFile = new HashSet<string>();
 
             foreach (var row in rows)
@@ -125,16 +137,16 @@ namespace net_backend.Controllers
 
         [HttpGet]
         public async Task<ActionResult<ApiResponse<IEnumerable<Contractor>>>> GetAll() => 
-            Ok(new ApiResponse<IEnumerable<Contractor>> { Data = await _context.Contractors.ToListAsync() });
+            Ok(new ApiResponse<IEnumerable<Contractor>> { Data = await _context.Contractors.Where(c => c.DivisionId == CurrentDivisionId).ToListAsync() });
 
         [HttpGet("active")]
         public async Task<ActionResult<ApiResponse<IEnumerable<Contractor>>>> GetActive() => 
-            Ok(new ApiResponse<IEnumerable<Contractor>> { Data = await _context.Contractors.Where(c => c.IsActive).ToListAsync() });
+            Ok(new ApiResponse<IEnumerable<Contractor>> { Data = await _context.Contractors.Where(c => c.DivisionId == CurrentDivisionId && c.IsActive).ToListAsync() });
 
         [HttpGet("{id}")]
         public async Task<ActionResult<ApiResponse<Contractor>>> GetById(int id)
         {
-            var item = await _context.Contractors.FindAsync(id);
+            var item = await _context.Contractors.FirstOrDefaultAsync(c => c.Id == id && c.DivisionId == CurrentDivisionId);
             return item == null ? NotFound(new ApiResponse<Contractor> { Success = false, Message = "Not found" }) : Ok(new ApiResponse<Contractor> { Data = item });
         }
 
@@ -150,10 +162,15 @@ namespace net_backend.Controllers
             if (!System.Text.RegularExpressions.Regex.IsMatch(request.PhoneNumber.Trim(), @"^[6-9]\d{9}$"))
                 return BadRequest(new ApiResponse<Contractor> { Success = false, Message = "Invalid Indian mobile number (should be 10 digits starting with 6-9)" });
 
-            if (await _context.Contractors.AnyAsync(c => c.Name.ToLower() == request.Name.Trim().ToLower()))
+            if (await _context.Contractors.AnyAsync(c => c.DivisionId == CurrentDivisionId && c.Name.ToLower() == request.Name.Trim().ToLower()))
                 return BadRequest(new ApiResponse<Contractor> { Success = false, Message = "Contractor name already exists" });
 
-            var item = new Contractor { Name = request.Name.Trim(), PhoneNumber = request.PhoneNumber.Trim(), IsActive = request.IsActive ?? true };
+            var item = new Contractor { 
+                Name = request.Name.Trim(), 
+                PhoneNumber = request.PhoneNumber.Trim(), 
+                DivisionId = CurrentDivisionId,
+                IsActive = request.IsActive ?? true 
+            };
             _context.Contractors.Add(item);
             await _context.SaveChangesAsync();
             return StatusCode(201, new ApiResponse<Contractor> { Data = item });
@@ -163,13 +180,13 @@ namespace net_backend.Controllers
         [HttpPut("{id}")]
         public async Task<ActionResult<ApiResponse<Contractor>>> Update(int id, [FromBody] CreateContractorRequest request)
         {
-            var item = await _context.Contractors.FindAsync(id);
+            var item = await _context.Contractors.FirstOrDefaultAsync(c => c.Id == id && c.DivisionId == CurrentDivisionId);
             if (item == null) return NotFound();
 
             if (!string.IsNullOrEmpty(request.Name))
             {
                 var nameTrimmed = request.Name.Trim();
-                if (await _context.Contractors.AnyAsync(c => c.Id != id && c.Name.ToLower() == nameTrimmed.ToLower()))
+                if (await _context.Contractors.AnyAsync(c => c.DivisionId == CurrentDivisionId && c.Id != id && c.Name.ToLower() == nameTrimmed.ToLower()))
                     return BadRequest(new ApiResponse<Contractor> { Success = false, Message = "Contractor name already exists" });
                 item.Name = nameTrimmed;
             }
@@ -191,7 +208,7 @@ namespace net_backend.Controllers
         [HttpDelete("{id}")]
         public async Task<ActionResult<ApiResponse<bool>>> Delete(int id)
         {
-            var item = await _context.Contractors.FindAsync(id);
+            var item = await _context.Contractors.FirstOrDefaultAsync(c => c.Id == id && c.DivisionId == CurrentDivisionId);
             if (item == null) return NotFound();
             _context.Contractors.Remove(item);
             await _context.SaveChangesAsync();

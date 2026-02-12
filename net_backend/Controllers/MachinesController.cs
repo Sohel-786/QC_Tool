@@ -9,11 +9,12 @@ namespace net_backend.Controllers
 {
     [Route("machines")]
     [ApiController]
-    public class MachinesController : ControllerBase
+    public class MachinesController : DivisionIsolatedController
     {
         private readonly ApplicationDbContext _context;
         private readonly IExcelService _excelService;
-        public MachinesController(ApplicationDbContext context, IExcelService excelService)
+        public MachinesController(ApplicationDbContext context, IExcelService excelService, IDivisionService divisionService)
+            : base(divisionService)
         {
             _context = context;
             _excelService = excelService;
@@ -22,7 +23,10 @@ namespace net_backend.Controllers
         [HttpGet("export")]
         public async Task<IActionResult> Export()
         {
-            var data = (await _context.Machines.Include(m => m.Contractor).ToListAsync()).Select(c => new {
+            var data = (await _context.Machines
+                .Include(m => m.Contractor)
+                .Where(m => m.DivisionId == CurrentDivisionId)
+                .ToListAsync()).Select(c => new {
                 Id = c.Id,
                 Name = c.Name,
                 Contractor = c.Contractor?.Name ?? "—",
@@ -60,7 +64,8 @@ namespace net_backend.Controllers
 
                 foreach (var validRow in validation.Valid)
                 {
-                    var contractor = await _context.Contractors.FirstOrDefaultAsync(c => c.Name.ToLower() == validRow.Data.ContractorName.Trim().ToLower());
+                    var contractor = await _context.Contractors
+                        .FirstOrDefaultAsync(c => c.DivisionId == CurrentDivisionId && c.Name.ToLower() == validRow.Data.ContractorName.Trim().ToLower());
                     if (contractor != null)
                     {
                         var isActive = true;
@@ -74,7 +79,8 @@ namespace net_backend.Controllers
                         { 
                             Name = validRow.Data.Name.Trim(), 
                             ContractorId = contractor.Id,
-                            IsActive = isActive 
+                            IsActive = isActive,
+                            DivisionId = CurrentDivisionId
                         });
                     }
                 }
@@ -95,7 +101,7 @@ namespace net_backend.Controllers
         {
             var validation = new ValidationResultDto<MachineImportDto>();
             var processedInFile = new HashSet<string>();
-            var contractors = await _context.Contractors.ToListAsync();
+            var contractors = await _context.Contractors.Where(c => c.DivisionId == CurrentDivisionId).ToListAsync();
 
             foreach (var row in rows)
             {
@@ -129,7 +135,7 @@ namespace net_backend.Controllers
                     continue;
                 }
 
-                var existsInDb = await _context.Machines.AnyAsync(m => m.Name.ToLower() == nameLower && m.ContractorId == contractorId);
+                var existsInDb = await _context.Machines.AnyAsync(m => m.DivisionId == CurrentDivisionId && m.Name.ToLower() == nameLower && m.ContractorId == contractorId);
                 if (existsInDb)
                 {
                     validation.AlreadyExists.Add(new ValidationEntry<MachineImportDto> { Row = row.RowNumber, Data = item, Message = $"Machine '{item.Name}' already exists for Contractor '{contractor.Name}'" });
@@ -146,20 +152,20 @@ namespace net_backend.Controllers
 
         [HttpGet]
         public async Task<ActionResult<ApiResponse<IEnumerable<Machine>>>> GetAll() => 
-            Ok(new ApiResponse<IEnumerable<Machine>> { Data = await _context.Machines.Include(m => m.Contractor).ToListAsync() });
+            Ok(new ApiResponse<IEnumerable<Machine>> { Data = await _context.Machines.Include(m => m.Contractor).Where(m => m.DivisionId == CurrentDivisionId).ToListAsync() });
 
         [HttpGet("active")]
         public async Task<ActionResult<ApiResponse<IEnumerable<Machine>>>> GetActive() => 
-            Ok(new ApiResponse<IEnumerable<Machine>> { Data = await _context.Machines.Include(m => m.Contractor).Where(c => c.IsActive).ToListAsync() });
+            Ok(new ApiResponse<IEnumerable<Machine>> { Data = await _context.Machines.Include(m => m.Contractor).Where(c => c.IsActive && c.DivisionId == CurrentDivisionId).ToListAsync() });
 
         [HttpGet("contractor/{contractorId}")]
         public async Task<ActionResult<ApiResponse<IEnumerable<Machine>>>> GetByContractor(int contractorId) => 
-            Ok(new ApiResponse<IEnumerable<Machine>> { Data = await _context.Machines.Where(m => m.ContractorId == contractorId && m.IsActive).ToListAsync() });
+            Ok(new ApiResponse<IEnumerable<Machine>> { Data = await _context.Machines.Where(m => m.ContractorId == contractorId && m.IsActive && m.DivisionId == CurrentDivisionId).ToListAsync() });
 
         [HttpGet("{id}")]
         public async Task<ActionResult<ApiResponse<Machine>>> GetById(int id)
         {
-            var item = await _context.Machines.FindAsync(id);
+            var item = await _context.Machines.FirstOrDefaultAsync(m => m.Id == id && m.DivisionId == CurrentDivisionId);
             return item == null ? NotFound() : Ok(new ApiResponse<Machine> { Data = item });
         }
 
@@ -172,14 +178,15 @@ namespace net_backend.Controllers
             if (request.ContractorId <= 0)
                 return BadRequest(new ApiResponse<Machine> { Success = false, Message = "Contractor is required" });
 
-            if (await _context.Machines.AnyAsync(m => m.ContractorId == request.ContractorId && m.Name.ToLower() == request.Name.Trim().ToLower()))
+            if (await _context.Machines.AnyAsync(m => m.DivisionId == CurrentDivisionId && m.ContractorId == request.ContractorId && m.Name.ToLower() == request.Name.Trim().ToLower()))
                 return BadRequest(new ApiResponse<Machine> { Success = false, Message = "Machine name already exists for this contractor" });
 
             var item = new Machine 
             { 
                 Name = request.Name.Trim(), 
                 ContractorId = request.ContractorId,
-                IsActive = request.IsActive ?? true 
+                IsActive = request.IsActive ?? true,
+                DivisionId = CurrentDivisionId
             };
             _context.Machines.Add(item);
             await _context.SaveChangesAsync();
@@ -190,7 +197,7 @@ namespace net_backend.Controllers
         [HttpPut("{id}")]
         public async Task<ActionResult<ApiResponse<Machine>>> Update(int id, [FromBody] CreateMachineRequest request)
         {
-            var item = await _context.Machines.FindAsync(id);
+            var item = await _context.Machines.FirstOrDefaultAsync(m => m.Id == id && m.DivisionId == CurrentDivisionId);
             if (item == null) return NotFound();
 
             string newName = item.Name;
@@ -210,7 +217,7 @@ namespace net_backend.Controllers
 
             if (checkDuplicate)
             {
-                if (await _context.Machines.AnyAsync(m => m.Id != id && m.ContractorId == newContractorId && m.Name.ToLower() == newName.ToLower()))
+                if (await _context.Machines.AnyAsync(m => m.DivisionId == CurrentDivisionId && m.Id != id && m.ContractorId == newContractorId && m.Name.ToLower() == newName.ToLower()))
                     return BadRequest(new ApiResponse<Machine> { Success = false, Message = "Machine name already exists for this contractor" });
             }
 
@@ -225,8 +232,16 @@ namespace net_backend.Controllers
         [HttpDelete("{id}")]
         public async Task<ActionResult<ApiResponse<bool>>> Delete(int id)
         {
-            var item = await _context.Machines.FindAsync(id);
+            var item = await _context.Machines.FirstOrDefaultAsync(m => m.Id == id && m.DivisionId == CurrentDivisionId);
             if (item == null) return NotFound();
+
+            // Check if in use
+            var inUse = await _context.Issues.AnyAsync(i => i.MachineId == id);
+            if (inUse)
+            {
+                return BadRequest(new ApiResponse<bool> { Success = false, Message = "Machine is in use and cannot be deleted." });
+            }
+
             _context.Machines.Remove(item);
             await _context.SaveChangesAsync();
             return Ok(new ApiResponse<bool> { Data = true });

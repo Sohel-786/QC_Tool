@@ -16,6 +16,7 @@ import {
   BarChart3,
   LayoutDashboard,
   Settings,
+  LayoutGrid,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurrentUserPermissions } from "@/hooks/use-settings";
@@ -32,6 +33,14 @@ const navigationSections = {
     },
   ],
   masterEntries: [
+    {
+      href: "/divisions",
+      label: "Division",
+      icon: LayoutGrid,
+      gradient: "from-blue-600 to-cyan-600",
+      hoverColor: "text-blue-600",
+      permission: "viewDivisionMaster",
+    },
     {
       href: "/companies",
       label: "Company",
@@ -228,7 +237,7 @@ export function HorizontalNav({ isExpanded }: HorizontalNavProps) {
             )}
 
             {/* Master Entries Section */}
-            {visibleMasterEntries.length > 0 && permissions?.viewMaster && (
+            {visibleMasterEntries.length > 0 && (permissions?.viewMaster || permissions?.viewDivisionMaster) && (
               <div className="flex flex-col items-center gap-2">
                 <h3 className="text-[10px] font-bold text-primary-600 uppercase tracking-widest flex items-center gap-1.5 px-4">
                   Master Entry

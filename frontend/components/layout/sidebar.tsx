@@ -22,6 +22,7 @@ import {
   Settings,
   PanelLeftClose,
   PanelLeftOpen,
+  LayoutGrid,
 } from "lucide-react";
 import { Role, UserPermission } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -73,6 +74,7 @@ const SidebarText = ({
 );
 
 const masterEntries: (NavLink & { permission: keyof UserPermission })[] = [
+  { href: "/divisions", label: "Division Master", icon: LayoutGrid, permission: "viewDivisionMaster" },
   { href: "/companies", label: "Company Master", icon: Building2, permission: "viewCompanyMaster" },
   { href: "/locations", label: "Location Master", icon: MapPin, permission: "viewLocationMaster" },
   { href: "/contractors", label: "Contractor Master", icon: Briefcase, permission: "viewContractorMaster" },
@@ -131,7 +133,7 @@ export function Sidebar({
       : sidebarWidth;
 
   const canViewDashboard = permissions?.viewDashboard ?? false;
-  const canViewMaster = permissions?.viewMaster ?? false;
+  const canViewMaster = (permissions?.viewMaster ?? false) || (permissions?.viewDivisionMaster ?? false);
   const canViewOutward = permissions?.viewOutward ?? false;
   const canViewInward = permissions?.viewInward ?? false;
   const canViewReports = permissions?.viewReports ?? false;

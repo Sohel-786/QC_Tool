@@ -9,12 +9,13 @@ namespace net_backend.Controllers
 {
     [Route("companies")]
     [ApiController]
-    public class CompaniesController : ControllerBase
+    public class CompaniesController : DivisionIsolatedController
     {
         private readonly ApplicationDbContext _context;
         private readonly IExcelService _excelService;
 
-        public CompaniesController(ApplicationDbContext context, IExcelService excelService)
+        public CompaniesController(ApplicationDbContext context, IExcelService excelService, IDivisionService divisionService)
+            : base(divisionService)
         {
             _context = context;
             _excelService = excelService;
@@ -23,7 +24,9 @@ namespace net_backend.Controllers
         [HttpGet("export")]
         public async Task<IActionResult> Export()
         {
-            var companies = await _context.Companies.ToListAsync();
+            var companies = await _context.Companies
+                .Where(c => c.DivisionId == CurrentDivisionId)
+                .ToListAsync();
             var data = companies.Select(c => new {
                 Id = c.Id,
                 Name = c.Name,
@@ -69,6 +72,7 @@ namespace net_backend.Controllers
                         newCompanies.Add(new Company
                         {
                             Name = validRow.Data.Name.Trim(),
+                            DivisionId = CurrentDivisionId,
                             IsActive = true,
                             CreatedAt = DateTime.Now,
                             UpdatedAt = DateTime.Now
@@ -100,7 +104,10 @@ namespace net_backend.Controllers
         private async Task<ValidationResultDto<CompanyImportDto>> ValidateCompanies(List<ExcelRow<CompanyImportDto>> rows)
         {
             var validation = new ValidationResultDto<CompanyImportDto>();
-            var existingNames = await _context.Companies.Select(c => c.Name.ToLower()).ToListAsync();
+            var existingNames = await _context.Companies
+                .Where(c => c.DivisionId == CurrentDivisionId)
+                .Select(c => c.Name.ToLower())
+                .ToListAsync();
             var processedInFile = new HashSet<string>();
 
             foreach (var row in rows)
@@ -137,21 +144,26 @@ namespace net_backend.Controllers
         [HttpGet]
         public async Task<ActionResult<ApiResponse<IEnumerable<Company>>>> GetAll()
         {
-            var companies = await _context.Companies.ToListAsync();
+            var companies = await _context.Companies
+                .Where(c => c.DivisionId == CurrentDivisionId)
+                .ToListAsync();
             return Ok(new ApiResponse<IEnumerable<Company>> { Data = companies });
         }
 
         [HttpGet("active")]
         public async Task<ActionResult<ApiResponse<IEnumerable<Company>>>> GetActive()
         {
-            var companies = await _context.Companies.Where(c => c.IsActive).ToListAsync();
+            var companies = await _context.Companies
+                .Where(c => c.DivisionId == CurrentDivisionId && c.IsActive)
+                .ToListAsync();
             return Ok(new ApiResponse<IEnumerable<Company>> { Data = companies });
         }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<ApiResponse<Company>>> GetById(int id)
         {
-            var company = await _context.Companies.FindAsync(id);
+            var company = await _context.Companies
+                .FirstOrDefaultAsync(c => c.Id == id && c.DivisionId == CurrentDivisionId);
             if (company == null)
             {
                 return NotFound(new ApiResponse<Company> { Success = false, Message = $"Company with ID {id} not found" });
@@ -167,7 +179,7 @@ namespace net_backend.Controllers
                 return BadRequest(new ApiResponse<Company> { Success = false, Message = "Company name is required" });
             }
 
-            var exists = await _context.Companies.AnyAsync(c => c.Name.ToLower() == request.Name.Trim().ToLower());
+            var exists = await _context.Companies.AnyAsync(c => c.DivisionId == CurrentDivisionId && c.Name.ToLower() == request.Name.Trim().ToLower());
             if (exists)
             {
                 return BadRequest(new ApiResponse<Company> { Success = false, Message = "Company name already exists" });
@@ -176,6 +188,7 @@ namespace net_backend.Controllers
             var company = new Company
             {
                 Name = request.Name.Trim(),
+                DivisionId = CurrentDivisionId,
                 IsActive = request.IsActive ?? true,
                 CreatedAt = DateTime.Now,
                 UpdatedAt = DateTime.Now
@@ -191,7 +204,8 @@ namespace net_backend.Controllers
         [HttpPut("{id}")]
         public async Task<ActionResult<ApiResponse<Company>>> Update(int id, [FromBody] CreateCompanyRequest request)
         {
-            var company = await _context.Companies.FindAsync(id);
+            var company = await _context.Companies
+                .FirstOrDefaultAsync(c => c.Id == id && c.DivisionId == CurrentDivisionId);
             if (company == null)
             {
                 return NotFound(new ApiResponse<Company> { Success = false, Message = $"Company with ID {id} not found" });
@@ -200,7 +214,7 @@ namespace net_backend.Controllers
             if (!string.IsNullOrEmpty(request.Name)) 
             {
                 var nameTrimmed = request.Name.Trim();
-                if (await _context.Companies.AnyAsync(c => c.Id != id && c.Name.ToLower() == nameTrimmed.ToLower()))
+                if (await _context.Companies.AnyAsync(c => c.DivisionId == CurrentDivisionId && c.Id != id && c.Name.ToLower() == nameTrimmed.ToLower()))
                 {
                     return BadRequest(new ApiResponse<Company> { Success = false, Message = "Company name already exists" });
                 }
@@ -219,7 +233,8 @@ namespace net_backend.Controllers
         [HttpDelete("{id}")]
         public async Task<ActionResult<ApiResponse<bool>>> Delete(int id)
         {
-            var company = await _context.Companies.FindAsync(id);
+            var company = await _context.Companies
+                .FirstOrDefaultAsync(c => c.Id == id && c.DivisionId == CurrentDivisionId);
             if (company == null)
             {
                 return NotFound(new ApiResponse<bool> { Success = false, Message = $"Company with ID {id} not found" });

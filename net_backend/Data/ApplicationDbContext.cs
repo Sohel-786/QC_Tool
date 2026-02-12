@@ -11,6 +11,7 @@ namespace net_backend.Data
 
         public DbSet<AppSettings> AppSettings { get; set; }
         public DbSet<AuditLog> AuditLogs { get; set; }
+        public DbSet<Division> Divisions { get; set; }
         public DbSet<Company> Companies { get; set; }
         public DbSet<Contractor> Contractors { get; set; }
         public DbSet<Issue> Issues { get; set; }
@@ -23,6 +24,7 @@ namespace net_backend.Data
         public DbSet<Status> Statuses { get; set; }
         public DbSet<User> Users { get; set; }
         public DbSet<Operator> Operators { get; set; }
+        public DbSet<UserDivision> UserDivisions { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -82,44 +84,77 @@ namespace net_backend.Data
             modelBuilder.Entity<Item>()
                 .Property(i => i.Status);
 
-            // Unique constraints for Master Entries
+            // Division-aware unique constraints for Master Entries
             
-            // Global unique constraints
-            modelBuilder.Entity<Company>()
-                .HasIndex(c => c.Name)
+            modelBuilder.Entity<Division>()
+                .HasIndex(d => d.Name)
                 .IsUnique()
-                .HasDatabaseName("IX_Companies_Name_Unique");
+                .HasDatabaseName("IX_Divisions_Name_Unique");
+
+            modelBuilder.Entity<Company>()
+                .HasIndex(c => new { c.DivisionId, c.Name })
+                .IsUnique()
+                .HasDatabaseName("IX_Companies_Division_Name_Unique");
 
             modelBuilder.Entity<Contractor>()
-                .HasIndex(c => c.Name)
+                .HasIndex(c => new { c.DivisionId, c.Name })
                 .IsUnique()
-                .HasDatabaseName("IX_Contractors_Name_Unique");
+                .HasDatabaseName("IX_Contractors_Division_Name_Unique");
 
             modelBuilder.Entity<ItemCategory>()
-                .HasIndex(ic => ic.Name)
+                .HasIndex(ic => new { ic.DivisionId, ic.Name })
                 .IsUnique()
-                .HasDatabaseName("IX_ItemCategories_Name_Unique");
+                .HasDatabaseName("IX_ItemCategories_Division_Name_Unique");
 
             modelBuilder.Entity<Status>()
-                .HasIndex(s => s.Name)
+                .HasIndex(s => new { s.DivisionId, s.Name })
                 .IsUnique()
-                .HasDatabaseName("IX_Statuses_Name_Unique");
+                .HasDatabaseName("IX_Statuses_Division_Name_Unique");
 
             // Composite unique constraints
             modelBuilder.Entity<Location>()
-                .HasIndex(l => new { l.CompanyId, l.Name })
+                .HasIndex(l => new { l.DivisionId, l.CompanyId, l.Name })
                 .IsUnique()
-                .HasDatabaseName("IX_Locations_CompanyId_Name_Unique");
+                .HasDatabaseName("IX_Locations_Division_CompanyId_Name_Unique");
 
             modelBuilder.Entity<Machine>()
-                .HasIndex(m => new { m.ContractorId, m.Name })
+                .HasIndex(m => new { m.DivisionId, m.ContractorId, m.Name })
                 .IsUnique()
-                .HasDatabaseName("IX_Machines_ContractorId_Name_Unique");
+                .HasDatabaseName("IX_Machines_Division_ContractorId_Name_Unique");
 
             modelBuilder.Entity<Item>()
-                .HasIndex(i => new { i.CategoryId, i.ItemName })
+                .HasIndex(i => new { i.DivisionId, i.CategoryId, i.ItemName })
                 .IsUnique()
-                .HasDatabaseName("IX_Items_CategoryId_ItemName_Unique");
+                .HasDatabaseName("IX_Items_Division_CategoryId_ItemName_Unique");
+
+            // Global restrict delete for Division to avoid multiple cascade paths in SQL Server
+            foreach (var entity in modelBuilder.Model.GetEntityTypes())
+            {
+                var divisionFks = entity.GetForeignKeys()
+                    .Where(fk => fk.PrincipalEntityType.ClrType == typeof(Division));
+                foreach (var fk in divisionFks)
+                {
+                    fk.DeleteBehavior = DeleteBehavior.Restrict;
+                }
+            }
+
+            // UserDivision relationships
+            modelBuilder.Entity<UserDivision>()
+                .HasOne(ud => ud.User)
+                .WithMany(u => u.UserDivisions)
+                .HasForeignKey(ud => ud.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<UserDivision>()
+                .HasOne(ud => ud.Division)
+                .WithMany(d => d.UserDivisions)
+                .HasForeignKey(ud => ud.DivisionId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<UserDivision>()
+                .HasIndex(ud => new { ud.UserId, ud.DivisionId })
+                .IsUnique()
+                .HasDatabaseName("IX_UserDivisions_UserId_DivisionId_Unique");
         }
     }
 }

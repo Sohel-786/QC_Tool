@@ -10,6 +10,14 @@ export enum ItemStatus {
   MISSING = 'MISSING',
 }
 
+export interface Division {
+  id: number;
+  name: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface User {
   id: number;
   username: string;
@@ -17,6 +25,8 @@ export interface User {
   lastName: string;
   role: Role;
   isActive: boolean;
+  selectedDivisionName?: string;
+  allowedDivisions?: { id: number; name: string }[];
   avatar?: string | null;
   mobileNumber?: string | null;
   createdAt: string;
@@ -30,6 +40,7 @@ export interface Item {
   image?: string | null;
   serialNumber?: string | null;
   categoryId?: number | null;
+  divisionId: number;
   inHouseLocation?: string | null;
   status: ItemStatus;
   isActive: boolean;
@@ -46,6 +57,7 @@ export interface Item {
 export interface ItemCategory {
   id: number;
   name: string;
+  divisionId: number;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -54,6 +66,7 @@ export interface ItemCategory {
 export interface Company {
   id: number;
   name: string;
+  divisionId: number;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -63,6 +76,7 @@ export interface Location {
   id: number;
   name: string;
   companyId: number;
+  divisionId: number;
   company?: Company;
   isActive: boolean;
   createdAt: string;
@@ -73,6 +87,7 @@ export interface Contractor {
   id: number;
   name: string;
   phoneNumber: string;
+  divisionId: number;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -81,6 +96,7 @@ export interface Contractor {
 export interface Status {
   id: number;
   name: string;
+  divisionId: number;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -90,6 +106,7 @@ export interface Machine {
   id: number;
   name: string;
   contractorId: number;
+  divisionId: number;
   contractor?: Contractor;
   isActive: boolean;
   createdAt: string;
@@ -112,6 +129,7 @@ export interface Issue {
   contractorId?: number | null;
   machineId?: number | null;
   locationId?: number | null;
+  divisionId: number;
   item?: Item;
   company?: Company;
   contractor?: Contractor;
@@ -140,6 +158,7 @@ export interface Return {
   remarks?: string | null;
   receivedBy?: string | null;
   statusId?: number | null;
+  divisionId: number;
   isActive: boolean;
   returnedAt: string;
   updatedAt: string;
@@ -190,6 +209,7 @@ export interface UserPermission {
   userId: number;
   viewDashboard: boolean;
   viewMaster: boolean;
+  viewDivisionMaster: boolean;
   viewCompanyMaster: boolean;
   viewLocationMaster: boolean;
   viewContractorMaster: boolean;

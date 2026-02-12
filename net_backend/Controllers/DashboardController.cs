@@ -9,12 +9,13 @@ namespace net_backend.Controllers
 {
     [Route("dashboard")]
     [ApiController]
-    public class DashboardController : ControllerBase
+    public class DashboardController : DivisionIsolatedController
     {
         private readonly ApplicationDbContext _context;
         private readonly IExcelService _excelService;
 
-        public DashboardController(ApplicationDbContext context, IExcelService excelService)
+        public DashboardController(ApplicationDbContext context, IExcelService excelService, IDivisionService divisionService)
+            : base(divisionService)
         {
             _context = context;
             _excelService = excelService;
@@ -23,15 +24,15 @@ namespace net_backend.Controllers
         [HttpGet("metrics")]
         public async Task<ActionResult<ApiResponse<object>>> GetMetrics()
         {
-            var totalItems = await _context.Items.CountAsync(i => i.IsActive);
-            var itemsIssued = await _context.Items.CountAsync(i => i.Status == ItemStatus.ISSUED && i.IsActive);
-            var itemsAvailable = await _context.Items.CountAsync(i => i.Status == ItemStatus.AVAILABLE && i.IsActive);
-            var itemsMissing = await _context.Items.CountAsync(i => i.Status == ItemStatus.MISSING && i.IsActive);
+            var totalItems = await _context.Items.CountAsync(i => i.IsActive && i.DivisionId == CurrentDivisionId);
+            var itemsIssued = await _context.Items.CountAsync(i => i.Status == ItemStatus.ISSUED && i.IsActive && i.DivisionId == CurrentDivisionId);
+            var itemsAvailable = await _context.Items.CountAsync(i => i.Status == ItemStatus.AVAILABLE && i.IsActive && i.DivisionId == CurrentDivisionId);
+            var itemsMissing = await _context.Items.CountAsync(i => i.Status == ItemStatus.MISSING && i.IsActive && i.DivisionId == CurrentDivisionId);
 
-            var totalIssues = await _context.Issues.CountAsync(i => i.IsActive);
-            var activeIssues = await _context.Issues.CountAsync(i => !i.IsReturned && i.IsActive);
+            var totalIssues = await _context.Issues.CountAsync(i => i.IsActive && i.DivisionId == CurrentDivisionId);
+            var activeIssues = await _context.Issues.CountAsync(i => !i.IsReturned && i.IsActive && i.DivisionId == CurrentDivisionId);
 
-            var totalReturns = await _context.Returns.CountAsync(r => r.IsActive);
+            var totalReturns = await _context.Returns.CountAsync(r => r.IsActive && r.DivisionId == CurrentDivisionId);
 
             var result = new
             {
@@ -46,7 +47,7 @@ namespace net_backend.Controllers
         [HttpGet("available-items")]
         public async Task<ActionResult<ApiResponse<IEnumerable<Item>>>> GetAvailableItems([FromQuery] string? search, [FromQuery] string? categoryIds)
         {
-            var query = _context.Items.Where(i => i.Status == ItemStatus.AVAILABLE && i.IsActive);
+            var query = _context.Items.Where(i => i.Status == ItemStatus.AVAILABLE && i.IsActive && i.DivisionId == CurrentDivisionId);
             
             if (!string.IsNullOrEmpty(search))
             {
@@ -66,7 +67,7 @@ namespace net_backend.Controllers
         [HttpGet("total-items")]
         public async Task<ActionResult<ApiResponse<IEnumerable<Item>>>> GetTotalItems([FromQuery] string? search, [FromQuery] string? categoryIds)
         {
-            var query = _context.Items.Where(i => i.IsActive).AsQueryable();
+            var query = _context.Items.Where(i => i.IsActive && i.DivisionId == CurrentDivisionId).AsQueryable();
             
             if (!string.IsNullOrEmpty(search))
             {
@@ -86,7 +87,7 @@ namespace net_backend.Controllers
         [HttpGet("missing-items")]
         public async Task<ActionResult<ApiResponse<IEnumerable<Item>>>> GetMissingItems([FromQuery] string? search, [FromQuery] string? categoryIds)
         {
-            var query = _context.Items.Where(i => i.Status == ItemStatus.MISSING && i.IsActive);
+            var query = _context.Items.Where(i => i.Status == ItemStatus.MISSING && i.IsActive && i.DivisionId == CurrentDivisionId);
             
             if (!string.IsNullOrEmpty(search))
             {
@@ -106,7 +107,7 @@ namespace net_backend.Controllers
         [HttpGet("export/total-items")]
         public async Task<IActionResult> ExportTotalItems([FromQuery] string? search, [FromQuery] string? categoryIds)
         {
-            var query = _context.Items.Include(i => i.Category).Where(i => i.IsActive).AsQueryable();
+            var query = _context.Items.Include(i => i.Category).Where(i => i.IsActive && i.DivisionId == CurrentDivisionId).AsQueryable();
             if (!string.IsNullOrEmpty(search))
                 query = query.Where(i => i.ItemName.Contains(search) || (i.SerialNumber != null && i.SerialNumber.Contains(search)));
             if (!string.IsNullOrEmpty(categoryIds))
@@ -132,7 +133,7 @@ namespace net_backend.Controllers
         [HttpGet("export/available-items")]
         public async Task<IActionResult> ExportAvailableItems([FromQuery] string? search, [FromQuery] string? categoryIds)
         {
-            var query = _context.Items.Include(i => i.Category).Where(i => i.Status == ItemStatus.AVAILABLE && i.IsActive);
+            var query = _context.Items.Include(i => i.Category).Where(i => i.Status == ItemStatus.AVAILABLE && i.IsActive && i.DivisionId == CurrentDivisionId);
             if (!string.IsNullOrEmpty(search))
                 query = query.Where(i => i.ItemName.Contains(search) || (i.SerialNumber != null && i.SerialNumber.Contains(search)));
             if (!string.IsNullOrEmpty(categoryIds))
@@ -157,7 +158,7 @@ namespace net_backend.Controllers
         [HttpGet("export/missing-items")]
         public async Task<IActionResult> ExportMissingItems([FromQuery] string? search, [FromQuery] string? categoryIds)
         {
-            var query = _context.Items.Include(i => i.Category).Where(i => i.Status == ItemStatus.MISSING && i.IsActive);
+            var query = _context.Items.Include(i => i.Category).Where(i => i.Status == ItemStatus.MISSING && i.IsActive && i.DivisionId == CurrentDivisionId);
             if (!string.IsNullOrEmpty(search))
                 query = query.Where(i => i.ItemName.Contains(search) || (i.SerialNumber != null && i.SerialNumber.Contains(search)));
             if (!string.IsNullOrEmpty(categoryIds))

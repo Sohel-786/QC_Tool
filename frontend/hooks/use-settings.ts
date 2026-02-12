@@ -60,7 +60,7 @@ export function useUploadCompanyLogo() {
 export function useUserPermissions(userId?: number) {
   return useQuery({
     queryKey: ['settings', 'permissions', userId],
-    queryFn: async (): Promise<UserPermission | null> => {
+    queryFn: async (): Promise<{ permissions: UserPermission; allowedDivisionIds: number[] } | null> => {
       if (!userId) return null;
       const response = await api.get(`/settings/permissions/user/${userId}`);
       return response.data.data;
@@ -87,14 +87,12 @@ export function useUpdateUserPermissions() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ userId, permissions }: { userId: number; permissions: Partial<UserPermission> }): Promise<UserPermission> => {
-      const response = await api.put(`/settings/permissions/user/${userId}`, permissions);
+    mutationFn: async ({ userId, permissions, allowedDivisionIds }: { userId: number; permissions: Partial<UserPermission>; allowedDivisionIds: number[] }): Promise<any> => {
+      const response = await api.put(`/settings/permissions/user/${userId}`, { permissions, allowedDivisionIds });
       return response.data.data;
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['settings', 'permissions', variables.userId] });
-      // If we updated our own permissions, invalidate 'me' as well
-      // But usually this is done by admin for another user. If admin updates themselves, it matters.
       queryClient.invalidateQueries({ queryKey: ['settings', 'permissions', 'me'] });
       toast.success('User permissions saved');
     },

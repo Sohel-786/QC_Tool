@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using net_backend.Data;
 using net_backend.DTOs;
 using net_backend.Models;
+using net_backend.Services;
 
 namespace net_backend.Controllers
 {
@@ -88,52 +89,67 @@ namespace net_backend.Controllers
         }
 
         [HttpGet("permissions/user/{userId}")]
-        public async Task<ActionResult<ApiResponse<UserPermission>>> GetUserPermissions(int userId)
+        public async Task<ActionResult<ApiResponse<object>>> GetUserPermissions(int userId)
         {
             if (!await CheckPermission("accessSettings"))
                 return Forbidden();
 
-            var permissions = await _context.UserPermissions.FirstOrDefaultAsync(p => p.UserId == userId);
+            var targetUser = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
             
-            if (permissions == null)
+            if (targetUser == null)
             {
-                var user = await _context.Users.FindAsync(userId);
-                if (user == null)
-                {
-                    return NotFound(new ApiResponse<UserPermission> { Success = false, Message = "User not found" });
-                }
-                
-                // Create default if not exists
-                permissions = CreateDefaultPermissions(user.Id, user.Role);
-                _context.UserPermissions.Add(permissions);
-                await _context.SaveChangesAsync();
+                return NotFound(new ApiResponse<object> { Success = false, Message = "User not found" });
             }
 
-            return Ok(new ApiResponse<UserPermission> { Data = permissions });
+            var permissions = await _context.UserPermissions.FirstOrDefaultAsync(p => p.UserId == userId);
+            if (permissions == null)
+            {
+                permissions = new UserPermission { UserId = userId };
+            }
+
+            var allowedDivisionIds = await _context.UserDivisions
+                .Where(ud => ud.UserId == userId)
+                .Select(ud => ud.DivisionId)
+                .ToListAsync();
+
+            return Ok(new ApiResponse<object> { 
+                Data = new { 
+                    Permissions = permissions, 
+                    AllowedDivisionIds = allowedDivisionIds 
+                } 
+            });
         }
 
         [HttpPut("permissions/user/{userId}")]
-        public async Task<ActionResult<ApiResponse<UserPermission>>> UpdateUserPermissions(int userId, [FromBody] UserPermission updatedPerms)
+        public async Task<ActionResult<ApiResponse<object>>> UpdatePermissions(int userId, [FromBody] UpdateUserPermissionsRequest request)
         {
             if (!await CheckPermission("accessSettings"))
                 return Forbidden();
+
+            if (request.Permissions == null)
+                return BadRequest(new ApiResponse<object> { Success = false, Message = "Permissions data is required" });
+
+            var targetUser = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
+            
+            if (targetUser == null)
+            {
+                return NotFound(new ApiResponse<object> { Success = false, Message = "User not found" });
+            }
 
             var permissions = await _context.UserPermissions.FirstOrDefaultAsync(p => p.UserId == userId);
             
             if (permissions == null)
             {
-                 var user = await _context.Users.FindAsync(userId);
-                if (user == null)
-                {
-                    return NotFound(new ApiResponse<UserPermission> { Success = false, Message = "User not found" });
-                }
                 permissions = new UserPermission { UserId = userId };
                 _context.UserPermissions.Add(permissions);
             }
 
+            var updatedPerms = request.Permissions;
+
             // Update fields
             permissions.ViewDashboard = updatedPerms.ViewDashboard;
             permissions.ViewMaster = updatedPerms.ViewMaster;
+            permissions.ViewDivisionMaster = updatedPerms.ViewDivisionMaster;
             permissions.ViewCompanyMaster = updatedPerms.ViewCompanyMaster;
             permissions.ViewLocationMaster = updatedPerms.ViewLocationMaster;
             permissions.ViewContractorMaster = updatedPerms.ViewContractorMaster;
@@ -160,8 +176,27 @@ namespace net_backend.Controllers
             
             permissions.UpdatedAt = DateTime.Now;
 
+            // Update Division Access mapping
+            var existingMappings = await _context.UserDivisions.Where(ud => ud.UserId == userId).ToListAsync();
+            
+            // Remove mappings not in the request
+            var toRemove = existingMappings.Where(m => !request.AllowedDivisionIds.Contains(m.DivisionId)).ToList();
+            _context.UserDivisions.RemoveRange(toRemove);
+
+            // Add new mappings
+            var newDivIds = request.AllowedDivisionIds.Where(id => !existingMappings.Any(m => m.DivisionId == id)).ToList();
+            foreach (var divId in newDivIds)
+            {
+                _context.UserDivisions.Add(new UserDivision { UserId = userId, DivisionId = divId });
+            }
+
             await _context.SaveChangesAsync();
-            return Ok(new ApiResponse<UserPermission> { Data = permissions });
+            return Ok(new ApiResponse<object> { 
+                Data = new { 
+                    Permissions = permissions, 
+                    AllowedDivisionIds = request.AllowedDivisionIds 
+                } 
+            });
         }
 
         [HttpPost("software/logo")]
@@ -207,14 +242,9 @@ namespace net_backend.Controllers
             var userIdStr = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userIdStr) || !int.TryParse(userIdStr, out int userId)) return false;
             
-            // Check if admin role - admins always have full access potentially, 
-            // but for this granular path we check the permission record.
-            // However, to prevent lockout, if no permission record exists for an admin, we assume true or create one.
-            
             var permissions = await _context.UserPermissions.FirstOrDefaultAsync(p => p.UserId == userId);
             if (permissions == null)
             {
-                // Fallback: If user is QC_ADMIN, grant success.
                 var role = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
                 if (role == "QC_ADMIN") return true;
                 return false;
@@ -246,6 +276,7 @@ namespace net_backend.Controllers
                 "editInward" => permissions.EditInward,
                 "addMaster" => permissions.AddMaster,
                 "editMaster" => permissions.EditMaster,
+                "viewDivisionMaster" => permissions.ViewDivisionMaster,
                 _ => false
             };
         }
@@ -264,6 +295,7 @@ namespace net_backend.Controllers
             {
                 perm.ViewDashboard = true;
                 perm.ViewMaster = true;
+                perm.ViewDivisionMaster = true;
                 perm.ViewCompanyMaster = true;
                 perm.ViewLocationMaster = true;
                 perm.ViewContractorMaster = true;
@@ -287,64 +319,38 @@ namespace net_backend.Controllers
                 perm.ManageUsers = true;
                 perm.AccessSettings = true;
             }
-            else if (role == Role.QC_MANAGER)
-            {
-                perm.ViewDashboard = true;
-                perm.ViewMaster = true;
-                perm.ViewCompanyMaster = true;
-                perm.ViewLocationMaster = true;
-                perm.ViewContractorMaster = true;
-                perm.ViewStatusMaster = true;
-                perm.ViewMachineMaster = true;
-                perm.ViewItemMaster = true;
-                perm.ViewItemCategoryMaster = true;
-                perm.ViewOutward = true;
-                perm.ViewInward = true;
-                perm.ViewReports = true;
-                perm.ViewActiveIssuesReport = true;
-                perm.ViewMissingItemsReport = true;
-                perm.ViewItemHistoryLedgerReport = true;
-                perm.ImportExportMaster = true;
-                perm.AddOutward = true;
-                perm.EditOutward = true;
-                perm.AddInward = true;
-                perm.EditInward = true;
-                perm.AddMaster = true;
-                perm.EditMaster = true;
-                perm.ManageUsers = false;
-                perm.AccessSettings = false;
-            }
             else
             {
-                // QC_USER
-                perm.ViewDashboard = true;
-                perm.ViewMaster = true;
-                perm.ViewCompanyMaster = true;
-                perm.ViewLocationMaster = true;
-                perm.ViewContractorMaster = true;
-                perm.ViewStatusMaster = true;
-                perm.ViewMachineMaster = true;
-                perm.ViewItemMaster = true;
-                perm.ViewItemCategoryMaster = true;
-                perm.ViewOutward = true;
-                perm.ViewInward = true;
-                perm.ViewReports = true;
-                perm.ViewActiveIssuesReport = true;
-                perm.ViewMissingItemsReport = true;
-                perm.ViewItemHistoryLedgerReport = true;
+                perm.ViewDashboard = false;
+                perm.ViewMaster = false;
+                perm.ViewDivisionMaster = false;
+                perm.ViewCompanyMaster = false;
+                perm.ViewLocationMaster = false;
+                perm.ViewContractorMaster = false;
+                perm.ViewStatusMaster = false;
+                perm.ViewMachineMaster = false;
+                perm.ViewItemMaster = false;
+                perm.ViewItemCategoryMaster = false;
+                perm.ViewOutward = false;
+                perm.ViewInward = false;
+                perm.ViewReports = false;
+                perm.ViewActiveIssuesReport = false;
+                perm.ViewMissingItemsReport = false;
+                perm.ViewItemHistoryLedgerReport = false;
                 perm.ImportExportMaster = false;
-                perm.AddOutward = true;
-                perm.EditOutward = true;
-                perm.AddInward = true;
-                perm.EditInward = true;
-                perm.AddMaster = true;
-                perm.EditMaster = true;
+                perm.AddOutward = false;
+                perm.EditOutward = false;
+                perm.AddInward = false;
+                perm.EditInward = false;
+                perm.AddMaster = false;
+                perm.EditMaster = false;
                 perm.ManageUsers = false;
                 perm.AccessSettings = false;
             }
 
             return perm;
         }
+
         private ActionResult Forbidden()
         {
             return StatusCode(403, new ApiResponse<object> { Success = false, Message = "You do not have permission to perform this action." });

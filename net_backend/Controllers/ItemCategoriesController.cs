@@ -9,11 +9,12 @@ namespace net_backend.Controllers
 {
     [Route("item-categories")]
     [ApiController]
-    public class ItemCategoriesController : ControllerBase
+    public class ItemCategoriesController : DivisionIsolatedController
     {
         private readonly ApplicationDbContext _context;
         private readonly IExcelService _excelService;
-        public ItemCategoriesController(ApplicationDbContext context, IExcelService excelService)
+        public ItemCategoriesController(ApplicationDbContext context, IExcelService excelService, IDivisionService divisionService)
+            : base(divisionService)
         {
             _context = context;
             _excelService = excelService;
@@ -22,7 +23,9 @@ namespace net_backend.Controllers
         [HttpGet("export")]
         public async Task<IActionResult> Export()
         {
-            var data = (await _context.ItemCategories.ToListAsync()).Select(c => new {
+            var data = (await _context.ItemCategories
+                .Where(c => c.DivisionId == CurrentDivisionId)
+                .ToListAsync()).Select(c => new {
                 Id = c.Id,
                 Name = c.Name,
                 IsActive = c.IsActive ? "Yes" : "No",
@@ -59,7 +62,12 @@ namespace net_backend.Controllers
 
                 foreach (var validRow in validation.Valid)
                 {
-                    newItems.Add(new ItemCategory { Name = validRow.Data.Name.Trim(), IsActive = true });
+                    newItems.Add(new ItemCategory 
+                    { 
+                        Name = validRow.Data.Name.Trim(), 
+                        IsActive = true,
+                        DivisionId = CurrentDivisionId
+                    });
                 }
 
                 if (newItems.Any())
@@ -77,7 +85,10 @@ namespace net_backend.Controllers
         private async Task<ValidationResultDto<CategoryImportDto>> ValidateCategories(List<ExcelRow<CategoryImportDto>> rows)
         {
             var validation = new ValidationResultDto<CategoryImportDto>();
-            var existingNames = await _context.ItemCategories.Select(c => c.Name.ToLower()).ToListAsync();
+            var existingNames = await _context.ItemCategories
+                .Where(c => c.DivisionId == CurrentDivisionId)
+                .Select(c => c.Name.ToLower())
+                .ToListAsync();
             var processedInFile = new HashSet<string>();
 
             foreach (var row in rows)
@@ -112,16 +123,16 @@ namespace net_backend.Controllers
 
         [HttpGet]
         public async Task<ActionResult<ApiResponse<IEnumerable<ItemCategory>>>> GetAll() => 
-            Ok(new ApiResponse<IEnumerable<ItemCategory>> { Data = await _context.ItemCategories.ToListAsync() });
+            Ok(new ApiResponse<IEnumerable<ItemCategory>> { Data = await _context.ItemCategories.Where(c => c.DivisionId == CurrentDivisionId).ToListAsync() });
 
         [HttpGet("active")]
         public async Task<ActionResult<ApiResponse<IEnumerable<ItemCategory>>>> GetActive() => 
-            Ok(new ApiResponse<IEnumerable<ItemCategory>> { Data = await _context.ItemCategories.Where(c => c.IsActive).ToListAsync() });
+            Ok(new ApiResponse<IEnumerable<ItemCategory>> { Data = await _context.ItemCategories.Where(c => c.IsActive && c.DivisionId == CurrentDivisionId).ToListAsync() });
 
         [HttpGet("{id}")]
         public async Task<ActionResult<ApiResponse<ItemCategory>>> GetById(int id)
         {
-            var item = await _context.ItemCategories.FindAsync(id);
+            var item = await _context.ItemCategories.FirstOrDefaultAsync(c => c.Id == id && c.DivisionId == CurrentDivisionId);
             return item == null ? NotFound() : Ok(new ApiResponse<ItemCategory> { Data = item });
         }
 
@@ -131,10 +142,15 @@ namespace net_backend.Controllers
             if (string.IsNullOrWhiteSpace(request.Name))
                 return BadRequest(new ApiResponse<ItemCategory> { Success = false, Message = "Name is required" });
 
-            if (await _context.ItemCategories.AnyAsync(c => c.Name.ToLower() == request.Name.Trim().ToLower()))
+            if (await _context.ItemCategories.AnyAsync(c => c.DivisionId == CurrentDivisionId && c.Name.ToLower() == request.Name.Trim().ToLower()))
                 return BadRequest(new ApiResponse<ItemCategory> { Success = false, Message = "Category name already exists" });
 
-            var item = new ItemCategory { Name = request.Name.Trim(), IsActive = request.IsActive ?? true };
+            var item = new ItemCategory 
+            { 
+                Name = request.Name.Trim(), 
+                IsActive = request.IsActive ?? true,
+                DivisionId = CurrentDivisionId
+            };
             _context.ItemCategories.Add(item);
             await _context.SaveChangesAsync();
             return StatusCode(201, new ApiResponse<ItemCategory> { Data = item });
@@ -144,13 +160,13 @@ namespace net_backend.Controllers
         [HttpPut("{id}")]
         public async Task<ActionResult<ApiResponse<ItemCategory>>> Update(int id, [FromBody] CreateCompanyRequest request)
         {
-            var item = await _context.ItemCategories.FindAsync(id);
+            var item = await _context.ItemCategories.FirstOrDefaultAsync(c => c.Id == id && c.DivisionId == CurrentDivisionId);
             if (item == null) return NotFound();
 
             if (!string.IsNullOrEmpty(request.Name))
             {
                 var nameTrimmed = request.Name.Trim();
-                if (await _context.ItemCategories.AnyAsync(c => c.Id != id && c.Name.ToLower() == nameTrimmed.ToLower()))
+                if (await _context.ItemCategories.AnyAsync(c => c.DivisionId == CurrentDivisionId && c.Id != id && c.Name.ToLower() == nameTrimmed.ToLower()))
                     return BadRequest(new ApiResponse<ItemCategory> { Success = false, Message = "Category name already exists" });
                 item.Name = nameTrimmed;
             }
@@ -164,8 +180,16 @@ namespace net_backend.Controllers
         [HttpDelete("{id}")]
         public async Task<ActionResult<ApiResponse<bool>>> Delete(int id)
         {
-            var item = await _context.ItemCategories.FindAsync(id);
+            var item = await _context.ItemCategories.FirstOrDefaultAsync(c => c.Id == id && c.DivisionId == CurrentDivisionId);
             if (item == null) return NotFound();
+
+            // Check if in use? (Existing logic didn't, but might be good. Items table has CategoryId)
+            var inUse = await _context.Items.AnyAsync(i => i.CategoryId == id);
+            if (inUse)
+            {
+                return BadRequest(new ApiResponse<bool> { Success = false, Message = "Category is in use and cannot be deleted." });
+            }
+
             _context.ItemCategories.Remove(item);
             await _context.SaveChangesAsync();
             return Ok(new ApiResponse<bool> { Data = true });

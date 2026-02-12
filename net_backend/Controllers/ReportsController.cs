@@ -9,12 +9,13 @@ namespace net_backend.Controllers
 {
     [Route("reports")]
     [ApiController]
-    public class ReportsController : ControllerBase
+    public class ReportsController : DivisionIsolatedController
     {
         private readonly ApplicationDbContext _context;
         private readonly IExcelService _excelService;
 
-        public ReportsController(ApplicationDbContext context, IExcelService excelService)
+        public ReportsController(ApplicationDbContext context, IExcelService excelService, IDivisionService divisionService)
+            : base(divisionService)
         {
             _context = context;
             _excelService = excelService;
@@ -35,7 +36,7 @@ namespace net_backend.Controllers
             [FromQuery] int page = 1,
             [FromQuery] int limit = 25)
         {
-            var query = _context.Issues.Where(i => i.IsActive && !i.IsReturned).AsQueryable();
+            var query = _context.Issues.Where(i => i.IsActive && !i.IsReturned && i.DivisionId == CurrentDivisionId).AsQueryable();
 
             if (!string.IsNullOrEmpty(search))
             {
@@ -119,7 +120,7 @@ namespace net_backend.Controllers
             [FromQuery] int page = 1, 
             [FromQuery] int limit = 25)
         {
-            var query = _context.Items.Where(i => i.IsActive && i.Status == ItemStatus.MISSING).AsQueryable();
+            var query = _context.Items.Where(i => i.IsActive && i.Status == ItemStatus.MISSING && i.DivisionId == CurrentDivisionId).AsQueryable();
 
             if (!string.IsNullOrEmpty(companyIds))
             {
@@ -156,11 +157,11 @@ namespace net_backend.Controllers
                                        (i.SerialNumber != null && i.SerialNumber.Contains(term)) ||
                                        (i.Description != null && i.Description.Contains(term)) ||
                                        i.Issues.Any(iss => iss.IssueNo.Contains(term) || 
-                                                         (iss.IssuedTo != null && iss.IssuedTo.Contains(term)) ||
-                                                         (iss.Company != null && iss.Company.Name.Contains(term)) ||
-                                                         (iss.Contractor != null && iss.Contractor.Name.Contains(term)) ||
-                                                         (iss.Machine != null && iss.Machine.Name.Contains(term)) ||
-                                                         (iss.Location != null && iss.Location.Name.Contains(term))));
+                                                          (iss.IssuedTo != null && iss.IssuedTo.Contains(term)) ||
+                                                          (iss.Company != null && iss.Company.Name.Contains(term)) ||
+                                                          (iss.Contractor != null && iss.Contractor.Name.Contains(term)) ||
+                                                          (iss.Machine != null && iss.Machine.Name.Contains(term)) ||
+                                                          (iss.Location != null && iss.Location.Name.Contains(term))));
             }
 
             var total = await query.CountAsync();
@@ -199,7 +200,7 @@ namespace net_backend.Controllers
         {
             var item = await _context.Items
                 .Include(i => i.Category)
-                .FirstOrDefaultAsync(i => i.Id == itemId);
+                .FirstOrDefaultAsync(i => i.Id == itemId && i.DivisionId == CurrentDivisionId);
             
             if (item == null) 
                 return NotFound(new ApiResponse<object> { Success = false, Message = "Item not found" });
@@ -213,7 +214,7 @@ namespace net_backend.Controllers
 
             // 2. Fetch Source Data
             var issuesQuery = _context.Issues
-                .Where(i => i.ItemId == itemId && i.IsActive)
+                .Where(i => i.ItemId == itemId && i.IsActive && i.DivisionId == CurrentDivisionId)
                 .Include(i => i.Company)
                 .Include(i => i.Contractor)
                 .Include(i => i.Machine)
@@ -225,7 +226,7 @@ namespace net_backend.Controllers
             var issues = await issuesQuery.ToListAsync();
 
             var standaloneReturnsQuery = _context.Returns
-                .Where(r => r.ItemId == itemId && r.IssueId == null && r.IsActive)
+                .Where(r => r.ItemId == itemId && r.IssueId == null && r.IsActive && r.DivisionId == CurrentDivisionId)
                 .Include(r => r.Company)
                 .Include(r => r.Contractor)
                 .Include(r => r.Machine)
@@ -268,8 +269,6 @@ namespace net_backend.Controllers
                 }
 
                 foreach (var ret in issue.Returns) {
-                    // Returns associated with issues follow the issue's filter match in most ledger contexts,
-                    // but we can apply filters to returns too if desired.
                     if (issueMatches) {
                         bool conditionMatches = condList == null || (ret.Condition != null && condList.Contains(ret.Condition.Trim().ToLower()));
                         if (conditionMatches) {
@@ -376,7 +375,7 @@ namespace net_backend.Controllers
             [FromQuery] string? dateFrom = null,
             [FromQuery] string? dateTo = null)
         {
-            var query = _context.Issues.Where(i => i.IsActive && !i.IsReturned).AsQueryable();
+            var query = _context.Issues.Where(i => i.IsActive && !i.IsReturned && i.DivisionId == CurrentDivisionId).AsQueryable();
 
             if (!string.IsNullOrEmpty(search))
             {
@@ -461,7 +460,7 @@ namespace net_backend.Controllers
             [FromQuery] string? search = null,
             [FromQuery] string? conditions = null)
         {
-            var query = _context.Items.Where(i => i.IsActive && i.Status == ItemStatus.MISSING).AsQueryable();
+            var query = _context.Items.Where(i => i.IsActive && i.Status == ItemStatus.MISSING && i.DivisionId == CurrentDivisionId).AsQueryable();
 
             if (!string.IsNullOrEmpty(companyIds))
             {
@@ -498,11 +497,11 @@ namespace net_backend.Controllers
                                        (i.SerialNumber != null && i.SerialNumber.Contains(term)) ||
                                        (i.Description != null && i.Description.Contains(term)) ||
                                        i.Issues.Any(iss => iss.IssueNo.Contains(term) || 
-                                                         (iss.IssuedTo != null && iss.IssuedTo.Contains(term)) ||
-                                                         (iss.Company != null && iss.Company.Name.Contains(term)) ||
-                                                         (iss.Contractor != null && iss.Contractor.Name.Contains(term)) ||
-                                                         (iss.Machine != null && iss.Machine.Name.Contains(term)) ||
-                                                         (iss.Location != null && iss.Location.Name.Contains(term))));
+                                                          (iss.IssuedTo != null && iss.IssuedTo.Contains(term)) ||
+                                                          (iss.Company != null && iss.Company.Name.Contains(term)) ||
+                                                          (iss.Contractor != null && iss.Contractor.Name.Contains(term)) ||
+                                                          (iss.Machine != null && iss.Machine.Name.Contains(term)) ||
+                                                          (iss.Location != null && iss.Location.Name.Contains(term))));
             }
 
             var items = await query.Include(i => i.Category).OrderBy(i => i.ItemName).ToListAsync();
@@ -531,11 +530,11 @@ namespace net_backend.Controllers
             [FromQuery] string? dateFrom = null,
             [FromQuery] string? dateTo = null)
         {
-            var item = await _context.Items.Include(i => i.Category).FirstOrDefaultAsync(i => i.Id == itemId);
+            var item = await _context.Items.Include(i => i.Category).FirstOrDefaultAsync(i => i.Id == itemId && i.DivisionId == CurrentDivisionId);
             if (item == null) return NotFound();
 
             var issuesQuery = _context.Issues
-                .Where(i => i.ItemId == itemId && i.IsActive)
+                .Where(i => i.ItemId == itemId && i.IsActive && i.DivisionId == CurrentDivisionId)
                 .Include(i => i.Company)
                 .Include(i => i.Contractor)
                 .Include(i => i.Machine)
@@ -547,7 +546,7 @@ namespace net_backend.Controllers
             var issues = await issuesQuery.ToListAsync();
 
             var standaloneReturnsQuery = _context.Returns
-                .Where(r => r.ItemId == itemId && r.IssueId == null && r.IsActive)
+                .Where(r => r.ItemId == itemId && r.IssueId == null && r.IsActive && r.DivisionId == CurrentDivisionId)
                 .Include(r => r.Company)
                 .Include(r => r.Contractor)
                 .Include(r => r.Machine)

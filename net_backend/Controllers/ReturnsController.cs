@@ -10,12 +10,13 @@ namespace net_backend.Controllers
 {
     [Route("returns")]
     [ApiController]
-    public class ReturnsController : ControllerBase
+    public class ReturnsController : DivisionIsolatedController
     {
         private readonly ApplicationDbContext _context;
         private readonly ICodeGeneratorService _codeGenerator;
 
-        public ReturnsController(ApplicationDbContext context, ICodeGeneratorService codeGenerator)
+        public ReturnsController(ApplicationDbContext context, ICodeGeneratorService codeGenerator, IDivisionService divisionService)
+            : base(divisionService)
         {
             _context = context;
             _codeGenerator = codeGenerator;
@@ -36,6 +37,7 @@ namespace net_backend.Controllers
             [FromQuery] bool? hideIssuedItems)
         {
             var query = _context.Returns
+                .Where(r => r.DivisionId == CurrentDivisionId)
                 .Include(r => r.Issue).ThenInclude(i => i.Item)
                 .Include(r => r.Issue).ThenInclude(i => i.Company)
                 .Include(r => r.Issue).ThenInclude(i => i.Contractor)
@@ -57,7 +59,7 @@ namespace net_backend.Controllers
                 else if (status == "inactive") query = query.Where(r => !r.IsActive);
             }
 
-            // Multi-select filters - check both direct return properties and issue properties
+            // Multi-select filters
             if (!string.IsNullOrEmpty(companyIds))
             {
                 var ids = companyIds.Split(',').Select(id => int.TryParse(id.Trim(), out var n) ? n : 0).Where(n => n > 0).ToList();
@@ -118,7 +120,6 @@ namespace net_backend.Controllers
                 }
             }
 
-            // Condition filter (specific to returns)
             if (!string.IsNullOrEmpty(conditions))
             {
                 var validConditions = new[] { "OK", "Damaged", "Calibration Required", "Missing" };
@@ -129,7 +130,6 @@ namespace net_backend.Controllers
                 }
             }
 
-            // Operator name filter (legacy/fallback + ReceivedBy support)
             if (!string.IsNullOrEmpty(operatorName))
             {
                 var searchTerm = operatorName.Trim();
@@ -139,14 +139,12 @@ namespace net_backend.Controllers
                 );
             }
 
-            // Received By filter
             if (!string.IsNullOrEmpty(receivedBy))
             {
                 var searchTerm = receivedBy.Trim();
                 query = query.Where(r => r.ReceivedBy != null && r.ReceivedBy.Contains(searchTerm));
             }
 
-            // Global search filter
             if (!string.IsNullOrEmpty(search))
             {
                 var searchTerm = search.Trim();
@@ -170,17 +168,14 @@ namespace net_backend.Controllers
                 );
             }
 
-            // Hide issued items filter
             if (hideIssuedItems.HasValue && hideIssuedItems.Value)
             {
-                // Find the latest active issue ID for each item
                 var latestIssueIds = await _context.Issues
-                    .Where(i => i.IsActive)
+                    .Where(i => i.DivisionId == CurrentDivisionId && i.IsActive)
                     .GroupBy(i => i.ItemId)
                     .Select(g => g.OrderByDescending(i => i.Id).First().Id)
                     .ToListAsync();
 
-                // Only show returns associated with the latest issues or returns not linked to issues (missing items)
                 query = query.Where(r => r.IssueId == null || latestIssueIds.Contains(r.IssueId.Value));
             }
 
@@ -204,7 +199,7 @@ namespace net_backend.Controllers
                 .Include(r => r.Machine)
                 .Include(r => r.Location)
                 .Include(r => r.Status)
-                .FirstOrDefaultAsync(r => r.Id == id);
+                .FirstOrDefaultAsync(r => r.Id == id && r.DivisionId == CurrentDivisionId);
             if (ret == null) return NotFound();
             return Ok(new ApiResponse<Return> { Data = ret });
         }
@@ -212,7 +207,7 @@ namespace net_backend.Controllers
         [HttpGet("next-code")]
         public async Task<ActionResult<ApiResponse<object>>> GetNextCode()
         {
-            var count = await _context.Returns.CountAsync();
+            var count = await _context.Returns.CountAsync(r => r.DivisionId == CurrentDivisionId);
             var nextCode = _codeGenerator.GenerateNextCode("INWARD", count);
             return Ok(new ApiResponse<object> { Data = new { nextCode } });
         }
@@ -235,7 +230,7 @@ namespace net_backend.Controllers
             if (request.IssueId.HasValue)
             {
                 var existingActiveReturn = await _context.Returns
-                    .AnyAsync(r => r.IssueId == request.IssueId && r.IsActive);
+                    .AnyAsync(r => r.DivisionId == CurrentDivisionId && r.IssueId == request.IssueId && r.IsActive);
                 
                 if (existingActiveReturn)
                 {
@@ -244,7 +239,8 @@ namespace net_backend.Controllers
             }
             else if (request.ItemId.HasValue)
             {
-                var item = await _context.Items.FindAsync(request.ItemId);
+                var item = await _context.Items
+                    .FirstOrDefaultAsync(i => i.Id == request.ItemId && i.DivisionId == CurrentDivisionId);
                 if (item == null)
                 {
                     return NotFound(new ApiResponse<Return> { Success = false, Message = "Item not found" });
@@ -256,37 +252,35 @@ namespace net_backend.Controllers
                 }
             }
 
-            var count = await _context.Returns.CountAsync();
+            var count = await _context.Returns.CountAsync(r => r.DivisionId == CurrentDivisionId);
             var returnCode = _codeGenerator.GenerateNextCode("INWARD", count);
 
             string? imagePath = null;
             if (image != null)
             {
-                // New Logic:
-                // If Issue IssueId -> items/{itemSerial}/inward/parameter-name
-                // If Item ItemId -> items/{itemSerial}/inward/parameter-name
-                // For this we need the item serial.
-                
                 string serialNumber = "unknown";
                 if (request.IssueId.HasValue)
                 {
-                    // Fetch Issue -> Item to get Serial
-                    var issueForSerial = await _context.Issues.Include(i => i.Item).FirstOrDefaultAsync(i => i.Id == request.IssueId);
+                    var issueForSerial = await _context.Issues
+                        .Include(i => i.Item)
+                        .FirstOrDefaultAsync(i => i.Id == request.IssueId && i.DivisionId == CurrentDivisionId);
                     if (issueForSerial?.Item != null) serialNumber = issueForSerial.Item.SerialNumber;
                 }
                 else if (request.ItemId.HasValue)
                 {
-                     var itemForSerial = await _context.Items.FindAsync(request.ItemId);
+                     var itemForSerial = await _context.Items
+                         .FirstOrDefaultAsync(i => i.Id == request.ItemId && i.DivisionId == CurrentDivisionId);
                      if (itemForSerial != null) serialNumber = itemForSerial.SerialNumber;
                 }
 
                 var safeSerial = PathUtils.SanitizeSerialForPath(serialNumber);
+                var divFolderName = PathUtils.SanitizeFolderName(CurrentDivisionName);
                 var ext = Path.GetExtension(image.FileName);
                 var fileName = request.IssueId.HasValue 
                     ? $"inward-issue-{request.IssueId}-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}{ext}"
                     : $"inward-missing-{request.ItemId}-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}{ext}";
 
-                var uploads = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "storage", "items", safeSerial, "inward");
+                var uploads = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "storage", divFolderName, "items", safeSerial, "inward");
                 Directory.CreateDirectory(uploads);
                 
                 var filePath = Path.Combine(uploads, fileName);
@@ -295,17 +289,20 @@ namespace net_backend.Controllers
                     await image.CopyToAsync(fileStream);
                 }
                 
-                // Stored path: items/{serial}/inward/{filename}
-                imagePath = $"items/{safeSerial}/inward/{fileName}";
+                imagePath = $"{divFolderName}/items/{safeSerial}/inward/{fileName}";
             }
+
+            var userIdStr = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var currentUserId = int.TryParse(userIdStr, out var uId) ? uId : 1;
 
             var ret = new Return
             {
                 ReturnCode = returnCode,
+                DivisionId = CurrentDivisionId,
                 IssueId = request.IssueId,
                 ItemId = request.ItemId,
                 Condition = request.Condition,
-                ReturnedBy = 1, // Placeholder
+                ReturnedBy = currentUserId,
                 Remarks = request.Remarks,
                 ReceivedBy = request.ReceivedBy,
                 StatusId = request.StatusId,
@@ -320,14 +317,15 @@ namespace net_backend.Controllers
 
             _context.Returns.Add(ret);
 
-            // Update item/issue status
             if (request.IssueId.HasValue)
             {
-                var issue = await _context.Issues.FindAsync(request.IssueId);
+                var issue = await _context.Issues
+                    .FirstOrDefaultAsync(i => i.Id == request.IssueId && i.DivisionId == CurrentDivisionId);
                 if (issue != null)
                 {
                     issue.IsReturned = true;
-                    var item = await _context.Items.FindAsync(issue.ItemId);
+                    var item = await _context.Items
+                        .FirstOrDefaultAsync(i => i.Id == issue.ItemId && i.DivisionId == CurrentDivisionId);
                     if (item != null)
                     {
                         item.Status = request.Condition.Equals("Missing", StringComparison.OrdinalIgnoreCase) ? ItemStatus.MISSING : ItemStatus.AVAILABLE;
@@ -336,7 +334,8 @@ namespace net_backend.Controllers
             }
             else if (request.ItemId.HasValue)
             {
-                var item = await _context.Items.FindAsync(request.ItemId);
+                var item = await _context.Items
+                    .FirstOrDefaultAsync(i => i.Id == request.ItemId && i.DivisionId == CurrentDivisionId);
                 if (item != null)
                 {
                     item.Status = request.Condition.Equals("Missing", StringComparison.OrdinalIgnoreCase) ? ItemStatus.MISSING : ItemStatus.AVAILABLE;
@@ -353,7 +352,8 @@ namespace net_backend.Controllers
         {
             if (!await CheckPermission("editInward")) return Forbidden();
 
-            var ret = await _context.Returns.FindAsync(id);
+            var ret = await _context.Returns
+                .FirstOrDefaultAsync(r => r.Id == id && r.DivisionId == CurrentDivisionId);
             if (ret == null) return NotFound(new ApiResponse<Return> { Success = false, Message = "Return record not found" });
 
             if (request.Remarks != null) ret.Remarks = request.Remarks;
@@ -369,15 +369,16 @@ namespace net_backend.Controllers
             ret.UpdatedAt = DateTime.Now;
             await _context.SaveChangesAsync();
 
-            // Sync item status if condition changed
             if (request.Condition != null)
             {
                 if (ret.IssueId.HasValue)
                 {
-                    var issue = await _context.Issues.FindAsync(ret.IssueId);
+                    var issue = await _context.Issues
+                        .FirstOrDefaultAsync(i => i.Id == ret.IssueId && i.DivisionId == CurrentDivisionId);
                     if (issue != null)
                     {
-                        var item = await _context.Items.FindAsync(issue.ItemId);
+                        var item = await _context.Items
+                            .FirstOrDefaultAsync(i => i.Id == issue.ItemId && i.DivisionId == CurrentDivisionId);
                         if (item != null)
                         {
                             item.Status = request.Condition.Equals("Missing", StringComparison.OrdinalIgnoreCase) ? ItemStatus.MISSING : ItemStatus.AVAILABLE;
@@ -386,7 +387,8 @@ namespace net_backend.Controllers
                 }
                 else if (ret.ItemId.HasValue)
                 {
-                    var item = await _context.Items.FindAsync(ret.ItemId);
+                    var item = await _context.Items
+                        .FirstOrDefaultAsync(i => i.Id == ret.ItemId && i.DivisionId == CurrentDivisionId);
                     if (item != null)
                     {
                         item.Status = request.Condition.Equals("Missing", StringComparison.OrdinalIgnoreCase) ? ItemStatus.MISSING : ItemStatus.AVAILABLE;
@@ -409,32 +411,26 @@ namespace net_backend.Controllers
                 .Include(r => r.Issue).ThenInclude(i => i.Machine)
                 .Include(r => r.Issue).ThenInclude(i => i.Location)
                 .Include(r => r.Item)
-                .FirstOrDefaultAsync(r => r.Id == id);
+                .FirstOrDefaultAsync(r => r.Id == id && r.DivisionId == CurrentDivisionId);
 
             if (ret == null) return NotFound(new ApiResponse<Return> { Success = false, Message = "Return record not found" });
 
-            // 1. Mark Return as Inactive
             ret.IsActive = false;
             ret.UpdatedAt = DateTime.Now;
 
-            // 2. Revert associated Issue to "Not Returned"
             if (ret.Issue != null)
             {
-                // Check if there are any OTHER active returns for this issue? 
-                // Usually 1 issue = 1 return. If we inactive this return, the issue is effectively open.
                 ret.Issue.IsReturned = false;
             }
 
-            // 3. Revert associated Item to "ISSUED"
             if (ret.Item != null)
             {
-                // If the return is voided, the item is theoretically back with the user (ISSUED)
                 ret.Item.Status = ItemStatus.ISSUED;
             }
             else if (ret.Issue != null)
             {
-                 // Try to fetch item via issue if direct navigation failed (unlikely with EF Include)
-                 var item = await _context.Items.FindAsync(ret.Issue.ItemId);
+                 var item = await _context.Items
+                     .FirstOrDefaultAsync(i => i.Id == ret.Issue.ItemId && i.DivisionId == CurrentDivisionId);
                  if (item != null) item.Status = ItemStatus.ISSUED;
             }
 
@@ -456,15 +452,14 @@ namespace net_backend.Controllers
                 .Include(r => r.Issue).ThenInclude(i => i.Machine)
                 .Include(r => r.Issue).ThenInclude(i => i.Location)
                 .Include(r => r.Item)
-                .FirstOrDefaultAsync(r => r.Id == id);
+                .FirstOrDefaultAsync(r => r.Id == id && r.DivisionId == CurrentDivisionId);
 
             if (ret == null) return NotFound(new ApiResponse<Return> { Success = false, Message = "Return record not found" });
 
-            // Ensure no other active return exists for this issue
             if (ret.IssueId.HasValue)
             {
                 var otherActiveReturn = await _context.Returns
-                    .AnyAsync(r => r.IssueId == ret.IssueId && r.IsActive && r.Id != id);
+                    .AnyAsync(r => r.DivisionId == CurrentDivisionId && r.IssueId == ret.IssueId && r.IsActive && r.Id != id);
 
                 if (otherActiveReturn)
                 {
@@ -472,25 +467,22 @@ namespace net_backend.Controllers
                 }
             }
 
-            // 1. Mark Return as Active
             ret.IsActive = true;
             ret.UpdatedAt = DateTime.Now;
 
-            // 2. Mark associated Issue as "Returned"
             if (ret.Issue != null)
             {
                 ret.Issue.IsReturned = true;
             }
 
-            // 3. Set Item Status based on Condition
-            // Logic mirrored from Create: Missing -> MISSING, else -> AVAILABLE
             if (ret.Item != null)
             {
                  ret.Item.Status = ret.Condition.Equals("Missing", StringComparison.OrdinalIgnoreCase) ? ItemStatus.MISSING : ItemStatus.AVAILABLE;
             }
              else if (ret.Issue != null)
             {
-                 var item = await _context.Items.FindAsync(ret.Issue.ItemId);
+                 var item = await _context.Items
+                     .FirstOrDefaultAsync(i => i.Id == ret.Issue.ItemId && i.DivisionId == CurrentDivisionId);
                  if (item != null) 
                  {
                     item.Status = ret.Condition.Equals("Missing", StringComparison.OrdinalIgnoreCase) ? ItemStatus.MISSING : ItemStatus.AVAILABLE;

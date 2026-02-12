@@ -9,8 +9,9 @@ namespace net_backend.DTOs
         public string? PrimaryColor { get; set; }
     }
 
-    public class UpdatePermissionsRequest
+    public class UpdateUserPermissionsRequest
     {
-        public List<UserPermission> Permissions { get; set; } = new List<UserPermission>();
+        public UserPermission? Permissions { get; set; }
+        public List<int> AllowedDivisionIds { get; set; } = new();
     }
 }

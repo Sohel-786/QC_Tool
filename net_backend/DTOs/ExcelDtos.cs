@@ -1,5 +1,9 @@
 namespace net_backend.DTOs
 {
+    public class DivisionImportDto
+    {
+        public string Name { get; set; } = string.Empty;
+    }
     public class CompanyImportDto
     {
         public string Name { get; set; } = string.Empty;

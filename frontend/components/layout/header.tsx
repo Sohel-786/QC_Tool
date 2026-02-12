@@ -4,7 +4,7 @@ import { User } from '@/types';
 import { Avatar } from '@/components/ui/avatar';
 import { useAppSettings, useCurrentUserPermissions } from '@/hooks/use-settings';
 import { useSoftwareProfileDraft } from '@/contexts/software-profile-draft-context';
-import { Building2, ChevronDown, ChevronUp, LogOut } from 'lucide-react';
+import { Building2, ChevronDown, ChevronUp, LogOut, LayoutGrid } from 'lucide-react';
 import { useLogout } from '@/hooks/use-auth-mutations';
 import { Button } from '@/components/ui/button';
 
@@ -14,9 +14,10 @@ interface HeaderProps {
   user: User;
   isNavExpanded: boolean;
   onNavExpandChange: (expanded: boolean) => void;
+  onOpenDivisionDialog: () => void;
 }
 
-export function Header({ user, isNavExpanded, onNavExpandChange }: HeaderProps) {
+export function Header({ user, isNavExpanded, onNavExpandChange, onOpenDivisionDialog }: HeaderProps) {
   const { data: appSettings } = useAppSettings();
   const { data: permissions } = useCurrentUserPermissions();
   const profileDraft = useSoftwareProfileDraft()?.draft ?? null;
@@ -58,6 +59,28 @@ export function Header({ user, isNavExpanded, onNavExpandChange }: HeaderProps) 
           </div>
         )}
       </div>
+
+      {user.selectedDivisionName && (
+        <button
+          onClick={onOpenDivisionDialog}
+          className="flex items-center gap-2.5 px-3 py-1.5 bg-blue-50/50 hover:bg-blue-100/50 border border-blue-100 hover:border-blue-200 rounded-xl transition-all duration-200 group ml-2 mr-auto"
+        >
+          <div className="p-2 bg-white rounded-lg shadow-sm text-blue-600 border border-blue-50">
+            <LayoutGrid className="h-4 w-4" />
+          </div>
+          <div className="flex flex-col items-start pr-1">
+            <span className="text-[10px] text-blue-600/70 font-bold uppercase tracking-widest leading-none mb-1">
+              Division
+            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm font-black text-slate-800 tracking-tight uppercase leading-none">
+                {user.selectedDivisionName}
+              </span>
+              <ChevronDown className="h-3.5 w-3.5 text-blue-400 group-hover:text-blue-600 group-hover:translate-y-0.5 transition-all" />
+            </div>
+          </div>
+        </button>
+      )}
       <div className="flex items-center gap-4 min-w-0">
         {isHorizontal && (
           <button

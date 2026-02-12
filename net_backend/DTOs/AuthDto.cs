@@ -14,6 +14,13 @@ namespace net_backend.DTOs
         public string LastName { get; set; } = string.Empty;
         public string Role { get; set; } = string.Empty;
         public string? Avatar { get; set; }
+        public List<DivisionDto> AllowedDivisions { get; set; } = new();
+    }
+
+    public class DivisionDto
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
     }
 
     public class LoginResponse

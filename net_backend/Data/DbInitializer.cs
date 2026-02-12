@@ -10,14 +10,54 @@ namespace net_backend.Data
         {
             context.Database.EnsureCreated();
 
-            // 1. Seed Users (Only Minimal Admin)
-            if (!context.Users.Any())
+            // 0. Seed Default Division if none exists
+            if (!context.Divisions.Any())
             {
-                var users = new User[]
-                {
-                    new User { Username = "qc_admin", Password = BCrypt.Net.BCrypt.HashPassword("admin123"), FirstName = "QC", LastName = "Admin", Role = Role.QC_ADMIN, IsActive = true, CreatedAt = DateTime.Now, UpdatedAt = DateTime.Now }
+                context.Divisions.Add(new Division 
+                { 
+                    Name = "QC", 
+                    IsActive = true, 
+                    CreatedAt = DateTime.Now, 
+                    UpdatedAt = DateTime.Now 
+                });
+                context.SaveChanges();
+            }
+
+            var defaultDivision = context.Divisions.First();
+
+            // 1. Ensure Admin User Exists with Correct Password
+            var adminUser = context.Users.FirstOrDefault(u => u.Username == "qc_admin");
+            if (adminUser == null)
+            {
+                adminUser = new User 
+                { 
+                    Username = "qc_admin", 
+                    Password = BCrypt.Net.BCrypt.HashPassword("admin123"), 
+                    FirstName = "QC", 
+                    LastName = "Admin", 
+                    Role = Role.QC_ADMIN, 
+                    IsActive = true, 
+                    CreatedAt = DateTime.Now, 
+                    UpdatedAt = DateTime.Now 
                 };
-                context.Users.AddRange(users);
+                context.Users.Add(adminUser);
+                context.SaveChanges();
+            }
+            else
+            {
+                // Reset password to ensure access
+                adminUser.Password = BCrypt.Net.BCrypt.HashPassword("admin123");
+                context.SaveChanges();
+            }
+
+            // Ensure Admin has access to Default Division
+            if (!context.UserDivisions.Any(ud => ud.UserId == adminUser.Id && ud.DivisionId == defaultDivision.Id))
+            {
+                context.UserDivisions.Add(new UserDivision
+                {
+                    UserId = adminUser.Id,
+                    DivisionId = defaultDivision.Id
+                });
                 context.SaveChanges();
             }
 
@@ -51,8 +91,8 @@ namespace net_backend.Data
             if (!context.Statuses.Any())
             {
                 context.Statuses.AddRange(new Status[] {
-                    new Status { Name = "Available", IsActive = true, CreatedAt = DateTime.Now, UpdatedAt = DateTime.Now },
-                    new Status { Name = "Missing", IsActive = true, CreatedAt = DateTime.Now, UpdatedAt = DateTime.Now }
+                    new Status { Name = "Available", IsActive = true, DivisionId = defaultDivision.Id, CreatedAt = DateTime.Now, UpdatedAt = DateTime.Now },
+                    new Status { Name = "Missing", IsActive = true, DivisionId = defaultDivision.Id, CreatedAt = DateTime.Now, UpdatedAt = DateTime.Now }
                 });
                 context.SaveChanges();
             }
@@ -60,12 +100,12 @@ namespace net_backend.Data
             // 4. Seed User Permissions
             if (!context.UserPermissions.Any())
             {
-                var adminUser = context.Users.FirstOrDefault(u => u.Role == Role.QC_ADMIN);
-                if (adminUser != null)
+                var adminUserForPerms = context.Users.FirstOrDefault(u => u.Username == "qc_admin");
+                if (adminUserForPerms != null)
                 {
                     var adminPerm = new UserPermission
                     {
-                        UserId = adminUser.Id,
+                        UserId = adminUserForPerms.Id,
                         ViewDashboard = true,
                         ViewMaster = true,
                         ViewCompanyMaster = true,

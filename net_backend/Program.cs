@@ -18,8 +18,10 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // Configure Services
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICodeGeneratorService, CodeGeneratorService>();
 builder.Services.AddScoped<IExcelService, ExcelService>();
+builder.Services.AddScoped<IDivisionService, DivisionService>();
 
 // Configure Database
 builder.Services.AddDbContext<ApplicationDbContext>(options =>

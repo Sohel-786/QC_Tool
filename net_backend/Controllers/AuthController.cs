@@ -46,6 +46,25 @@ namespace net_backend.Controllers
 
             var token = GenerateJwtToken(user);
 
+            // Fetch allowed divisions
+            var allowedDivisions = new List<DivisionDto>();
+            if (user.Role == Role.QC_ADMIN)
+            {
+                // Admins always have access to ALL active divisions
+                allowedDivisions = await _context.Divisions
+                    .Where(d => d.IsActive)
+                    .Select(d => new DivisionDto { Id = d.Id, Name = d.Name })
+                    .ToListAsync();
+            }
+            else
+            {
+                // Other roles only have access to divisions explicitly assigned
+                allowedDivisions = await _context.UserDivisions
+                    .Where(ud => ud.UserId == user.Id && ud.Division!.IsActive)
+                    .Select(ud => new DivisionDto { Id = ud.DivisionId, Name = ud.Division!.Name })
+                    .ToListAsync();
+            }
+
             // Set cookie matching Node.js implementation
             var cookieOptions = new CookieOptions
             {
@@ -68,7 +87,8 @@ namespace net_backend.Controllers
                     FirstName = user.FirstName,
                     LastName = user.LastName,
                     Role = user.Role.ToString(),
-                    Avatar = user.Avatar
+                    Avatar = user.Avatar,
+                    AllowedDivisions = allowedDivisions
                 }
             });
         }
@@ -96,6 +116,24 @@ namespace net_backend.Controllers
                 return Unauthorized(new { success = false, message = "User not found or inactive" });
             }
 
+            var allowedDivisions = new List<DivisionDto>();
+            if (user.Role == Role.QC_ADMIN)
+            {
+                // Admins always have access to ALL active divisions
+                allowedDivisions = await _context.Divisions
+                    .Where(d => d.IsActive)
+                    .Select(d => new DivisionDto { Id = d.Id, Name = d.Name })
+                    .ToListAsync();
+            }
+            else
+            {
+                // Other roles only have access to divisions explicitly assigned
+                allowedDivisions = await _context.UserDivisions
+                    .Where(ud => ud.UserId == user.Id && ud.Division!.IsActive)
+                    .Select(ud => new DivisionDto { Id = ud.DivisionId, Name = ud.Division!.Name })
+                    .ToListAsync();
+            }
+
             return Ok(new
             {
                 success = true,
@@ -107,14 +145,15 @@ namespace net_backend.Controllers
                     FirstName = user.FirstName,
                     LastName = user.LastName,
                     Role = user.Role.ToString(),
-                    Avatar = user.Avatar
+                    Avatar = user.Avatar,
+                    AllowedDivisions = allowedDivisions
                 }
             });
         }
 
         private string GenerateJwtToken(User user)
         {
-            var claims = new[]
+            var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Name, user.Username),

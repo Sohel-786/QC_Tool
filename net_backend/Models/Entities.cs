@@ -44,8 +44,8 @@ namespace net_backend.Models
         public virtual User? User { get; set; }
     }
 
-    [Table("companies")]
-    public class Company
+    [Table("divisions")]
+    public class Division
     {
         public int Id { get; set; }
         [Required]
@@ -54,6 +54,22 @@ namespace net_backend.Models
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime UpdatedAt { get; set; } = DateTime.Now;
 
+        public virtual ICollection<UserDivision> UserDivisions { get; set; } = new List<UserDivision>();
+    }
+
+    [Table("companies")]
+    public class Company
+    {
+        public int Id { get; set; }
+        [Required]
+        public string Name { get; set; } = string.Empty;
+        public int DivisionId { get; set; }
+        public bool IsActive { get; set; } = true;
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public DateTime UpdatedAt { get; set; } = DateTime.Now;
+
+        [ForeignKey("DivisionId")]
+        public virtual Division? Division { get; set; }
         public virtual ICollection<Location> Locations { get; set; } = new List<Location>();
         public virtual ICollection<Issue> Issues { get; set; } = new List<Issue>();
         public virtual ICollection<Return> Returns { get; set; } = new List<Return>();
@@ -67,10 +83,13 @@ namespace net_backend.Models
         public string Name { get; set; } = string.Empty;
         [Required]
         public string PhoneNumber { get; set; } = string.Empty;
+        public int DivisionId { get; set; }
         public bool IsActive { get; set; } = true;
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime UpdatedAt { get; set; } = DateTime.Now;
 
+        [ForeignKey("DivisionId")]
+        public virtual Division? Division { get; set; }
         public virtual ICollection<Issue> Issues { get; set; } = new List<Issue>();
         public virtual ICollection<Return> Returns { get; set; } = new List<Return>();
         public virtual ICollection<Machine> Machines { get; set; } = new List<Machine>();
@@ -82,10 +101,13 @@ namespace net_backend.Models
         public int Id { get; set; }
         [Required]
         public string Name { get; set; } = string.Empty;
+        public int DivisionId { get; set; }
         public bool IsActive { get; set; } = true;
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime UpdatedAt { get; set; } = DateTime.Now;
 
+        [ForeignKey("DivisionId")]
+        public virtual Division? Division { get; set; }
         public virtual ICollection<Item> Items { get; set; } = new List<Item>();
     }
 
@@ -101,6 +123,7 @@ namespace net_backend.Models
         public string? Image { get; set; }
         [Column("categoryId")]
         public int? CategoryId { get; set; }
+        public int DivisionId { get; set; }
         public string? InHouseLocation { get; set; }
         public ItemStatus Status { get; set; } = ItemStatus.AVAILABLE;
         public bool IsActive { get; set; } = true;
@@ -109,6 +132,8 @@ namespace net_backend.Models
 
         [ForeignKey("CategoryId")]
         public virtual ItemCategory? Category { get; set; }
+        [ForeignKey("DivisionId")]
+        public virtual Division? Division { get; set; }
         public virtual ICollection<Issue> Issues { get; set; } = new List<Issue>();
         public virtual ICollection<Return> MissingReturns { get; set; } = new List<Return>();
     }
@@ -120,12 +145,15 @@ namespace net_backend.Models
         [Required]
         public string Name { get; set; } = string.Empty;
         public int CompanyId { get; set; }
+        public int DivisionId { get; set; }
         public bool IsActive { get; set; } = true;
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime UpdatedAt { get; set; } = DateTime.Now;
 
         [ForeignKey("CompanyId")]
         public virtual Company? Company { get; set; }
+        [ForeignKey("DivisionId")]
+        public virtual Division? Division { get; set; }
         public virtual ICollection<Issue> Issues { get; set; } = new List<Issue>();
         public virtual ICollection<Return> Returns { get; set; } = new List<Return>();
     }
@@ -137,12 +165,15 @@ namespace net_backend.Models
         [Required]
         public string Name { get; set; } = string.Empty;
         public int ContractorId { get; set; }
+        public int DivisionId { get; set; }
         public bool IsActive { get; set; } = true;
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime UpdatedAt { get; set; } = DateTime.Now;
 
         [ForeignKey("ContractorId")]
         public virtual Contractor? Contractor { get; set; }
+        [ForeignKey("DivisionId")]
+        public virtual Division? Division { get; set; }
         public virtual ICollection<Issue> Issues { get; set; } = new List<Issue>();
         public virtual ICollection<Return> Returns { get; set; } = new List<Return>();
     }
@@ -153,9 +184,13 @@ namespace net_backend.Models
         public int Id { get; set; }
         [Required]
         public string Name { get; set; } = string.Empty;
+        public int DivisionId { get; set; }
         public bool IsActive { get; set; } = true;
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime UpdatedAt { get; set; } = DateTime.Now;
+
+        [ForeignKey("DivisionId")]
+        public virtual Division? Division { get; set; }
         public virtual ICollection<Return> Returns { get; set; } = new List<Return>();
     }
 
@@ -180,9 +215,23 @@ namespace net_backend.Models
         public DateTime UpdatedAt { get; set; } = DateTime.Now;
 
         public virtual UserPermission? Permission { get; set; }
+        public virtual ICollection<UserDivision> UserDivisions { get; set; } = new List<UserDivision>();
         public virtual ICollection<Issue> IssuedIssues { get; set; } = new List<Issue>();
         public virtual ICollection<Return> ReturnedReturns { get; set; } = new List<Return>();
         public virtual ICollection<AuditLog> AuditLogs { get; set; } = new List<AuditLog>();
+    }
+
+    [Table("user_divisions")]
+    public class UserDivision
+    {
+        public int Id { get; set; }
+        public int UserId { get; set; }
+        public int DivisionId { get; set; }
+
+        [ForeignKey("UserId")]
+        public virtual User? User { get; set; }
+        [ForeignKey("DivisionId")]
+        public virtual Division? Division { get; set; }
     }
 
     [Table("operators")]
@@ -195,9 +244,13 @@ namespace net_backend.Models
         public string? Address { get; set; }
         public string? ProfileImage { get; set; }
         public string? FingerprintTemplate { get; set; }
+        public int DivisionId { get; set; }
         public bool IsActive { get; set; } = true;
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime UpdatedAt { get; set; } = DateTime.Now;
+
+        [ForeignKey("DivisionId")]
+        public virtual Division? Division { get; set; }
     }
 
     [Table("user_permissions")]
@@ -207,6 +260,7 @@ namespace net_backend.Models
         public int UserId { get; set; }
         public bool ViewDashboard { get; set; } = true;
         public bool ViewMaster { get; set; } = true;
+        public bool ViewDivisionMaster { get; set; } = true;
         public bool ViewCompanyMaster { get; set; } = true;
         public bool ViewLocationMaster { get; set; } = true;
         public bool ViewContractorMaster { get; set; } = true;
@@ -254,6 +308,7 @@ namespace net_backend.Models
         public int ContractorId { get; set; }
         public int MachineId { get; set; }
         public int LocationId { get; set; }
+        public int DivisionId { get; set; }
         public bool IsActive { get; set; } = true;
         public bool IsReturned { get; set; } = false;
         public DateTime IssuedAt { get; set; } = DateTime.Now;
@@ -271,6 +326,8 @@ namespace net_backend.Models
         public virtual Machine? Machine { get; set; }
         [ForeignKey("LocationId")]
         public virtual Location? Location { get; set; }
+        [ForeignKey("DivisionId")]
+        public virtual Division? Division { get; set; }
         public virtual ICollection<Return> Returns { get; set; } = new List<Return>();
     }
 
@@ -290,6 +347,7 @@ namespace net_backend.Models
         [MaxLength(255)]
         public string? ReceivedBy { get; set; }
         public int? StatusId { get; set; }
+        public int DivisionId { get; set; }
         public bool IsActive { get; set; } = true;
         public DateTime ReturnedAt { get; set; } = DateTime.Now;
         public DateTime UpdatedAt { get; set; } = DateTime.Now;
@@ -315,5 +373,7 @@ namespace net_backend.Models
         public virtual Machine? Machine { get; set; }
         [ForeignKey("LocationId")]
         public virtual Location? Location { get; set; }
+        [ForeignKey("DivisionId")]
+        public virtual Division? Division { get; set; }
     }
 }

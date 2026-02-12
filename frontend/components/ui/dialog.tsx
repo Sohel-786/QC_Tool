@@ -22,6 +22,8 @@ interface DialogProps {
   closeOnBackdropClick?: boolean;
   /** When true, the header close (X) button is disabled */
   closeButtonDisabled?: boolean;
+  /** When true, the default header (title and X button) is hidden */
+  hideHeader?: boolean;
 }
 
 export function Dialog({
@@ -34,6 +36,7 @@ export function Dialog({
   contentScroll = true,
   closeOnBackdropClick = false,
   closeButtonDisabled = false,
+  hideHeader = false,
 }: DialogProps) {
   // Lock body scroll and handle ESC key when dialog is open
   useEffect(() => {
@@ -114,24 +117,36 @@ export function Dialog({
               )}
             >
               {/* Header */}
-              <div className="flex items-center justify-between p-6 border-b border-secondary-200">
-                <h2 className="text-xl font-semibold text-text">{title}</h2>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    onClose();
-                  }}
-                  disabled={closeButtonDisabled}
-                  className="h-8 w-8 p-0"
-                  title={closeButtonDisabled ? "Please wait" : "Close"}
+              {!hideHeader && (
+                <div className="flex items-center justify-between p-6 border-b border-secondary-200">
+                  <h2 className="text-xl font-semibold text-text">{title}</h2>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      onClose();
+                    }}
+                    disabled={closeButtonDisabled}
+                    className="h-8 w-8 p-0"
+                    title={closeButtonDisabled ? "Please wait" : "Close"}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+
+              {/* Special Close Button for hidden headers (optional, but requested for the modal phase) */}
+              {hideHeader && !closeButtonDisabled && (
+                <button
+                  onClick={onClose}
+                  className="absolute top-4 right-4 p-2 text-secondary-400 hover:text-secondary-600 hover:bg-secondary-100 rounded-full transition-all z-[1010]"
                 >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
+                  <X className="h-5 w-5" />
+                </button>
+              )}
 
               {/* Content - scrollable by default; use contentScroll={false} for internal scroll + sticky footer */}
               <div

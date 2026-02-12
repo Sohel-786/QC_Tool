@@ -10,12 +10,13 @@ namespace net_backend.Controllers
 {
     [Route("items")]
     [ApiController]
-    public class ItemsController : ControllerBase
+    public class ItemsController : DivisionIsolatedController
     {
         private readonly ApplicationDbContext _context;
         private readonly IExcelService _excelService;
 
-        public ItemsController(ApplicationDbContext context, IExcelService excelService)
+        public ItemsController(ApplicationDbContext context, IExcelService excelService, IDivisionService divisionService)
+            : base(divisionService)
         {
             _context = context;
             _excelService = excelService;
@@ -24,7 +25,10 @@ namespace net_backend.Controllers
         [HttpGet("export")]
         public async Task<IActionResult> Export()
         {
-            var items = await _context.Items.Include(i => i.Category).ToListAsync();
+            var items = await _context.Items
+                .Where(i => i.DivisionId == CurrentDivisionId)
+                .Include(i => i.Category)
+                .ToListAsync();
             var data = items.Select(i => new {
                 Id = i.Id,
                 ItemName = i.ItemName,
@@ -66,7 +70,9 @@ namespace net_backend.Controllers
                 
                 var validation = await ValidateItems(result.Data);
                 var newItems = new List<Item>();
-                var categories = await _context.ItemCategories.ToDictionaryAsync(c => c.Name.ToLower(), c => c.Id);
+                var categories = await _context.ItemCategories
+                    .Where(c => c.DivisionId == CurrentDivisionId)
+                    .ToDictionaryAsync(c => c.Name.ToLower(), c => c.Id);
 
                 foreach (var validRow in validation.Valid)
                 {
@@ -84,6 +90,7 @@ namespace net_backend.Controllers
                         Description = item.Description?.Trim(),
                         CategoryId = categoryId,
                         InHouseLocation = item.InHouseLocation?.Trim(),
+                        DivisionId = CurrentDivisionId,
                         Status = ItemStatus.AVAILABLE,
                         IsActive = true,
                         CreatedAt = DateTime.Now,
@@ -106,7 +113,10 @@ namespace net_backend.Controllers
         private async Task<ValidationResultDto<ItemImportDto>> ValidateItems(List<ExcelRow<ItemImportDto>> rows)
         {
             var validation = new ValidationResultDto<ItemImportDto>();
-            var existingSerials = await _context.Items.Select(i => i.SerialNumber.ToLower()).ToListAsync();
+            var existingSerials = await _context.Items
+                .Where(i => i.DivisionId == CurrentDivisionId)
+                .Select(i => i.SerialNumber.ToLower())
+                .ToListAsync();
             var processedInFile = new HashSet<string>();
 
             foreach (var row in rows)
@@ -143,7 +153,9 @@ namespace net_backend.Controllers
         [HttpGet]
         public async Task<ActionResult<ApiResponse<IEnumerable<Item>>>> GetAll([FromQuery] string? search, [FromQuery] string? status)
         {
-            var query = _context.Items.Include(i => i.Category).AsQueryable();
+            var query = _context.Items
+                .Where(i => i.DivisionId == CurrentDivisionId)
+                .Include(i => i.Category).AsQueryable();
             
             if (!string.IsNullOrEmpty(status) && Enum.TryParse<ItemStatus>(status, true, out var itemStatus))
             {
@@ -166,14 +178,14 @@ namespace net_backend.Controllers
         public async Task<ActionResult<ApiResponse<IEnumerable<object>>>> GetActive()
         {
             var items = await _context.Items
-                .Where(i => i.IsActive)
+                .Where(i => i.DivisionId == CurrentDivisionId && i.IsActive)
                 .Include(i => i.Category)
                 .ToListAsync();
 
             var itemIds = items.Select(i => i.Id).ToList();
             
             var returnsData = await _context.Returns
-                 .Where(r => r.IsActive && !string.IsNullOrEmpty(r.ReturnImage) && 
+                 .Where(r => r.DivisionId == CurrentDivisionId && r.IsActive && !string.IsNullOrEmpty(r.ReturnImage) && 
                             (r.ItemId != null && itemIds.Contains(r.ItemId.Value) || 
                              r.Issue != null && itemIds.Contains(r.Issue.ItemId)))
                  .Select(r => new {
@@ -211,14 +223,14 @@ namespace net_backend.Controllers
         public async Task<ActionResult<ApiResponse<IEnumerable<object>>>> GetAvailable()
         {
             var items = await _context.Items
-                .Where(i => i.IsActive && i.Status == ItemStatus.AVAILABLE)
+                .Where(i => i.DivisionId == CurrentDivisionId && i.IsActive && i.Status == ItemStatus.AVAILABLE)
                 .Include(i => i.Category)
                 .ToListAsync();
 
             var itemIds = items.Select(i => i.Id).ToList();
             
             var returnsData = await _context.Returns
-                 .Where(r => r.IsActive && !string.IsNullOrEmpty(r.ReturnImage) && 
+                 .Where(r => r.DivisionId == CurrentDivisionId && r.IsActive && !string.IsNullOrEmpty(r.ReturnImage) && 
                             (r.ItemId != null && itemIds.Contains(r.ItemId.Value) || 
                              r.Issue != null && itemIds.Contains(r.Issue.ItemId)))
                  .Select(r => new {
@@ -261,17 +273,14 @@ namespace net_backend.Controllers
         public async Task<ActionResult<ApiResponse<IEnumerable<object>>>> GetMissing()
         {
             var items = await _context.Items
-                .Where(i => i.IsActive && i.Status == ItemStatus.MISSING)
+                .Where(i => i.DivisionId == CurrentDivisionId && i.IsActive && i.Status == ItemStatus.MISSING)
                 .Include(i => i.Category)
                 .ToListAsync();
 
-            // For missing items, we might want to see them even if they don't have an image? 
-            // But let's keep consistent with other endpoints and fetch latest image if available.
-            
             var itemIds = items.Select(i => i.Id).ToList();
             
             var returnsData = await _context.Returns
-                 .Where(r => r.IsActive && !string.IsNullOrEmpty(r.ReturnImage) && 
+                 .Where(r => r.DivisionId == CurrentDivisionId && r.IsActive && !string.IsNullOrEmpty(r.ReturnImage) && 
                             (r.ItemId != null && itemIds.Contains(r.ItemId.Value) || 
                              r.Issue != null && itemIds.Contains(r.Issue.ItemId)))
                  .Select(r => new {
@@ -312,14 +321,14 @@ namespace net_backend.Controllers
         public async Task<ActionResult<ApiResponse<IEnumerable<object>>>> GetByCategory(int categoryId)
         {
             var items = await _context.Items
-                .Where(i => i.IsActive && i.CategoryId == categoryId)
+                .Where(i => i.DivisionId == CurrentDivisionId && i.IsActive && i.CategoryId == categoryId)
                 .Include(i => i.Category)
                 .ToListAsync();
 
             var itemIds = items.Select(i => i.Id).ToList();
             
             var returnsData = await _context.Returns
-                 .Where(r => r.IsActive && !string.IsNullOrEmpty(r.ReturnImage) && 
+                 .Where(r => r.DivisionId == CurrentDivisionId && r.IsActive && !string.IsNullOrEmpty(r.ReturnImage) && 
                             (r.ItemId != null && itemIds.Contains(r.ItemId.Value) || 
                              r.Issue != null && itemIds.Contains(r.Issue.ItemId)))
                  .Select(r => new {
@@ -359,12 +368,14 @@ namespace net_backend.Controllers
         [HttpGet("{id}")]
         public async Task<ActionResult<ApiResponse<object>>> GetById(int id)
         {
-            var item = await _context.Items.Include(i => i.Category).FirstOrDefaultAsync(i => i.Id == id);
+            var item = await _context.Items
+                .Include(i => i.Category)
+                .FirstOrDefaultAsync(i => i.Id == id && i.DivisionId == CurrentDivisionId);
             if (item == null) return NotFound(new ApiResponse<object> { Success = false, Message = "Item not found" });
 
             var latestReturn = await _context.Returns
                 .Include(r => r.Issue)
-                .Where(r => (r.ItemId == id || (r.IssueId.HasValue && r.Issue!.ItemId == id)) && r.IsActive && !string.IsNullOrEmpty(r.ReturnImage))
+                .Where(r => r.DivisionId == CurrentDivisionId && (r.ItemId == id || (r.IssueId.HasValue && r.Issue!.ItemId == id)) && r.IsActive && !string.IsNullOrEmpty(r.ReturnImage))
                 .OrderByDescending(r => r.ReturnedAt)
                 .FirstOrDefaultAsync();
 
@@ -399,14 +410,14 @@ namespace net_backend.Controllers
                 return BadRequest(new ApiResponse<Item> { Success = false, Message = "Item name and serial number are required" });
             }
 
-            if (await _context.Items.AnyAsync(i => i.SerialNumber.ToLower() == request.SerialNumber.Trim().ToLower()))
+            if (await _context.Items.AnyAsync(i => i.DivisionId == CurrentDivisionId && i.SerialNumber.ToLower() == request.SerialNumber.Trim().ToLower()))
             {
                 return Conflict(new ApiResponse<Item> { Success = false, Message = "Item with this serial number already exists" });
             }
 
             if (request.CategoryId.HasValue)
             {
-                if (await _context.Items.AnyAsync(i => i.CategoryId == request.CategoryId && i.ItemName.ToLower() == request.ItemName.Trim().ToLower()))
+                if (await _context.Items.AnyAsync(i => i.DivisionId == CurrentDivisionId && i.CategoryId == request.CategoryId && i.ItemName.ToLower() == request.ItemName.Trim().ToLower()))
                 {
                     return BadRequest(new ApiResponse<Item> { Success = false, Message = "Item name already exists in this category" });
                 }
@@ -416,9 +427,10 @@ namespace net_backend.Controllers
             if (image != null)
             {
                 var safeSerial = PathUtils.SanitizeSerialForPath(request.SerialNumber);
+                var divFolderName = PathUtils.SanitizeFolderName(CurrentDivisionName);
                 var fileName = $"master-{safeSerial}-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}{Path.GetExtension(image.FileName)}";
                 
-                var uploads = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "storage", "items", safeSerial);
+                var uploads = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "storage", divFolderName, "items", safeSerial);
                 Directory.CreateDirectory(uploads);
                 
                 var filePath = Path.Combine(uploads, fileName);
@@ -427,7 +439,7 @@ namespace net_backend.Controllers
                     await image.CopyToAsync(fileStream);
                 }
                 
-                imagePath = $"items/{safeSerial}/{fileName}";
+                imagePath = $"{divFolderName}/items/{safeSerial}/{fileName}";
             }
 
             var item = new Item
@@ -438,6 +450,7 @@ namespace net_backend.Controllers
                 Image = imagePath,
                 CategoryId = request.CategoryId,
                 InHouseLocation = request.InHouseLocation?.Trim(),
+                DivisionId = CurrentDivisionId,
                 IsActive = request.IsActive ?? true,
                 CreatedAt = DateTime.Now,
                 UpdatedAt = DateTime.Now,
@@ -456,18 +469,17 @@ namespace net_backend.Controllers
         {
             if (!await CheckPermission("editMaster")) return Forbidden();
 
-            var item = await _context.Items.FindAsync(id);
+            var item = await _context.Items
+                .FirstOrDefaultAsync(i => i.Id == id && i.DivisionId == CurrentDivisionId);
             if (item == null) return NotFound(new ApiResponse<Item> { Success = false, Message = "Item not found" });
 
             if (!string.IsNullOrEmpty(request.ItemName)) 
             {
-                // Check for duplicate name if name or category is changed
-                // Note: request.CategoryId might be null if not updating category, but we need to check against current category
                 var currentCategoryId = request.CategoryId ?? item.CategoryId;
                 var newItemName = request.ItemName.Trim();
                 
                 if (currentCategoryId.HasValue && 
-                    await _context.Items.AnyAsync(i => i.Id != id && i.CategoryId == currentCategoryId && i.ItemName.ToLower() == newItemName.ToLower()))
+                    await _context.Items.AnyAsync(i => i.DivisionId == CurrentDivisionId && i.Id != id && i.CategoryId == currentCategoryId && i.ItemName.ToLower() == newItemName.ToLower()))
                 {
                      return BadRequest(new ApiResponse<Item> { Success = false, Message = "Item name already exists in this category" });
                 }
@@ -475,8 +487,7 @@ namespace net_backend.Controllers
             }
             else if (request.CategoryId.HasValue && request.CategoryId != item.CategoryId)
             {
-                // Only category changed, check if current name exists in new category
-                 if (await _context.Items.AnyAsync(i => i.Id != id && i.CategoryId == request.CategoryId && i.ItemName.ToLower() == item.ItemName.ToLower()))
+                 if (await _context.Items.AnyAsync(i => i.DivisionId == CurrentDivisionId && i.Id != id && i.CategoryId == request.CategoryId && i.ItemName.ToLower() == item.ItemName.ToLower()))
                 {
                      return BadRequest(new ApiResponse<Item> { Success = false, Message = "Item name already exists in the new category" });
                 }
@@ -486,7 +497,6 @@ namespace net_backend.Controllers
             if (request.CategoryId.HasValue) item.CategoryId = request.CategoryId;
             if (request.InHouseLocation != null) item.InHouseLocation = request.InHouseLocation.Trim();
 
-            // Restrict inactivation when item is in outward
             if (request.IsActive.HasValue && !request.IsActive.Value && item.Status == ItemStatus.ISSUED)
             {
                 return BadRequest(new ApiResponse<Item> { Success = false, Message = "Item is in outward. Please inward first, then inactivate." });
@@ -509,7 +519,8 @@ namespace net_backend.Controllers
                 var safeSerial = PathUtils.SanitizeSerialForPath(item.SerialNumber ?? "unknown");
                 var fileName = $"master-{safeSerial}-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}{Path.GetExtension(image.FileName)}";
                 
-                var uploads = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "storage", "items", safeSerial);
+                var divFolderName = PathUtils.SanitizeFolderName(CurrentDivisionName);
+                var uploads = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "storage", divFolderName, "items", safeSerial);
                 Directory.CreateDirectory(uploads);
                 
                 var filePath = Path.Combine(uploads, fileName);

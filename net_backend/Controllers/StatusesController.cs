@@ -9,11 +9,12 @@ namespace net_backend.Controllers
 {
     [Route("statuses")]
     [ApiController]
-    public class StatusesController : ControllerBase
+    public class StatusesController : DivisionIsolatedController
     {
         private readonly ApplicationDbContext _context;
         private readonly IExcelService _excelService;
-        public StatusesController(ApplicationDbContext context, IExcelService excelService)
+        public StatusesController(ApplicationDbContext context, IExcelService excelService, IDivisionService divisionService)
+            : base(divisionService)
         {
             _context = context;
             _excelService = excelService;
@@ -22,7 +23,9 @@ namespace net_backend.Controllers
         [HttpGet("export")]
         public async Task<IActionResult> Export()
         {
-            var data = (await _context.Statuses.ToListAsync()).Select(c => new {
+            var data = (await _context.Statuses
+                .Where(s => s.DivisionId == CurrentDivisionId)
+                .ToListAsync()).Select(c => new {
                 Id = c.Id,
                 Name = c.Name,
                 IsActive = c.IsActive ? "Yes" : "No",
@@ -59,7 +62,12 @@ namespace net_backend.Controllers
 
                 foreach (var validRow in validation.Valid)
                 {
-                    newItems.Add(new Status { Name = validRow.Data.Name.Trim(), IsActive = true });
+                    newItems.Add(new Status 
+                    { 
+                        Name = validRow.Data.Name.Trim(), 
+                        IsActive = true,
+                        DivisionId = CurrentDivisionId
+                    });
                 }
 
                 if (newItems.Any())
@@ -77,7 +85,10 @@ namespace net_backend.Controllers
         private async Task<ValidationResultDto<StatusImportDto>> ValidateStatuses(List<ExcelRow<StatusImportDto>> rows)
         {
             var validation = new ValidationResultDto<StatusImportDto>();
-            var existingNames = await _context.Statuses.Select(c => c.Name.ToLower()).ToListAsync();
+            var existingNames = await _context.Statuses
+                .Where(s => s.DivisionId == CurrentDivisionId)
+                .Select(c => c.Name.ToLower())
+                .ToListAsync();
             var processedInFile = new HashSet<string>();
 
             foreach (var row in rows)
@@ -112,16 +123,16 @@ namespace net_backend.Controllers
 
         [HttpGet]
         public async Task<ActionResult<ApiResponse<IEnumerable<Status>>>> GetAll() => 
-            Ok(new ApiResponse<IEnumerable<Status>> { Data = await _context.Statuses.ToListAsync() });
+            Ok(new ApiResponse<IEnumerable<Status>> { Data = await _context.Statuses.Where(s => s.DivisionId == CurrentDivisionId).ToListAsync() });
 
         [HttpGet("active")]
         public async Task<ActionResult<ApiResponse<IEnumerable<Status>>>> GetActive() => 
-            Ok(new ApiResponse<IEnumerable<Status>> { Data = await _context.Statuses.Where(c => c.IsActive).ToListAsync() });
+            Ok(new ApiResponse<IEnumerable<Status>> { Data = await _context.Statuses.Where(c => c.IsActive && c.DivisionId == CurrentDivisionId).ToListAsync() });
 
         [HttpGet("{id}")]
         public async Task<ActionResult<ApiResponse<Status>>> GetById(int id)
         {
-            var item = await _context.Statuses.FindAsync(id);
+            var item = await _context.Statuses.FirstOrDefaultAsync(s => s.Id == id && s.DivisionId == CurrentDivisionId);
             return item == null ? NotFound() : Ok(new ApiResponse<Status> { Data = item });
         }
 
@@ -131,10 +142,15 @@ namespace net_backend.Controllers
             if (string.IsNullOrWhiteSpace(request.Name))
                 return BadRequest(new ApiResponse<Status> { Success = false, Message = "Name is required" });
 
-            if (await _context.Statuses.AnyAsync(c => c.Name.ToLower() == request.Name.Trim().ToLower()))
+            if (await _context.Statuses.AnyAsync(c => c.DivisionId == CurrentDivisionId && c.Name.ToLower() == request.Name.Trim().ToLower()))
                 return BadRequest(new ApiResponse<Status> { Success = false, Message = "Status name already exists" });
 
-            var item = new Status { Name = request.Name.Trim(), IsActive = request.IsActive ?? true };
+            var item = new Status 
+            { 
+                Name = request.Name.Trim(), 
+                IsActive = request.IsActive ?? true,
+                DivisionId = CurrentDivisionId
+            };
             _context.Statuses.Add(item);
             await _context.SaveChangesAsync();
             return StatusCode(201, new ApiResponse<Status> { Data = item });
@@ -144,13 +160,13 @@ namespace net_backend.Controllers
         [HttpPut("{id}")]
         public async Task<ActionResult<ApiResponse<Status>>> Update(int id, [FromBody] CreateCompanyRequest request)
         {
-            var item = await _context.Statuses.FindAsync(id);
+            var item = await _context.Statuses.FirstOrDefaultAsync(s => s.Id == id && s.DivisionId == CurrentDivisionId);
             if (item == null) return NotFound();
 
             if (!string.IsNullOrEmpty(request.Name))
             {
                 var nameTrimmed = request.Name.Trim();
-                if (await _context.Statuses.AnyAsync(c => c.Id != id && c.Name.ToLower() == nameTrimmed.ToLower()))
+                if (await _context.Statuses.AnyAsync(c => c.DivisionId == CurrentDivisionId && c.Id != id && c.Name.ToLower() == nameTrimmed.ToLower()))
                     return BadRequest(new ApiResponse<Status> { Success = false, Message = "Status name already exists" });
                 item.Name = nameTrimmed;
             }
@@ -164,8 +180,16 @@ namespace net_backend.Controllers
         [HttpDelete("{id}")]
         public async Task<ActionResult<ApiResponse<bool>>> Delete(int id)
         {
-            var item = await _context.Statuses.FindAsync(id);
+            var item = await _context.Statuses.FirstOrDefaultAsync(s => s.Id == id && s.DivisionId == CurrentDivisionId);
             if (item == null) return NotFound();
+
+            // Check if in use
+            var inUse = await _context.Returns.AnyAsync(r => r.StatusId == id);
+            if (inUse)
+            {
+                return BadRequest(new ApiResponse<bool> { Success = false, Message = "Status is in use and cannot be deleted." });
+            }
+
             _context.Statuses.Remove(item);
             await _context.SaveChangesAsync();
             return Ok(new ApiResponse<bool> { Data = true });

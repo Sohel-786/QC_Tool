@@ -10,7 +10,7 @@ const nextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: process.env.NEXT_PUBLIC_API_URL 
+        destination: process.env.NEXT_PUBLIC_API_URL
           ? `${process.env.NEXT_PUBLIC_API_URL}/:path*`
           : 'http://localhost:3001/:path*',
       },
@@ -20,7 +20,6 @@ const nextConfig = {
     return [
       { source: '/tools', destination: '/items', permanent: true },
       { source: '/tool-categories', destination: '/item-categories', permanent: true },
-      { source: '/divisions', destination: '/items', permanent: true },
     ];
   },
 };

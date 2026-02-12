@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using net_backend.Data;
 
@@ -11,9 +12,10 @@ using net_backend.Data;
 namespace net_backend.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260211201303_AddDivisionIsolationV2")]
+    partial class AddDivisionIsolationV2
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -667,31 +669,6 @@ namespace net_backend.Migrations
                     b.ToTable("users");
                 });
 
-            modelBuilder.Entity("net_backend.Models.UserDivision", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"), 1L, 1);
-
-                    b.Property<int>("DivisionId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("DivisionId");
-
-                    b.HasIndex("UserId", "DivisionId")
-                        .IsUnique()
-                        .HasDatabaseName("IX_UserDivisions_UserId_DivisionId_Unique");
-
-                    b.ToTable("user_divisions");
-                });
-
             modelBuilder.Entity("net_backend.Models.UserPermission", b =>
                 {
                     b.Property<int>("Id")
@@ -1049,25 +1026,6 @@ namespace net_backend.Migrations
                     b.Navigation("Division");
                 });
 
-            modelBuilder.Entity("net_backend.Models.UserDivision", b =>
-                {
-                    b.HasOne("net_backend.Models.Division", "Division")
-                        .WithMany("UserDivisions")
-                        .HasForeignKey("DivisionId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("net_backend.Models.User", "User")
-                        .WithMany("UserDivisions")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Division");
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("net_backend.Models.UserPermission", b =>
                 {
                     b.HasOne("net_backend.Models.User", "User")
@@ -1095,11 +1053,6 @@ namespace net_backend.Migrations
                     b.Navigation("Machines");
 
                     b.Navigation("Returns");
-                });
-
-            modelBuilder.Entity("net_backend.Models.Division", b =>
-                {
-                    b.Navigation("UserDivisions");
                 });
 
             modelBuilder.Entity("net_backend.Models.Issue", b =>
@@ -1147,8 +1100,6 @@ namespace net_backend.Migrations
                     b.Navigation("Permission");
 
                     b.Navigation("ReturnedReturns");
-
-                    b.Navigation("UserDivisions");
                 });
 #pragma warning restore 612, 618
         }

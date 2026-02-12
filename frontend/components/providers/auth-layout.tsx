@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
@@ -11,6 +12,7 @@ import { useCurrentUserPermissions } from '@/hooks/use-settings';
 import { ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { HorizontalNav } from '@/components/layout/horizontal-nav';
+import { DivisionSelectionDialog } from '@/components/auth/division-selection-dialog';
 
 const SIDEBAR_WIDTH_EXPANDED = 256;
 const SIDEBAR_WIDTH_COLLAPSED = 64;
@@ -25,6 +27,7 @@ const ROUTE_PERMISSIONS: Record<string, keyof UserPermission> = {
   '/machines': 'viewMaster',
   '/items': 'viewMaster',
   '/item-categories': 'viewMaster',
+  '/divisions': 'viewDivisionMaster',
   '/issues': 'viewOutward',
   '/returns': 'viewInward',
   '/reports': 'viewReports',
@@ -44,6 +47,10 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
     pathname !== '/login' && !loading && !!user
   );
 
+  const queryClient = useQueryClient();
+  const [hasSelectedDivision, setHasSelectedDivision] = useState<boolean>(false);
+  const [isDivisionDialogOpen, setIsDivisionDialogOpen] = useState<boolean>(false);
+
   // React to current user updates from Settings/User Management (without reload)
   useEffect(() => {
     const handleCurrentUserUpdated = (e: Event) => {
@@ -53,6 +60,17 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
     return () => {
       window.removeEventListener('currentUserUpdated', handleCurrentUserUpdated);
     };
+  }, []);
+
+  // Update hasSelectedDivision state from localStorage
+  useEffect(() => {
+    const checkDivision = () => {
+      setHasSelectedDivision(!!localStorage.getItem('selectedDivisionId'));
+    };
+    checkDivision();
+    // Also listen for changes
+    window.addEventListener('storage', checkDivision);
+    return () => window.removeEventListener('storage', checkDivision);
   }, []);
 
   // Scroll to top on route change
@@ -81,8 +99,18 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
         const response = await api.post('/auth/validate');
         if (response.data.user) {
           const user = response.data.user;
-          setUser(user);
-          localStorage.setItem('user', JSON.stringify(user));
+          // Merge persistent division selection
+          const persistentId = localStorage.getItem('selectedDivisionId');
+          const persistentName = localStorage.getItem('selectedDivisionName');
+
+          const userWithDivision = {
+            ...user,
+            divisionId: persistentId ? parseInt(persistentId) : user.divisionId,
+            selectedDivisionName: persistentName || user.selectedDivisionName
+          };
+
+          setUser(userWithDivision);
+          localStorage.setItem('user', JSON.stringify(userWithDivision));
         }
       } catch (err) {
         // If validation fails, clear and redirect only if not on public routes
@@ -111,6 +139,84 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
   // Don't show layout on login page
   if (pathname === '/login' || !user) {
     return <>{children}</>;
+  }
+
+  const handleDivisionSelect = (divisionId: number, divisionName: string) => {
+    if (!user) return;
+
+    // 1. Update localStorage
+    localStorage.setItem('selectedDivisionId', divisionId.toString());
+    localStorage.setItem('selectedDivisionName', divisionName);
+
+    const updatedUser = { ...user, divisionId, selectedDivisionName: divisionName };
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+
+    // 2. Update local state
+    setUser(updatedUser);
+    setHasSelectedDivision(true);
+    setIsDivisionDialogOpen(false);
+
+    // 3. Invalidate TanStack Query caches
+    queryClient.invalidateQueries({ queryKey: ['settings', 'permissions'] });
+    queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    queryClient.invalidateQueries({ queryKey: ['settings', 'software'] });
+
+    const masterKeys = ['companies', 'locations', 'contractors', 'statuses', 'machines', 'items', 'item-categories', 'divisions'];
+    masterKeys.forEach(key => queryClient.invalidateQueries({ queryKey: [key] }));
+    queryClient.invalidateQueries({ queryKey: ['issues'] });
+    queryClient.invalidateQueries({ queryKey: ['returns'] });
+    queryClient.invalidateQueries({ queryKey: ['reports'] });
+
+    // 4. Trigger storage event for other tabs
+    window.dispatchEvent(new Event('storage'));
+
+    // 5. Redirect to Dashboard
+    router.push('/dashboard');
+  };
+
+  // NEW: Block access until division is selected
+  if (!hasSelectedDivision && user) {
+    // If user has NO divisions assigned, show a professional error state
+    if (!user.allowedDivisions || user.allowedDivisions.length === 0) {
+      return (
+        <SoftwareProfileDraftProvider>
+          <div className="min-h-screen bg-secondary-50 flex items-center justify-center p-4">
+            <div className="max-w-md w-full bg-white rounded-[2.5rem] shadow-2xl p-12 text-center border border-red-100 flex flex-col items-center">
+              <div className="w-20 h-20 bg-red-50 rounded-3xl flex items-center justify-center mb-8">
+                <ShieldAlert className="w-10 h-10 text-red-600" />
+              </div>
+              <h1 className="text-2xl font-black text-slate-900 mb-2">No Division Assigned</h1>
+              <p className="text-slate-500 mb-8 leading-relaxed font-medium">
+                Your account has not been assigned to any divisions yet. Please contact your administrator to grant you access.
+              </p>
+              <Button onClick={() => {
+                localStorage.removeItem('user');
+                sessionStorage.clear();
+                window.location.href = '/login';
+              }} variant="outline" className="w-full h-14 rounded-2xl border-slate-200 font-bold hover:bg-slate-50">
+                Log Out & Exit
+              </Button>
+            </div>
+          </div>
+        </SoftwareProfileDraftProvider>
+      );
+    }
+
+    return (
+      <SoftwareProfileDraftProvider>
+        <div className="min-h-screen bg-secondary-50 flex items-center justify-center overflow-hidden">
+          {/* Professional background backdrop */}
+          <div className="fixed inset-0 bg-gradient-to-br from-primary-600/10 via-white to-secondary-50/50 z-0" />
+
+          <DivisionSelectionDialog
+            user={user}
+            onSelect={handleDivisionSelect}
+            isOpen={true}
+            closable={false}
+          />
+        </div>
+      </SoftwareProfileDraftProvider>
+    );
   }
 
   // Check permissions
@@ -145,18 +251,19 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
             />
           )}
           <div
-            className="transition-[margin] duration-200 ease-in-out relative z-0"
+            className="transition-[margin] duration-200 ease-in-out relative z-0 flex flex-col min-h-screen"
             style={{ marginLeft: permissions?.navigationLayout === 'HORIZONTAL' ? 0 : sidebarWidth }}
           >
             <Header
               user={user}
               isNavExpanded={navExpanded}
               onNavExpandChange={setNavExpanded}
+              onOpenDivisionDialog={() => setIsDivisionDialogOpen(true)}
             />
             {permissions?.navigationLayout === 'HORIZONTAL' && (
               <HorizontalNav isExpanded={navExpanded} />
             )}
-            <main className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-6">
+            <main className="flex-1 flex items-center justify-center p-6">
               <div className="text-center max-w-md mx-auto bg-white p-8 rounded-2xl shadow-lg border border-red-100">
                 <div className="bg-red-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                   <ShieldAlert className="w-8 h-8 text-red-600" />
@@ -196,6 +303,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
             user={user}
             isNavExpanded={navExpanded}
             onNavExpandChange={setNavExpanded}
+            onOpenDivisionDialog={() => setIsDivisionDialogOpen(true)}
           />
           {permissions?.navigationLayout === 'HORIZONTAL' && (
             <HorizontalNav isExpanded={navExpanded} />
@@ -203,6 +311,13 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
           <main className="flex-1 overflow-y-auto">{children}</main>
         </div>
       </div>
+      <DivisionSelectionDialog
+        user={user}
+        onSelect={handleDivisionSelect}
+        isOpen={isDivisionDialogOpen}
+        onClose={() => setIsDivisionDialogOpen(false)}
+        closable={true}
+      />
     </SoftwareProfileDraftProvider>
   );
 }

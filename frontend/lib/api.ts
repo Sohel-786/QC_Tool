@@ -9,6 +9,13 @@ const api: AxiosInstance = axios.create({
 // Request interceptor
 api.interceptors.request.use(
   (config) => {
+    // Get division ID from localStorage if available
+    if (typeof window !== 'undefined') {
+      const divisionId = localStorage.getItem('selectedDivisionId');
+      if (divisionId) {
+        config.headers['X-Division-Id'] = divisionId;
+      }
+    }
     return config;
   },
   (error) => {

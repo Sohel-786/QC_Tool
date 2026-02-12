@@ -10,12 +10,13 @@ namespace net_backend.Controllers
 {
     [Route("issues")]
     [ApiController]
-    public class IssuesController : ControllerBase
+    public class IssuesController : DivisionIsolatedController
     {
         private readonly ApplicationDbContext _context;
         private readonly ICodeGeneratorService _codeGenerator;
 
-        public IssuesController(ApplicationDbContext context, ICodeGeneratorService codeGenerator)
+        public IssuesController(ApplicationDbContext context, ICodeGeneratorService codeGenerator, IDivisionService divisionService)
+            : base(divisionService)
         {
             _context = context;
             _codeGenerator = codeGenerator;
@@ -34,6 +35,7 @@ namespace net_backend.Controllers
             [FromQuery] bool? onlyPendingInward)
         {
             var query = _context.Issues
+                .Where(i => i.DivisionId == CurrentDivisionId)
                 .Include(i => i.Item)
                 .Include(i => i.IssuedByUser)
                 .Include(i => i.Company)
@@ -106,7 +108,6 @@ namespace net_backend.Controllers
             // Only pending inward filter
             if (onlyPendingInward.HasValue && onlyPendingInward.Value)
             {
-                // Filter out issues that have ANY active return (meaning Inward is done/active)
                 query = query.Where(i => i.IsActive && !i.Returns.Any(r => r.IsActive));
             }
 
@@ -118,8 +119,7 @@ namespace net_backend.Controllers
         public async Task<ActionResult<ApiResponse<IEnumerable<Issue>>>> GetActive()
         {
             var issues = await _context.Issues
-                .Include(i => i.Returns) // Include returns to check status
-                .Where(i => i.IsActive && !i.Returns.Any(r => r.IsActive)) // Only show if no active return exists
+                .Where(i => i.DivisionId == CurrentDivisionId && i.IsActive && !i.Returns.Any(r => r.IsActive))
                 .Include(i => i.Item)
                 .Include(i => i.IssuedByUser)
                 .Include(i => i.Company)
@@ -140,7 +140,7 @@ namespace net_backend.Controllers
                 .Include(i => i.Machine)
                 .Include(i => i.Location)
                 .Include(i => i.IssuedByUser)
-                .FirstOrDefaultAsync(i => i.Id == id);
+                .FirstOrDefaultAsync(i => i.Id == id && i.DivisionId == CurrentDivisionId);
                 
             if (issue == null) return NotFound(new ApiResponse<Issue> { Success = false, Message = "Issue not found" });
             return Ok(new ApiResponse<Issue> { Data = issue });
@@ -155,7 +155,7 @@ namespace net_backend.Controllers
                 .Include(i => i.Contractor)
                 .Include(i => i.Machine)
                 .Include(i => i.Location)
-                .FirstOrDefaultAsync(i => i.IssueNo == issueNo);
+                .FirstOrDefaultAsync(i => i.IssueNo == issueNo && i.DivisionId == CurrentDivisionId);
                 
             if (issue == null) return NotFound(new ApiResponse<Issue> { Success = false, Message = "Issue not found" });
             return Ok(new ApiResponse<Issue> { Data = issue });
@@ -164,7 +164,7 @@ namespace net_backend.Controllers
         [HttpGet("next-code")]
         public async Task<ActionResult<ApiResponse<object>>> GetNextCode()
         {
-            var count = await _context.Issues.CountAsync();
+            var count = await _context.Issues.CountAsync(i => i.DivisionId == CurrentDivisionId);
             var nextCode = _codeGenerator.GenerateNextCode("OUTWARD", count);
             return Ok(new ApiResponse<object> { Data = new { nextCode } });
         }
@@ -184,16 +184,12 @@ namespace net_backend.Controllers
                 return BadRequest(new ApiResponse<Issue> { Success = false, Message = "Outward photo is mandatory." });
             }
 
-            var item = await _context.Items.FindAsync(request.ItemId);
+            var item = await _context.Items
+                .FirstOrDefaultAsync(i => i.Id == request.ItemId && i.DivisionId == CurrentDivisionId);
             if (item == null) return NotFound(new ApiResponse<Issue> { Success = false, Message = "Item not found" });
             if (item.Status != ItemStatus.AVAILABLE) return BadRequest(new ApiResponse<Issue> { Success = false, Message = "Item is not available" });
 
-            // Image Validation (Item Image)
-            // Existing logic: even if we are taking a new photo for this transaction, 
-            // the system might still require the Item Master to have an image.
-            // Based on user request "keep it and add one more feature of capture photo", 
-            // I assume the existing validation should remain.
-            var hasReturnImage = await _context.Returns.AnyAsync(r => r.ItemId == item.Id && r.IsActive && !string.IsNullOrEmpty(r.ReturnImage));
+            var hasReturnImage = await _context.Returns.AnyAsync(r => r.ItemId == item.Id && r.DivisionId == CurrentDivisionId && r.IsActive && !string.IsNullOrEmpty(r.ReturnImage));
             if (string.IsNullOrEmpty(item.Image) && !hasReturnImage)
             {
                  return BadRequest(new ApiResponse<Issue> { Success = false, Message = "This item does not have an image. Items without images cannot be issued." });
@@ -219,14 +215,18 @@ namespace net_backend.Controllers
                 issueImagePath = $"items/{safeSerial}/outward/{uniqueFileName}";
             }
 
-            var count = await _context.Issues.CountAsync();
+            var count = await _context.Issues.CountAsync(i => i.DivisionId == CurrentDivisionId);
             var issueNo = _codeGenerator.GenerateNextCode("OUTWARD", count);
+
+            var userIdStr = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var currentUserId = int.TryParse(userIdStr, out var uId) ? uId : 1;
 
             var issue = new Issue
             {
                 IssueNo = issueNo,
                 ItemId = request.ItemId,
-                IssuedBy = 1, // Placeholder for actual User ID
+                DivisionId = CurrentDivisionId,
+                IssuedBy = currentUserId,
                 IssuedTo = request.IssuedTo,
                 Remarks = request.Remarks,
                 CompanyId = request.CompanyId,
@@ -253,25 +253,26 @@ namespace net_backend.Controllers
         {
             if (!await CheckPermission("editOutward")) return Forbidden();
 
-            var issue = await _context.Issues.Include(i => i.Item).FirstOrDefaultAsync(i => i.Id == id);
+            var issue = await _context.Issues
+                .Include(i => i.Item)
+                .FirstOrDefaultAsync(i => i.Id == id && i.DivisionId == CurrentDivisionId);
             if (issue == null) return NotFound();
             if (issue.IsReturned) return BadRequest(new ApiResponse<Issue> { Success = false, Message = "Cannot edit returned issue" });
 
             // Handle Item Change
             if (request.ItemId.HasValue && request.ItemId.Value != issue.ItemId)
             {
-                var newItem = await _context.Items.FindAsync(request.ItemId.Value);
+                var newItem = await _context.Items
+                    .FirstOrDefaultAsync(i => i.Id == request.ItemId.Value && i.DivisionId == CurrentDivisionId);
                 if (newItem == null) return NotFound(new ApiResponse<Issue> { Success = false, Message = "New item not found" });
                 if (newItem.Status != ItemStatus.AVAILABLE) return BadRequest(new ApiResponse<Issue> { Success = false, Message = "New item is not available" });
 
-                // Image Validation for new item
-                var hasReturnImage = await _context.Returns.AnyAsync(r => r.ItemId == newItem.Id && r.IsActive && !string.IsNullOrEmpty(r.ReturnImage));
+                var hasReturnImage = await _context.Returns.AnyAsync(r => r.ItemId == newItem.Id && r.DivisionId == CurrentDivisionId && r.IsActive && !string.IsNullOrEmpty(r.ReturnImage));
                 if (string.IsNullOrEmpty(newItem.Image) && !hasReturnImage)
                 {
                     return BadRequest(new ApiResponse<Issue> { Success = false, Message = "The selected item does not have an image. Items without images cannot be issued." });
                 }
 
-                // If everything is fine, switch items
                 var oldItem = issue.Item;
                 if (oldItem != null)
                 {
@@ -307,7 +308,9 @@ namespace net_backend.Controllers
         {
             if (User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value != "QC_ADMIN") return Forbidden();
 
-            var issue = await _context.Issues.Include(i => i.Item).FirstOrDefaultAsync(i => i.Id == id);
+            var issue = await _context.Issues
+                .Include(i => i.Item)
+                .FirstOrDefaultAsync(i => i.Id == id && i.DivisionId == CurrentDivisionId);
             if (issue == null) return NotFound(new ApiResponse<Issue> { Success = false, Message = "Issue not found" });
             
             if (issue.IsReturned)
@@ -332,7 +335,9 @@ namespace net_backend.Controllers
         {
             if (User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value != "QC_ADMIN") return Forbidden();
 
-            var issue = await _context.Issues.Include(i => i.Item).FirstOrDefaultAsync(i => i.Id == id);
+            var issue = await _context.Issues
+                .Include(i => i.Item)
+                .FirstOrDefaultAsync(i => i.Id == id && i.DivisionId == CurrentDivisionId);
             if (issue == null) return NotFound(new ApiResponse<Issue> { Success = false, Message = "Issue not found" });
 
             issue.IsActive = true;

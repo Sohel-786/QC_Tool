@@ -9,11 +9,12 @@ namespace net_backend.Controllers
 {
     [Route("locations")]
     [ApiController]
-    public class LocationsController : ControllerBase
+    public class LocationsController : DivisionIsolatedController
     {
         private readonly ApplicationDbContext _context;
         private readonly IExcelService _excelService;
-        public LocationsController(ApplicationDbContext context, IExcelService excelService)
+        public LocationsController(ApplicationDbContext context, IExcelService excelService, IDivisionService divisionService)
+            : base(divisionService)
         {
             _context = context;
             _excelService = excelService;
@@ -22,7 +23,10 @@ namespace net_backend.Controllers
         [HttpGet("export")]
         public async Task<IActionResult> Export()
         {
-            var data = (await _context.Locations.Include(l => l.Company).ToListAsync()).Select(c => new {
+            var data = (await _context.Locations
+                .Include(l => l.Company)
+                .Where(l => l.DivisionId == CurrentDivisionId)
+                .ToListAsync()).Select(c => new {
                 Id = c.Id,
                 Name = c.Name,
                 Company = c.Company?.Name ?? "—",
@@ -60,8 +64,8 @@ namespace net_backend.Controllers
 
                 foreach (var validRow in validation.Valid)
                 {
-                    // Find company ID by name (case-insensitive) - name is guaranteed valid by ValidateLocations
-                    var company = await _context.Companies.FirstOrDefaultAsync(c => c.Name.ToLower() == validRow.Data.CompanyName.Trim().ToLower());
+                    var company = await _context.Companies
+                        .FirstOrDefaultAsync(c => c.DivisionId == CurrentDivisionId && c.Name.ToLower() == validRow.Data.CompanyName.Trim().ToLower());
                     if (company != null)
                     {
                         var isActive = true;
@@ -75,7 +79,8 @@ namespace net_backend.Controllers
                         { 
                             Name = validRow.Data.Name.Trim(), 
                             CompanyId = company.Id,
-                            IsActive = isActive 
+                            IsActive = isActive,
+                            DivisionId = CurrentDivisionId
                         });
                     }
                 }
@@ -95,7 +100,7 @@ namespace net_backend.Controllers
         private async Task<ValidationResultDto<LocationImportDto>> ValidateLocations(List<ExcelRow<LocationImportDto>> rows)
         {
             var validation = new ValidationResultDto<LocationImportDto>();
-            var companies = await _context.Companies.ToListAsync();
+            var companies = await _context.Companies.Where(c => c.DivisionId == CurrentDivisionId).ToListAsync();
             var processedInFile = new HashSet<string>();
 
             foreach (var row in rows)
@@ -123,7 +128,6 @@ namespace net_backend.Controllers
                 var nameLower = item.Name.Trim().ToLower();
                 var companyId = company.Id;
 
-                // Check for duplicates in file (Name + CompanyId combination)
                 var fileKey = $"{nameLower}_{companyId}";
                 if (processedInFile.Contains(fileKey))
                 {
@@ -131,8 +135,7 @@ namespace net_backend.Controllers
                     continue;
                 }
 
-                // Check if exists in DB (Name + CompanyId combination)
-                var existsInDb = await _context.Locations.AnyAsync(l => l.Name.ToLower() == nameLower && l.CompanyId == companyId);
+                var existsInDb = await _context.Locations.AnyAsync(l => l.DivisionId == CurrentDivisionId && l.Name.ToLower() == nameLower && l.CompanyId == companyId);
                 if (existsInDb)
                 {
                     validation.AlreadyExists.Add(new ValidationEntry<LocationImportDto> { Row = row.RowNumber, Data = item, Message = $"Location '{item.Name}' already exists for Company '{company.Name}'" });
@@ -149,20 +152,20 @@ namespace net_backend.Controllers
 
         [HttpGet]
         public async Task<ActionResult<ApiResponse<IEnumerable<Location>>>> GetAll() => 
-            Ok(new ApiResponse<IEnumerable<Location>> { Data = await _context.Locations.Include(l => l.Company).ToListAsync() });
+            Ok(new ApiResponse<IEnumerable<Location>> { Data = await _context.Locations.Include(l => l.Company).Where(l => l.DivisionId == CurrentDivisionId).ToListAsync() });
 
         [HttpGet("active")]
         public async Task<ActionResult<ApiResponse<IEnumerable<Location>>>> GetActive() => 
-            Ok(new ApiResponse<IEnumerable<Location>> { Data = await _context.Locations.Include(l => l.Company).Where(c => c.IsActive).ToListAsync() });
+            Ok(new ApiResponse<IEnumerable<Location>> { Data = await _context.Locations.Include(l => l.Company).Where(c => c.IsActive && c.DivisionId == CurrentDivisionId).ToListAsync() });
 
         [HttpGet("company/{companyId}")]
         public async Task<ActionResult<ApiResponse<IEnumerable<Location>>>> GetByCompany(int companyId) => 
-            Ok(new ApiResponse<IEnumerable<Location>> { Data = await _context.Locations.Where(l => l.CompanyId == companyId && l.IsActive).ToListAsync() });
+            Ok(new ApiResponse<IEnumerable<Location>> { Data = await _context.Locations.Where(l => l.CompanyId == companyId && l.IsActive && l.DivisionId == CurrentDivisionId).ToListAsync() });
 
         [HttpGet("{id}")]
         public async Task<ActionResult<ApiResponse<Location>>> GetById(int id)
         {
-            var item = await _context.Locations.FindAsync(id);
+            var item = await _context.Locations.FirstOrDefaultAsync(l => l.Id == id && l.DivisionId == CurrentDivisionId);
             return item == null ? NotFound() : Ok(new ApiResponse<Location> { Data = item });
         }
 
@@ -175,14 +178,15 @@ namespace net_backend.Controllers
             if (request.CompanyId <= 0)
                 return BadRequest(new ApiResponse<Location> { Success = false, Message = "Company is required" });
 
-            if (await _context.Locations.AnyAsync(l => l.CompanyId == request.CompanyId && l.Name.ToLower() == request.Name.Trim().ToLower()))
+            if (await _context.Locations.AnyAsync(l => l.DivisionId == CurrentDivisionId && l.CompanyId == request.CompanyId && l.Name.ToLower() == request.Name.Trim().ToLower()))
                 return BadRequest(new ApiResponse<Location> { Success = false, Message = "Location name already exists for this company" });
 
             var item = new Location 
             { 
                 Name = request.Name.Trim(), 
                 CompanyId = request.CompanyId,
-                IsActive = request.IsActive ?? true 
+                IsActive = request.IsActive ?? true,
+                DivisionId = CurrentDivisionId
             };
             _context.Locations.Add(item);
             await _context.SaveChangesAsync();
@@ -193,7 +197,7 @@ namespace net_backend.Controllers
         [HttpPut("{id}")]
         public async Task<ActionResult<ApiResponse<Location>>> Update(int id, [FromBody] CreateLocationRequest request)
         {
-            var item = await _context.Locations.FindAsync(id);
+            var item = await _context.Locations.FirstOrDefaultAsync(l => l.Id == id && l.DivisionId == CurrentDivisionId);
             if (item == null) return NotFound();
 
             string newName = item.Name;
@@ -213,7 +217,7 @@ namespace net_backend.Controllers
 
             if (checkDuplicate)
             {
-                if (await _context.Locations.AnyAsync(l => l.Id != id && l.CompanyId == newCompanyId && l.Name.ToLower() == newName.ToLower()))
+                if (await _context.Locations.AnyAsync(l => l.DivisionId == CurrentDivisionId && l.Id != id && l.CompanyId == newCompanyId && l.Name.ToLower() == newName.ToLower()))
                     return BadRequest(new ApiResponse<Location> { Success = false, Message = "Location name already exists for this company" });
             }
 
@@ -228,8 +232,16 @@ namespace net_backend.Controllers
         [HttpDelete("{id}")]
         public async Task<ActionResult<ApiResponse<bool>>> Delete(int id)
         {
-            var item = await _context.Locations.FindAsync(id);
+            var item = await _context.Locations.FirstOrDefaultAsync(l => l.Id == id && l.DivisionId == CurrentDivisionId);
             if (item == null) return NotFound();
+
+            // Check if in use
+            var inUse = await _context.Issues.AnyAsync(i => i.LocationId == id);
+            if (inUse)
+            {
+                return BadRequest(new ApiResponse<bool> { Success = false, Message = "Location is in use and cannot be deleted." });
+            }
+
             _context.Locations.Remove(item);
             await _context.SaveChangesAsync();
             return Ok(new ApiResponse<bool> { Data = true });
