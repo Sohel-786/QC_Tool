@@ -1127,7 +1127,7 @@ export default function ReturnsPage() {
                   </div>
                 </div>
               </div>
-              <div className="flex-none flex gap-3 px-6 py-3 border-t border-secondary-200 bg-secondary-50/50">
+              <div className="flex-none flex gap-3 px-6 py-3 border-t border-secondary-200 bg-secondary-50/50 rounded-b-[2rem]">
                 {canEditInward && (
                   <Button
                     type="submit"
@@ -1602,7 +1602,7 @@ export default function ReturnsPage() {
                 </div>
               </div>
 
-              <div className="flex-none flex gap-3 px-6 py-3 border-t border-secondary-200 bg-secondary-50/50">
+              <div className="flex-none flex gap-3 px-6 py-3 border-t border-secondary-200 bg-secondary-50/50 rounded-b-[2rem]">
                 {canAddInward && (
                   <Button
                     type="submit"

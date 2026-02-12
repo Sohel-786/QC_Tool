@@ -36,8 +36,8 @@ export function Header({ user, isNavExpanded, onNavExpandChange, onOpenDivisionD
   return (
     <header
       className={`bg-white border-b border-secondary-200 flex items-center justify-between px-4 md:px-6 sticky top-0 z-40 shadow-sm ${isHorizontal
-        ? 'h-14 py-1'
-        : hasLogo ? 'min-h-[5.5rem] py-2' : 'h-16'
+        ? 'h-14 py-3'
+        : hasLogo ? 'min-h-[6.5rem] py-6' : 'h-24 py-4'
         }`}
     >
       <div className="flex items-center min-w-0 shrink-0">
@@ -47,8 +47,8 @@ export function Header({ user, isNavExpanded, onNavExpandChange, onOpenDivisionD
               src={logoUrl!}
               alt=""
               className={isHorizontal
-                ? "max-w-[60px] max-h-[48px] w-auto h-auto object-contain object-center"
-                : "max-w-[80px] max-h-[70px] w-auto h-auto object-contain object-center"
+                ? "max-w-[75px] max-h-[60px] w-auto h-auto object-contain object-center"
+                : "max-w-[100px] max-h-[85px] w-auto h-auto object-contain object-center"
               }
             />
           </div>
@@ -63,13 +63,13 @@ export function Header({ user, isNavExpanded, onNavExpandChange, onOpenDivisionD
       {user.selectedDivisionName && (
         <button
           onClick={onOpenDivisionDialog}
-          className="flex items-center gap-2 px-4 py-2 bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 rounded-xl transition-all duration-300 group ml-3 mr-auto h-10 shadow-sm active:scale-95"
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-secondary-600 hover:bg-secondary-50 hover:text-primary-600 transition-all font-medium border border-secondary-200 shadow-sm ml-3 mr-auto"
           title="Switch Division"
         >
-          <span className="text-[13px] font-black text-slate-800 tracking-tight uppercase leading-none group-hover:text-indigo-700 transition-colors">
+          <span className="text-sm">
             {user.selectedDivisionName}
           </span>
-          <ChevronDown className="h-4 w-4 text-slate-400 group-hover:text-indigo-500 group-hover:translate-y-0.5 transition-all duration-300" />
+          <ChevronDown className="h-4 w-4" />
         </button>
       )}
       <div className="flex items-center gap-4 min-w-0">

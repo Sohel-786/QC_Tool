@@ -28,6 +28,10 @@ export function useLogin() {
     onSuccess: (data) => {
       if (data.user) {
         localStorage.setItem('user', JSON.stringify(data.user));
+        // Clear previous division selection to ensure it's asked on fresh login
+        localStorage.removeItem('selectedDivisionId');
+        localStorage.removeItem('selectedDivisionName');
+
         queryClient.setQueryData(['user'], data.user);
         toast.success('Login successful!');
 
@@ -105,7 +109,9 @@ export function useLogout() {
     onSuccess: () => {
       // Clear all local storage
       localStorage.removeItem('user');
-      sessionStorage.removeItem('divisionSelected');
+      localStorage.removeItem('selectedDivisionId');
+      localStorage.removeItem('selectedDivisionName');
+
       // Clear all query cache
       queryClient.clear();
       toast.success('Logged out successfully');
@@ -115,6 +121,8 @@ export function useLogout() {
     onError: () => {
       // Even if logout fails, clear local state and cache
       localStorage.removeItem('user');
+      localStorage.removeItem('selectedDivisionId');
+      localStorage.removeItem('selectedDivisionName');
       queryClient.clear();
       // Force full page reload to clear cookies
       window.location.href = '/login';

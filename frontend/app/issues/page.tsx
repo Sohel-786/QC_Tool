@@ -844,10 +844,11 @@ export default function IssuesPage() {
           }
           size="3xl"
           contentScroll={false}
+          className="rounded-[2rem]"
         >
           <form
             onSubmit={handleSubmit(onSubmit)}
-            className="flex flex-col h-full overflow-hidden bg-white"
+            className="flex flex-col h-full overflow-hidden bg-white rounded-[2rem]"
             aria-label="Outward entry form"
           >
             <div className="flex-1 overflow-y-auto px-6 py-4 custom-scrollbar">
@@ -1092,7 +1093,7 @@ export default function IssuesPage() {
                             activeImageTab === "live" ? "animate-pulse" : "",
                           )}
                         />
-                        Capture Photo
+                        Handover Photo
                       </button>
                       <button
                         type="button"
@@ -1105,7 +1106,7 @@ export default function IssuesPage() {
                         )}
                       >
                         <ImageIcon className="w-4 h-4" />
-                        Item Condition
+                        Item Photo
                       </button>
                     </div>
                   </div>
@@ -1116,7 +1117,7 @@ export default function IssuesPage() {
                       <div className="flex-1 rounded-2xl border border-secondary-200 bg-white shadow-2xl overflow-hidden flex flex-col group relative">
                         <div className="flex-1 p-4 flex flex-col overflow-hidden">
                           <CameraPhotoInput
-                            label="Outward Condition"
+                            label="Handover Photo - Person With Item"
                             required={true}
                             hint="Use your camera to capture the outward photo"
                             previewUrl={imagePreview}
@@ -1204,7 +1205,7 @@ export default function IssuesPage() {
               </div>
             </div>
 
-            <div className="flex-none flex gap-3 px-6 py-3 border-t border-secondary-200 bg-secondary-50/50">
+            <div className="flex-none flex gap-3 px-6 py-3 border-t border-secondary-200 bg-secondary-50/50 rounded-b-[2rem]">
               {!isViewOnly &&
                 (editingIssue ? canEditOutward : canAddOutward) && (
                   <Button

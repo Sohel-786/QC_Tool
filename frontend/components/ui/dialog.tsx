@@ -24,6 +24,8 @@ interface DialogProps {
   closeButtonDisabled?: boolean;
   /** When true, the default header (title and X button) is hidden */
   hideHeader?: boolean;
+  /** Custom class for the dialog container */
+  className?: string;
 }
 
 export function Dialog({
@@ -37,6 +39,7 @@ export function Dialog({
   closeOnBackdropClick = false,
   closeButtonDisabled = false,
   hideHeader = false,
+  className,
 }: DialogProps) {
   // Lock body scroll and handle ESC key when dialog is open
   useEffect(() => {
@@ -113,7 +116,8 @@ export function Dialog({
               onClick={(e) => e.stopPropagation()}
               className={cn(
                 "bg-white rounded-xl shadow-2xl w-full max-h-[96vh] flex flex-col relative",
-                sizeClasses[size]
+                sizeClasses[size],
+                className
               )}
             >
               {/* Header */}
