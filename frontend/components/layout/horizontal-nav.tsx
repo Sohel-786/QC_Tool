@@ -27,75 +27,66 @@ const navigationSections = {
       href: "/dashboard",
       label: "Dashboard",
       icon: LayoutDashboard,
-      gradient: "from-blue-500 to-indigo-600",
-      hoverColor: "text-blue-600",
+      getColor: (active: boolean) => active ? "text-blue-600" : "text-blue-500",
       permission: "viewDashboard",
     },
   ],
   masterEntries: [
     {
-      href: "/divisions",
-      label: "Division",
-      icon: LayoutGrid,
-      gradient: "from-blue-600 to-cyan-600",
-      hoverColor: "text-blue-600",
-      permission: "viewDivisionMaster",
-    },
-    {
       href: "/companies",
       label: "Company",
       icon: Building2,
-      gradient: "from-violet-500 to-purple-600",
-      hoverColor: "text-violet-600",
+      getColor: (active: boolean) => active ? "text-violet-600" : "text-violet-500",
       permission: "viewCompanyMaster",
     },
     {
       href: "/locations",
       label: "Location",
       icon: MapPin,
-      gradient: "from-emerald-500 to-teal-600",
-      hoverColor: "text-emerald-600",
+      getColor: (active: boolean) => active ? "text-emerald-600" : "text-emerald-500",
       permission: "viewLocationMaster",
     },
     {
       href: "/contractors",
       label: "Contractor",
       icon: Briefcase,
-      gradient: "from-orange-500 to-amber-600",
-      hoverColor: "text-orange-600",
+      getColor: (active: boolean) => active ? "text-orange-600" : "text-orange-500",
       permission: "viewContractorMaster",
     },
     {
       href: "/machines",
       label: "Machine",
       icon: Cog,
-      gradient: "from-cyan-500 to-blue-600",
-      hoverColor: "text-cyan-600",
+      getColor: (active: boolean) => active ? "text-cyan-600" : "text-cyan-500",
       permission: "viewMachineMaster",
     },
     {
       href: "/item-categories",
       label: "Category",
       icon: Layers,
-      gradient: "from-teal-500 to-emerald-600",
-      hoverColor: "text-teal-600",
+      getColor: (active: boolean) => active ? "text-teal-600" : "text-teal-500",
       permission: "viewItemCategoryMaster",
     },
     {
       href: "/items",
       label: "Item",
       icon: Package,
-      gradient: "from-indigo-500 to-blue-600",
-      hoverColor: "text-indigo-600",
+      getColor: (active: boolean) => active ? "text-indigo-600" : "text-indigo-500",
       permission: "viewItemMaster",
     },
     {
       href: "/statuses",
       label: "Status",
       icon: Tag,
-      gradient: "from-pink-500 to-rose-600",
-      hoverColor: "text-pink-600",
+      getColor: (active: boolean) => active ? "text-pink-600" : "text-pink-500",
       permission: "viewStatusMaster",
+    },
+    {
+      href: "/divisions",
+      label: "Division",
+      icon: LayoutGrid,
+      getColor: (active: boolean) => active ? "text-blue-600" : "text-blue-500",
+      permission: "viewDivisionMaster",
     },
   ],
   transactionEntries: [
@@ -103,16 +94,14 @@ const navigationSections = {
       href: "/issues",
       label: "Outward",
       icon: ClipboardList,
-      gradient: "from-red-500 to-pink-600",
-      hoverColor: "text-red-600",
+      getColor: (active: boolean) => active ? "text-red-600" : "text-red-500",
       permission: "viewOutward",
     },
     {
       href: "/returns",
       label: "Inward",
       icon: ArrowLeftRight,
-      gradient: "from-green-500 to-emerald-600",
-      hoverColor: "text-green-600",
+      getColor: (active: boolean) => active ? "text-green-600" : "text-green-500",
       permission: "viewInward",
     },
   ],
@@ -121,16 +110,14 @@ const navigationSections = {
       href: "/reports",
       label: "Reports",
       icon: BarChart3,
-      gradient: "from-amber-500 to-orange-600",
-      hoverColor: "text-amber-600",
+      getColor: (active: boolean) => active ? "text-amber-600" : "text-amber-500",
       permission: "viewReports",
     },
     {
       href: "/settings",
       label: "Settings",
       icon: Settings,
-      gradient: "from-slate-500 to-gray-600",
-      hoverColor: "text-slate-600",
+      getColor: (active: boolean) => active ? "text-slate-600" : "text-slate-500",
       permission: "accessSettings",
     },
   ],
@@ -175,17 +162,15 @@ export function HorizontalNav({ isExpanded }: HorizontalNavProps) {
               : "border-primary-600/20 hover:border-primary-600/40 hover:bg-white hover:shadow-2xl hover:-translate-y-1 active:scale-95",
           )}
         >
-          <div
-            className={cn(
-              "p-2.5 rounded-xl transition-all duration-500 flex items-center justify-center shadow-sm",
-              "bg-gradient-to-br",
-              item.gradient,
-              isActive
-                ? "scale-110 shadow-lg"
-                : "opacity-90 group-hover:opacity-100 group-hover:scale-110"
-            )}
-          >
-            <Icon className="w-5 h-5 text-white drop-shadow-sm" strokeWidth={2.5} />
+          <div className={cn(
+            "transition-all duration-500 flex items-center justify-center",
+            isActive ? "scale-110" : "group-hover:scale-110"
+          )}>
+            <Icon className={cn(
+              "w-8 h-8 transition-colors duration-300",
+              item.getColor(isActive),
+              !isActive && "group-hover:" + item.getColor(true)
+            )} strokeWidth={1.5} />
           </div>
           <span
             className={cn(

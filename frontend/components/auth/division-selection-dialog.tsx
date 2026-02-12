@@ -72,14 +72,14 @@ export function DivisionSelectionDialog({
             title=""
             size="md"
             closeButtonDisabled={!closable}
-            closeOnBackdropClick={closable}
+            closeOnBackdropClick={false}
             hideHeader={true}
         >
             <div className="p-2 space-y-8">
                 {/* Header matching image structure */}
-                <div>
+                {/* Header matching image structure */}
+                <div className="text-center">
                     <h2 className="text-[28px] font-bold text-[#333] leading-tight mb-1">Division Selection</h2>
-                    <p className="text-[#6b7280] text-lg font-medium">Select Division</p>
                 </div>
 
                 <div className="space-y-6">

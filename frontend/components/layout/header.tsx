@@ -63,22 +63,13 @@ export function Header({ user, isNavExpanded, onNavExpandChange, onOpenDivisionD
       {user.selectedDivisionName && (
         <button
           onClick={onOpenDivisionDialog}
-          className="flex items-center gap-2.5 px-3 py-1.5 bg-blue-50/50 hover:bg-blue-100/50 border border-blue-100 hover:border-blue-200 rounded-xl transition-all duration-200 group ml-2 mr-auto"
+          className="flex items-center gap-2 px-4 py-2 bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 rounded-xl transition-all duration-300 group ml-3 mr-auto h-10 shadow-sm active:scale-95"
+          title="Switch Division"
         >
-          <div className="p-2 bg-white rounded-lg shadow-sm text-blue-600 border border-blue-50">
-            <LayoutGrid className="h-4 w-4" />
-          </div>
-          <div className="flex flex-col items-start pr-1">
-            <span className="text-[10px] text-blue-600/70 font-bold uppercase tracking-widest leading-none mb-1">
-              Division
-            </span>
-            <div className="flex items-center gap-1.5">
-              <span className="text-sm font-black text-slate-800 tracking-tight uppercase leading-none">
-                {user.selectedDivisionName}
-              </span>
-              <ChevronDown className="h-3.5 w-3.5 text-blue-400 group-hover:text-blue-600 group-hover:translate-y-0.5 transition-all" />
-            </div>
-          </div>
+          <span className="text-[13px] font-black text-slate-800 tracking-tight uppercase leading-none group-hover:text-indigo-700 transition-colors">
+            {user.selectedDivisionName}
+          </span>
+          <ChevronDown className="h-4 w-4 text-slate-400 group-hover:text-indigo-500 group-hover:translate-y-0.5 transition-all duration-300" />
         </button>
       )}
       <div className="flex items-center gap-4 min-w-0">

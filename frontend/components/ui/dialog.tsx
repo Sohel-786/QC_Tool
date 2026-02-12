@@ -112,7 +112,7 @@ export function Dialog({
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               onClick={(e) => e.stopPropagation()}
               className={cn(
-                "bg-white rounded-xl shadow-2xl w-full max-h-[96vh] flex flex-col",
+                "bg-white rounded-xl shadow-2xl w-full max-h-[96vh] flex flex-col relative",
                 sizeClasses[size]
               )}
             >

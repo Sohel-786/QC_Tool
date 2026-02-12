@@ -37,7 +37,9 @@ export function useAuth() {
       // Ignore errors
     } finally {
       localStorage.removeItem('user');
-      sessionStorage.removeItem('divisionSelected');
+      localStorage.removeItem('selectedDivisionId');
+      localStorage.removeItem('selectedDivisionName');
+      sessionStorage.clear();
       // Force full page reload to clear all state including React Query
       window.location.href = '/login';
     }

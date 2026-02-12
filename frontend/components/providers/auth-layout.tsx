@@ -50,6 +50,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
   const [hasSelectedDivision, setHasSelectedDivision] = useState<boolean>(false);
   const [isDivisionDialogOpen, setIsDivisionDialogOpen] = useState<boolean>(false);
+  const [remountKey, setRemountKey] = useState(0);
 
   // React to current user updates from Settings/User Management (without reload)
   useEffect(() => {
@@ -98,23 +99,47 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
         // Always validate with backend if not on login page
         const response = await api.post('/auth/validate');
         if (response.data.user) {
-          const user = response.data.user;
-          // Merge persistent division selection
+          const fetchedUser = response.data.user;
+
+          // Merge persistent division selection ONLY if valid for this user
           const persistentId = localStorage.getItem('selectedDivisionId');
           const persistentName = localStorage.getItem('selectedDivisionName');
 
+          let validDivisionId: number | undefined = undefined;
+          let validDivisionName: string | undefined = undefined;
+
+          if (persistentId) {
+            const pid = parseInt(persistentId);
+            const userHasAccess = fetchedUser.allowedDivisions?.some((d: any) => d.id === pid);
+
+            if (userHasAccess) {
+              validDivisionId = pid;
+              validDivisionName = persistentName || undefined;
+            } else {
+              // Invalid for this user -> clear storage
+              localStorage.removeItem('selectedDivisionId');
+              localStorage.removeItem('selectedDivisionName');
+              setHasSelectedDivision(false);
+            }
+          }
+
           const userWithDivision = {
-            ...user,
-            divisionId: persistentId ? parseInt(persistentId) : user.divisionId,
-            selectedDivisionName: persistentName || user.selectedDivisionName
+            ...fetchedUser,
+            divisionId: validDivisionId || fetchedUser.divisionId,
+            selectedDivisionName: validDivisionName || fetchedUser.selectedDivisionName
           };
 
           setUser(userWithDivision);
           localStorage.setItem('user', JSON.stringify(userWithDivision));
+
+          // Sync hasSelectedDivision state
+          setHasSelectedDivision(!!validDivisionId);
         }
       } catch (err) {
         // If validation fails, clear and redirect only if not on public routes
         localStorage.removeItem('user');
+        localStorage.removeItem('selectedDivisionId');
+        localStorage.removeItem('selectedDivisionName');
         setUser(null);
         router.push('/login');
       } finally {
@@ -141,10 +166,18 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
     return <>{children}</>;
   }
 
+
   const handleDivisionSelect = (divisionId: number, divisionName: string) => {
     if (!user) return;
 
-    // 1. Update localStorage
+    // 1. Check if the selection actually changed
+    const currentId = localStorage.getItem('selectedDivisionId');
+    if (currentId === divisionId.toString()) {
+      setIsDivisionDialogOpen(false);
+      return;
+    }
+
+    // 2. Update localStorage
     localStorage.setItem('selectedDivisionId', divisionId.toString());
     localStorage.setItem('selectedDivisionName', divisionName);
 
@@ -156,22 +189,16 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
     setHasSelectedDivision(true);
     setIsDivisionDialogOpen(false);
 
-    // 3. Invalidate TanStack Query caches
-    queryClient.invalidateQueries({ queryKey: ['settings', 'permissions'] });
-    queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-    queryClient.invalidateQueries({ queryKey: ['settings', 'software'] });
-
-    const masterKeys = ['companies', 'locations', 'contractors', 'statuses', 'machines', 'items', 'item-categories', 'divisions'];
-    masterKeys.forEach(key => queryClient.invalidateQueries({ queryKey: [key] }));
-    queryClient.invalidateQueries({ queryKey: ['issues'] });
-    queryClient.invalidateQueries({ queryKey: ['returns'] });
-    queryClient.invalidateQueries({ queryKey: ['reports'] });
+    // 3. Clear ALL TanStack Query caches to ensure NO stale data remains
+    // This is more robust than selective invalidation when swapping entire context
+    queryClient.clear();
 
     // 4. Trigger storage event for other tabs
     window.dispatchEvent(new Event('storage'));
 
-    // 5. Redirect to Dashboard
-    router.push('/dashboard');
+    // 5. Increment key to force React to remount the entire dashboard/page tree
+    // This ensures all hooks and local states are truly reset for the new division
+    setRemountKey(prev => prev + 1);
   };
 
   // NEW: Block access until division is selected
@@ -185,16 +212,19 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
               <div className="w-20 h-20 bg-red-50 rounded-3xl flex items-center justify-center mb-8">
                 <ShieldAlert className="w-10 h-10 text-red-600" />
               </div>
-              <h1 className="text-2xl font-black text-slate-900 mb-2">No Division Assigned</h1>
-              <p className="text-slate-500 mb-8 leading-relaxed font-medium">
-                Your account has not been assigned to any divisions yet. Please contact your administrator to grant you access.
+              <h2 className="text-2xl font-bold text-secondary-900 mb-3 px-2">No Division Assigned</h2>
+              <p className="text-secondary-600 mb-8 leading-relaxed">
+                Your account hasn't been assigned to any divisions yet. Please contact your administrator to get access.
               </p>
-              <Button onClick={() => {
-                localStorage.removeItem('user');
-                sessionStorage.clear();
-                window.location.href = '/login';
-              }} variant="outline" className="w-full h-14 rounded-2xl border-slate-200 font-bold hover:bg-slate-50">
-                Log Out & Exit
+              <Button
+                size="lg"
+                onClick={() => {
+                  localStorage.removeItem('user');
+                  router.push('/login');
+                }}
+                className="w-full h-14 rounded-2xl bg-secondary-900 hover:bg-secondary-800 text-white font-bold transition-all shadow-lg active:scale-[0.98]"
+              >
+                Return to Login
               </Button>
             </div>
           </div>
@@ -202,16 +232,14 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
       );
     }
 
+    // Otherwise, show the selection dialog (centered, mandated)
     return (
       <SoftwareProfileDraftProvider>
-        <div className="min-h-screen bg-secondary-50 flex items-center justify-center overflow-hidden">
-          {/* Professional background backdrop */}
-          <div className="fixed inset-0 bg-gradient-to-br from-primary-600/10 via-white to-secondary-50/50 z-0" />
-
+        <div className="min-h-screen bg-slate-50/50 flex items-center justify-center p-4">
           <DivisionSelectionDialog
             user={user}
-            onSelect={handleDivisionSelect}
             isOpen={true}
+            onSelect={handleDivisionSelect}
             closable={false}
           />
         </div>

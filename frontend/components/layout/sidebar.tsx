@@ -74,7 +74,6 @@ const SidebarText = ({
 );
 
 const masterEntries: (NavLink & { permission: keyof UserPermission })[] = [
-  { href: "/divisions", label: "Division Master", icon: LayoutGrid, permission: "viewDivisionMaster" },
   { href: "/companies", label: "Company Master", icon: Building2, permission: "viewCompanyMaster" },
   { href: "/locations", label: "Location Master", icon: MapPin, permission: "viewLocationMaster" },
   { href: "/contractors", label: "Contractor Master", icon: Briefcase, permission: "viewContractorMaster" },
@@ -82,6 +81,7 @@ const masterEntries: (NavLink & { permission: keyof UserPermission })[] = [
   { href: "/item-categories", label: "Item Category Master", icon: Layers, permission: "viewItemCategoryMaster" },
   { href: "/items", label: "Item Master", icon: Package, permission: "viewItemMaster" },
   { href: "/statuses", label: "Status Master", icon: Tag, permission: "viewStatusMaster" },
+  { href: "/divisions", label: "Division Master", icon: LayoutGrid, permission: "viewDivisionMaster" },
 ];
 
 const transactionEntriesAll: NavLink[] = [
@@ -167,15 +167,16 @@ export function Sidebar({
         : "User";
 
   const linkClass = (href: string, iconOnly = false) => {
-    const isActive = pathname === href;
+    const isActive = pathname === href || pathname.startsWith(`${href}/`);
     const base =
       "flex items-center gap-2 rounded-md transition-all text-sm cursor-pointer " +
       (isActive
-        ? "bg-primary-50 text-primary-600 font-medium"
-        : "text-secondary-700 hover:bg-secondary-50 hover:text-primary-600");
+        ? "bg-primary-50 text-primary-600 font-medium shadow-sm"
+        : "text-secondary-600 hover:bg-secondary-50 hover:text-primary-600");
+
     return iconOnly
-      ? `${base} justify-center px-2 py-2`
-      : `${base} px-3 py-1.5`;
+      ? `${base} justify-center px-2 py-2.5`
+      : `${base} px-4 py-2.5`;
   };
 
   const sectionHeaderClass =
