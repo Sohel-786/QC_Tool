@@ -62,23 +62,26 @@ namespace net_backend.Controllers
                 var validation = await ValidateLocations(result.Data);
                 var newItems = new List<Location>();
 
+                var companies = await _context.Companies
+                    .Where(c => c.DivisionId == CurrentDivisionId)
+                    .ToDictionaryAsync(c => c.Name.Trim().ToLower(), c => c.Id);
+
                 foreach (var validRow in validation.Valid)
                 {
-                    var company = await _context.Companies
-                        .FirstOrDefaultAsync(c => c.DivisionId == CurrentDivisionId && c.Name.ToLower() == validRow.Data.CompanyName.Trim().ToLower());
-                    if (company != null)
+                    var dto = validRow.Data;
+                    if (companies.TryGetValue(dto.CompanyName.Trim().ToLower(), out var companyId))
                     {
                         var isActive = true;
-                        if (!string.IsNullOrEmpty(validRow.Data.IsActive))
+                        if (!string.IsNullOrEmpty(dto.IsActive))
                         {
-                            var statusStr = validRow.Data.IsActive.Trim().ToLower();
+                            var statusStr = dto.IsActive.Trim().ToLower();
                             isActive = statusStr == "yes" || statusStr == "true" || statusStr == "1" || statusStr == "active";
                         }
 
                         newItems.Add(new Location 
                         { 
-                            Name = validRow.Data.Name.Trim(), 
-                            CompanyId = company.Id,
+                            Name = dto.Name.Trim(), 
+                            CompanyId = companyId,
                             IsActive = isActive,
                             DivisionId = CurrentDivisionId
                         });
@@ -100,7 +103,16 @@ namespace net_backend.Controllers
         private async Task<ValidationResultDto<LocationImportDto>> ValidateLocations(List<ExcelRow<LocationImportDto>> rows)
         {
             var validation = new ValidationResultDto<LocationImportDto>();
-            var companies = await _context.Companies.Where(c => c.DivisionId == CurrentDivisionId).ToListAsync();
+            var companies = await _context.Companies
+                .Where(c => c.DivisionId == CurrentDivisionId)
+                .ToDictionaryAsync(c => c.Name.Trim().ToLower(), c => c);
+            
+            var existingLocations = await _context.Locations
+                .Where(l => l.DivisionId == CurrentDivisionId)
+                .Select(l => new { l.Name, l.CompanyId })
+                .ToListAsync();
+            
+            var existingMap = new HashSet<string>(existingLocations.Select(l => $"{l.Name.Trim().ToLower()}_{l.CompanyId}"));
             var processedInFile = new HashSet<string>();
 
             foreach (var row in rows)
@@ -118,8 +130,7 @@ namespace net_backend.Controllers
                     continue;
                 }
 
-                var company = companies.FirstOrDefault(c => c.Name.Trim().ToLower() == item.CompanyName.Trim().ToLower());
-                if (company == null)
+                if (!companies.TryGetValue(item.CompanyName.Trim().ToLower(), out var company))
                 {
                     validation.Invalid.Add(new ValidationEntry<LocationImportDto> { Row = row.RowNumber, Data = item, Message = $"Company '{item.CompanyName}' not found" });
                     continue;
@@ -135,8 +146,7 @@ namespace net_backend.Controllers
                     continue;
                 }
 
-                var existsInDb = await _context.Locations.AnyAsync(l => l.DivisionId == CurrentDivisionId && l.Name.ToLower() == nameLower && l.CompanyId == companyId);
-                if (existsInDb)
+                if (existingMap.Contains(fileKey))
                 {
                     validation.AlreadyExists.Add(new ValidationEntry<LocationImportDto> { Row = row.RowNumber, Data = item, Message = $"Location '{item.Name}' already exists for Company '{company.Name}'" });
                     processedInFile.Add(fileKey);

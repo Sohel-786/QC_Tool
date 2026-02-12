@@ -70,26 +70,31 @@ namespace net_backend.Controllers
                 
                 var validation = await ValidateItems(result.Data);
                 var newItems = new List<Item>();
+                
                 var categories = await _context.ItemCategories
                     .Where(c => c.DivisionId == CurrentDivisionId)
-                    .ToDictionaryAsync(c => c.Name.ToLower(), c => c.Id);
+                    .ToDictionaryAsync(c => c.Name.Trim().ToLower(), c => c.Id);
 
                 foreach (var validRow in validation.Valid)
                 {
-                    var item = validRow.Data;
+                    var itemDto = validRow.Data;
                     int? categoryId = null;
-                    if (!string.IsNullOrEmpty(item.Category) && categories.TryGetValue(item.Category.Trim().ToLower(), out var catId))
+                    if (!string.IsNullOrWhiteSpace(itemDto.Category))
                     {
-                        categoryId = catId;
+                        var categoryName = itemDto.Category.Trim().ToLower();
+                        if (categories.TryGetValue(categoryName, out var catId))
+                        {
+                            categoryId = catId;
+                        }
                     }
 
                     newItems.Add(new Item
                     {
-                        ItemName = item.ItemName.Trim(),
-                        SerialNumber = item.SerialNumber!.Trim(),
-                        Description = item.Description?.Trim(),
+                        ItemName = itemDto.ItemName.Trim(),
+                        SerialNumber = itemDto.SerialNumber!.Trim(),
+                        Description = itemDto.Description?.Trim(),
                         CategoryId = categoryId,
-                        InHouseLocation = item.InHouseLocation?.Trim(),
+                        InHouseLocation = itemDto.InHouseLocation?.Trim(),
                         DivisionId = CurrentDivisionId,
                         Status = ItemStatus.AVAILABLE,
                         IsActive = true,
@@ -119,6 +124,11 @@ namespace net_backend.Controllers
                 .ToListAsync();
             var processedInFile = new HashSet<string>();
 
+            var categories = await _context.ItemCategories
+                .Where(c => c.DivisionId == CurrentDivisionId)
+                .Select(c => c.Name.ToLower())
+                .ToListAsync();
+
             foreach (var row in rows)
             {
                 var item = row.Data;
@@ -126,6 +136,17 @@ namespace net_backend.Controllers
                 {
                     validation.Invalid.Add(new ValidationEntry<ItemImportDto> { Row = row.RowNumber, Data = item, Message = "Name and Serial Number are mandatory" });
                     continue;
+                }
+
+                // Dependent: Category Check
+                if (!string.IsNullOrWhiteSpace(item.Category))
+                {
+                    var categoryName = item.Category.Trim().ToLower();
+                    if (!categories.Contains(categoryName))
+                    {
+                        validation.Invalid.Add(new ValidationEntry<ItemImportDto> { Row = row.RowNumber, Data = item, Message = $"Category '{item.Category}' not found" });
+                        continue;
+                    }
                 }
 
                 var serialLower = item.SerialNumber.Trim().ToLower();
@@ -427,10 +448,9 @@ namespace net_backend.Controllers
             if (image != null)
             {
                 var safeSerial = PathUtils.SanitizeSerialForPath(request.SerialNumber);
-                var divFolderName = PathUtils.SanitizeFolderName(CurrentDivisionName);
                 var fileName = $"master-{safeSerial}-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}{Path.GetExtension(image.FileName)}";
                 
-                var uploads = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "storage", divFolderName, "items", safeSerial);
+                var uploads = Path.Combine(Directory.GetCurrentDirectory(), PathUtils.GetItemFolderPath(CurrentDivisionName, request.SerialNumber));
                 Directory.CreateDirectory(uploads);
                 
                 var filePath = Path.Combine(uploads, fileName);
@@ -439,7 +459,7 @@ namespace net_backend.Controllers
                     await image.CopyToAsync(fileStream);
                 }
                 
-                imagePath = $"{divFolderName}/items/{safeSerial}/{fileName}";
+                imagePath = PathUtils.GetMasterRelativePath(CurrentDivisionName, request.SerialNumber, fileName);
             }
 
             var item = new Item
@@ -519,8 +539,7 @@ namespace net_backend.Controllers
                 var safeSerial = PathUtils.SanitizeSerialForPath(item.SerialNumber ?? "unknown");
                 var fileName = $"master-{safeSerial}-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}{Path.GetExtension(image.FileName)}";
                 
-                var divFolderName = PathUtils.SanitizeFolderName(CurrentDivisionName);
-                var uploads = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "storage", divFolderName, "items", safeSerial);
+                var uploads = Path.Combine(Directory.GetCurrentDirectory(), PathUtils.GetItemFolderPath(CurrentDivisionName, item.SerialNumber ?? "unknown"));
                 Directory.CreateDirectory(uploads);
                 
                 var filePath = Path.Combine(uploads, fileName);
@@ -529,7 +548,7 @@ namespace net_backend.Controllers
                     await image.CopyToAsync(fileStream);
                 }
                 
-                item.Image = $"items/{safeSerial}/{fileName}";
+                item.Image = PathUtils.GetMasterRelativePath(CurrentDivisionName, item.SerialNumber ?? "unknown", fileName);
             }
 
             item.UpdatedAt = DateTime.Now;

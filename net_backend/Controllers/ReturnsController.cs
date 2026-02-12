@@ -274,13 +274,12 @@ namespace net_backend.Controllers
                 }
 
                 var safeSerial = PathUtils.SanitizeSerialForPath(serialNumber);
-                var divFolderName = PathUtils.SanitizeFolderName(CurrentDivisionName);
                 var ext = Path.GetExtension(image.FileName);
                 var fileName = request.IssueId.HasValue 
                     ? $"inward-issue-{request.IssueId}-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}{ext}"
                     : $"inward-missing-{request.ItemId}-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}{ext}";
 
-                var uploads = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "storage", divFolderName, "items", safeSerial, "inward");
+                var uploads = Path.Combine(Directory.GetCurrentDirectory(), PathUtils.GetInwardFolderPath(CurrentDivisionName, serialNumber));
                 Directory.CreateDirectory(uploads);
                 
                 var filePath = Path.Combine(uploads, fileName);
@@ -289,7 +288,7 @@ namespace net_backend.Controllers
                     await image.CopyToAsync(fileStream);
                 }
                 
-                imagePath = $"{divFolderName}/items/{safeSerial}/inward/{fileName}";
+                imagePath = PathUtils.GetInwardRelativePath(CurrentDivisionName, serialNumber, fileName);
             }
 
             var userIdStr = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;

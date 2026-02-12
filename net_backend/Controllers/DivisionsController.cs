@@ -170,7 +170,6 @@ namespace net_backend.Controllers
             {
                 Directory.CreateDirectory(storagePath);
                 Directory.CreateDirectory(Path.Combine(storagePath, "items"));
-                Directory.CreateDirectory(Path.Combine(storagePath, "inwards"));
             }
 
             return Ok(division);

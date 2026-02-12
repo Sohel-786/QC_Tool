@@ -85,8 +85,6 @@ var storagePath = Path.Combine(builder.Environment.ContentRootPath, "wwwroot", "
 if (!Directory.Exists(storagePath))
 {
     Directory.CreateDirectory(storagePath);
-    Directory.CreateDirectory(Path.Combine(storagePath, "items"));
-    Directory.CreateDirectory(Path.Combine(storagePath, "inwards"));
 }
 
 app.UseStaticFiles(); // For standard wwwroot files

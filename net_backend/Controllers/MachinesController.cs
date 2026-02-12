@@ -62,23 +62,26 @@ namespace net_backend.Controllers
                 var validation = await ValidateMachines(result.Data);
                 var newItems = new List<Machine>();
 
+                var contractors = await _context.Contractors
+                    .Where(c => c.DivisionId == CurrentDivisionId)
+                    .ToDictionaryAsync(c => c.Name.Trim().ToLower(), c => c.Id);
+
                 foreach (var validRow in validation.Valid)
                 {
-                    var contractor = await _context.Contractors
-                        .FirstOrDefaultAsync(c => c.DivisionId == CurrentDivisionId && c.Name.ToLower() == validRow.Data.ContractorName.Trim().ToLower());
-                    if (contractor != null)
+                    var dto = validRow.Data;
+                    if (contractors.TryGetValue(dto.ContractorName.Trim().ToLower(), out var contractorId))
                     {
                         var isActive = true;
-                        if (!string.IsNullOrEmpty(validRow.Data.IsActive))
+                        if (!string.IsNullOrEmpty(dto.IsActive))
                         {
-                            var statusStr = validRow.Data.IsActive.Trim().ToLower();
+                            var statusStr = dto.IsActive.Trim().ToLower();
                             isActive = statusStr == "yes" || statusStr == "true" || statusStr == "1" || statusStr == "active";
                         }
 
                         newItems.Add(new Machine 
                         { 
-                            Name = validRow.Data.Name.Trim(), 
-                            ContractorId = contractor.Id,
+                            Name = dto.Name.Trim(), 
+                            ContractorId = contractorId,
                             IsActive = isActive,
                             DivisionId = CurrentDivisionId,
                             CreatedAt = DateTime.Now,
@@ -102,8 +105,17 @@ namespace net_backend.Controllers
         private async Task<ValidationResultDto<MachineImportDto>> ValidateMachines(List<ExcelRow<MachineImportDto>> rows)
         {
             var validation = new ValidationResultDto<MachineImportDto>();
+            var contractors = await _context.Contractors
+                .Where(c => c.DivisionId == CurrentDivisionId)
+                .ToDictionaryAsync(c => c.Name.Trim().ToLower(), c => c);
+
+            var existingMachines = await _context.Machines
+                .Where(m => m.DivisionId == CurrentDivisionId)
+                .Select(m => new { m.Name, m.ContractorId })
+                .ToListAsync();
+
+            var existingMap = new HashSet<string>(existingMachines.Select(m => $"{m.Name.Trim().ToLower()}_{m.ContractorId}"));
             var processedInFile = new HashSet<string>();
-            var contractors = await _context.Contractors.Where(c => c.DivisionId == CurrentDivisionId).ToListAsync();
 
             foreach (var row in rows)
             {
@@ -120,8 +132,7 @@ namespace net_backend.Controllers
                     continue;
                 }
 
-                var contractor = contractors.FirstOrDefault(c => c.Name.Trim().ToLower() == item.ContractorName.Trim().ToLower());
-                if (contractor == null)
+                if (!contractors.TryGetValue(item.ContractorName.Trim().ToLower(), out var contractor))
                 {
                     validation.Invalid.Add(new ValidationEntry<MachineImportDto> { Row = row.RowNumber, Data = item, Message = $"Contractor '{item.ContractorName}' not found" });
                     continue;
@@ -137,8 +148,7 @@ namespace net_backend.Controllers
                     continue;
                 }
 
-                var existsInDb = await _context.Machines.AnyAsync(m => m.DivisionId == CurrentDivisionId && m.Name.ToLower() == nameLower && m.ContractorId == contractorId);
-                if (existsInDb)
+                if (existingMap.Contains(fileKey))
                 {
                     validation.AlreadyExists.Add(new ValidationEntry<MachineImportDto> { Row = row.RowNumber, Data = item, Message = $"Machine '{item.Name}' already exists for Contractor '{contractor.Name}'" });
                     processedInFile.Add(fileKey);

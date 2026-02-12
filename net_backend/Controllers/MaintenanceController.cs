@@ -81,8 +81,6 @@ namespace net_backend.Controllers
                         }
 
                         // Re-create structure
-                        Directory.CreateDirectory(Path.Combine(storagePath, "items"));
-                        Directory.CreateDirectory(Path.Combine(storagePath, "inwards"));
                         Directory.CreateDirectory(Path.Combine(storagePath, "settings"));
                     }
 

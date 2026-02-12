@@ -202,17 +202,17 @@ namespace net_backend.Controllers
                 var serialNumber = item.SerialNumber ?? "unknown";
                 var safeSerial = PathUtils.SanitizeSerialForPath(serialNumber);
                 
-                var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "storage", "items", safeSerial, "outward");
+                var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), PathUtils.GetOutwardFolderPath(CurrentDivisionName, serialNumber));
                 if (!Directory.Exists(uploadsFolder)) Directory.CreateDirectory(uploadsFolder);
 
-                var uniqueFileName = Guid.NewGuid().ToString() + "_" + request.Image.FileName;
+                var uniqueFileName = $"{Guid.NewGuid()}_{request.Image.FileName}";
                 var filePath = Path.Combine(uploadsFolder, uniqueFileName);
 
                 using (var fileStream = new FileStream(filePath, FileMode.Create))
                 {
                     await request.Image.CopyToAsync(fileStream);
                 }
-                issueImagePath = $"items/{safeSerial}/outward/{uniqueFileName}";
+                issueImagePath = PathUtils.GetOutwardRelativePath(CurrentDivisionName, serialNumber, uniqueFileName);
             }
 
             var count = await _context.Issues.CountAsync(i => i.DivisionId == CurrentDivisionId);
@@ -290,7 +290,7 @@ namespace net_backend.Controllers
                 var serialNumber = item?.SerialNumber ?? "unknown";
                 var safeSerial = PathUtils.SanitizeSerialForPath(serialNumber);
 
-                var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "storage", "items", safeSerial, "outward");
+                var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), PathUtils.GetOutwardFolderPath(CurrentDivisionName, serialNumber));
                 if (!Directory.Exists(uploadsFolder)) Directory.CreateDirectory(uploadsFolder);
 
                 // Optionally delete old image if it exists
@@ -300,14 +300,14 @@ namespace net_backend.Controllers
                     if (System.IO.File.Exists(oldPath)) System.IO.File.Delete(oldPath);
                 }
 
-                var uniqueFileName = Guid.NewGuid().ToString() + "_" + request.Image.FileName;
+                var uniqueFileName = $"{Guid.NewGuid()}_{request.Image.FileName}";
                 var filePath = Path.Combine(uploadsFolder, uniqueFileName);
 
                 using (var fileStream = new FileStream(filePath, FileMode.Create))
                 {
                     await request.Image.CopyToAsync(fileStream);
                 }
-                issue.IssueImage = $"items/{safeSerial}/outward/{uniqueFileName}";
+                issue.IssueImage = PathUtils.GetOutwardRelativePath(CurrentDivisionName, serialNumber, uniqueFileName);
             }
 
             if (request.IssuedTo != null)
