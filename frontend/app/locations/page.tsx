@@ -27,6 +27,7 @@ import { useCurrentUserPermissions } from "@/hooks/use-settings";
 import { toast } from "react-hot-toast";
 import { Company } from "@/types";
 import { Select } from "@/components/ui/select";
+import { ImportPreviewModal } from "@/components/dialogs/import-preview-modal";
 
 const locationSchema = z.object({
   name: z.string().min(1, "Location name is required"),
@@ -50,8 +51,16 @@ export default function LocationsPage() {
   const canAddMaster = permissions?.addMaster ?? false;
   const canEditMaster = permissions?.editMaster ?? false;
   const canImportExportMaster = permissions?.importExportMaster ?? false;
-  const { handleExport, handleImport, exportLoading, importLoading } =
-    useMasterExportImport("locations", ["locations"]);
+  const {
+    handleExport,
+    handleImport,
+    exportLoading,
+    importLoading,
+    validationData,
+    isPreviewOpen,
+    confirmImport,
+    closePreview,
+  } = useMasterExportImport("locations", ["locations"]);
 
   const { data: locations = [], isLoading } = useQuery<Location[]>({
     queryKey: ["locations"],
@@ -83,13 +92,6 @@ export default function LocationsPage() {
     },
   });
 
-  useEffect(() => {
-    if (!isFormOpen) return;
-    const t = setTimeout(() => {
-      document.getElementById("location-company-select")?.focus();
-    }, 100);
-    return () => clearTimeout(t);
-  }, [isFormOpen]);
 
   const createMutation = useMutation({
     mutationFn: async (data: {
@@ -592,6 +594,15 @@ export default function LocationsPage() {
             </div>
           </form>
         </Dialog>
+
+        <ImportPreviewModal
+          isOpen={isPreviewOpen}
+          onClose={closePreview}
+          data={validationData}
+          onConfirm={confirmImport}
+          isLoading={importLoading}
+          title="Import Locations Preview"
+        />
       </motion.div>
     </div>
   );

@@ -209,7 +209,7 @@ export default function SettingsPage() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const firstNameInputRef = useRef<HTMLInputElement>(null);
+
 
   // Divisions for access mapping
   const { data: divisions = [] } = useDivisions();
@@ -374,13 +374,7 @@ export default function SettingsPage() {
     }
   }, [isUserFormOpen, reset]);
 
-  // Focus First name when Add/Edit User form opens
-  useEffect(() => {
-    if (isUserFormOpen) {
-      const t = setTimeout(() => firstNameInputRef.current?.focus(), 100);
-      return () => clearTimeout(t);
-    }
-  }, [isUserFormOpen]);
+
 
   if (userLoading) {
     return (
@@ -786,7 +780,7 @@ export default function SettingsPage() {
                       <li>All Master Entries will be deleted</li>
                       <li>All Outward/Inward data will be wiped</li>
                       <li>All stored images will be removed</li>
-                      <li>All users except you will be removed</li>
+                      <li>All users except the primary admin will be removed</li>
                     </ul>
                   </div>
                 </div>
@@ -1400,12 +1394,6 @@ export default function SettingsPage() {
               <Label>First name *</Label>
               <Input
                 {...register("firstName")}
-                ref={(el) => {
-                  register("firstName").ref(el);
-                  (
-                    firstNameInputRef as React.MutableRefObject<HTMLInputElement | null>
-                  ).current = el;
-                }}
                 className="mt-1"
                 placeholder="Enter first name"
               />

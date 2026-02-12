@@ -17,6 +17,7 @@ import { Plus, Edit2, Search, Ban, CheckCircle, Download, Upload } from "lucide-
 import { useMasterExportImport } from "@/hooks/use-master-export-import";
 import { useCurrentUserPermissions } from "@/hooks/use-settings";
 import { toast } from "react-hot-toast";
+import { ImportPreviewModal } from "@/components/dialogs/import-preview-modal";
 
 const divisionSchema = z.object({
     name: z.string().min(1, "Division name is required"),
@@ -41,8 +42,16 @@ export default function DivisionsPage() {
     const canEditMaster = permissions?.editMaster ?? false;
     const canImportExportMaster = permissions?.importExportMaster ?? false;
 
-    const { handleExport, handleImport, exportLoading, importLoading } =
-        useMasterExportImport("divisions", ["divisions"]);
+    const {
+        handleExport,
+        handleImport,
+        exportLoading,
+        importLoading,
+        validationData,
+        isPreviewOpen,
+        confirmImport,
+        closePreview,
+    } = useMasterExportImport("divisions", ["divisions"]);
 
     // Use backend filtering and searching as requested
     const { data: divisions = [], isLoading } = useQuery<Division[]>({
@@ -68,13 +77,6 @@ export default function DivisionsPage() {
         resolver: zodResolver(divisionSchema),
     });
 
-    useEffect(() => {
-        if (!isFormOpen) return;
-        const t = setTimeout(() => {
-            document.getElementById("division-name-input")?.focus();
-        }, 100);
-        return () => clearTimeout(t);
-    }, [isFormOpen]);
 
     const createMutation = useMutation({
         mutationFn: async (data: { name: string; isActive?: boolean }) => {
@@ -479,6 +481,15 @@ export default function DivisionsPage() {
                         </div>
                     </form>
                 </Dialog>
+
+                <ImportPreviewModal
+                    isOpen={isPreviewOpen}
+                    onClose={closePreview}
+                    data={validationData}
+                    onConfirm={confirmImport}
+                    isLoading={importLoading}
+                    title="Import Divisions Preview"
+                />
             </motion.div>
         </div>
     );

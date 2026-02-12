@@ -66,7 +66,9 @@ namespace net_backend.Controllers
                     { 
                         Name = validRow.Data.Name.Trim(), 
                         IsActive = true,
-                        DivisionId = CurrentDivisionId
+                        DivisionId = CurrentDivisionId,
+                        CreatedAt = DateTime.Now,
+                        UpdatedAt = DateTime.Now
                     });
                 }
 

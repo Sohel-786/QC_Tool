@@ -2,15 +2,15 @@ namespace net_backend.Services
 {
     public interface ICodeGeneratorService
     {
-        string GenerateNextCode(string type, int count);
+        string GenerateNextCode(string type, int count, string divisionPrefix);
     }
 
     public class CodeGeneratorService : ICodeGeneratorService
     {
-        public string GenerateNextCode(string type, int count)
+        public string GenerateNextCode(string type, int count, string divisionPrefix)
         {
             string prefix = type == "OUTWARD" ? "OUT" : "INW";
-            return $"{prefix}-{DateTime.Now:yyyyMMdd}-{count + 1:D4}";
+            return $"{divisionPrefix}-{prefix}-{count + 1:D2}";
         }
     }
 }

@@ -15,6 +15,7 @@ export interface AutocompleteProps {
     "aria-invalid"?: boolean;
     "aria-describedby"?: string;
     onBlur?: () => void;
+    onKeyDown?: (e: React.KeyboardEvent) => void;
 }
 
 export function Autocomplete({
@@ -27,6 +28,7 @@ export function Autocomplete({
     "aria-invalid": ariaInvalid,
     "aria-describedby": ariaDescribedby,
     onBlur,
+    onKeyDown,
 }: AutocompleteProps) {
     const [isOpen, setIsOpen] = React.useState(false);
     const [highlightIndex, setHighlightIndex] = React.useState(-1);
@@ -83,6 +85,8 @@ export function Autocomplete({
         } else if (e.key === "Escape") {
             setIsOpen(false);
         }
+
+        onKeyDown?.(e);
     };
 
     const handleSelect = (option: string) => {

@@ -44,6 +44,7 @@ export function SearchableSelect({
   const [searchTerm, setSearchTerm] = useState("");
   const [highlightIndex, setHighlightIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
@@ -55,7 +56,7 @@ export function SearchableSelect({
     );
   }, [options, searchTerm]);
 
-  const selectedLabel = value
+  const selectedLabel = value !== undefined && value !== null && value !== ""
     ? options.find((o) => o.value === value)?.label ?? ""
     : "";
 
@@ -63,7 +64,15 @@ export function SearchableSelect({
     if (isOpen) {
       setSearchTerm("");
       setHighlightIndex(0);
-      setTimeout(() => searchInputRef.current?.focus(), 0);
+      // Use a slightly longer delay to ensure the input is mounted even in slow rendering conditions
+      const timer = setTimeout(() => searchInputRef.current?.focus(), 50);
+      return () => clearTimeout(timer);
+    } else {
+      // Return focus to the trigger button when closing
+      // but only if focus was inside the component
+      if (document.activeElement && containerRef.current?.contains(document.activeElement)) {
+        triggerRef.current?.focus();
+      }
     }
   }, [isOpen]);
 
@@ -103,32 +112,43 @@ export function SearchableSelect({
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (!isOpen) {
-      if (e.key === "Enter" || e.key === " ") {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter" || e.key === " ") {
         e.preventDefault();
         setIsOpen(true);
       }
       return;
     }
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      moveHighlight(1);
-      return;
-    }
-    if (e.key === "ArrowUp") {
-      e.preventDefault();
-      moveHighlight(-1);
-      return;
-    }
-    if (e.key === "Enter") {
-      e.preventDefault();
-      const opt = filteredOptions[highlightIndex];
-      if (opt && !opt.disabled) {
-        onChange(opt.value);
+
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        moveHighlight(1);
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        moveHighlight(-1);
+        break;
+      case "Enter":
+        e.preventDefault();
+        const opt = filteredOptions[highlightIndex];
+        if (opt && !opt.disabled) {
+          onChange(opt.value);
+          setIsOpen(false);
+        }
+        break;
+      case "Escape":
+        e.preventDefault();
         setIsOpen(false);
-      }
-      return;
+        break;
+      case "Tab":
+        // Allow Tab to move focus out but close the dropdown
+        setIsOpen(false);
+        break;
     }
   };
+
+  const listboxId = id ? `${id}-listbox` : "searchable-select-listbox";
+  const activeOptionId = id ? `${id}-option-${highlightIndex}` : `searchable-select-option-${highlightIndex}`;
 
   return (
     <div ref={containerRef} className={cn("relative", className)}>
@@ -138,11 +158,13 @@ export function SearchableSelect({
         </Label>
       )}
       <button
+        ref={triggerRef}
         type="button"
         id={id}
         aria-label={ariaLabel ?? label ?? placeholder}
         aria-expanded={isOpen}
         aria-haspopup="listbox"
+        aria-controls={listboxId}
         disabled={disabled}
         onClick={() => !disabled && setIsOpen((o) => !o)}
         onKeyDown={handleKeyDown}
@@ -168,49 +190,58 @@ export function SearchableSelect({
 
       {isOpen && (
         <div
-          className="absolute z-50 mt-1 w-full rounded-md border border-secondary-200 bg-white shadow-lg"
-          role="listbox"
+          className="absolute z-50 mt-1 w-full rounded-md border border-secondary-200 bg-white shadow-lg overflow-hidden"
         >
-          <div className="border-b border-secondary-200 p-2">
+          <div className="border-b border-secondary-200 p-2 bg-secondary-50">
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-secondary-400" />
               <Input
                 ref={searchInputRef}
                 type="text"
+                autoComplete="off"
                 value={searchTerm}
                 onChange={(e) => {
                   setSearchTerm(e.target.value);
                   setHighlightIndex(0);
                 }}
                 placeholder={searchPlaceholder}
-                className="h-9 pl-8 border-secondary-200"
+                className="h-9 pl-8 border-secondary-200 bg-white"
                 onKeyDown={handleKeyDown}
+                role="combobox"
+                aria-autocomplete="list"
+                aria-expanded="true"
+                aria-haspopup="listbox"
+                aria-controls={listboxId}
+                aria-activedescendant={activeOptionId}
               />
             </div>
           </div>
           <ul
             ref={listRef}
+            id={listboxId}
             className="max-h-60 overflow-auto py-1"
             role="listbox"
+            aria-label={label ?? placeholder}
           >
             {filteredOptions.length === 0 ? (
-              <li className="px-3 py-2 text-sm text-secondary-500">No matches</li>
+              <li className="px-3 py-2 text-sm text-secondary-500 italic">No matches</li>
             ) : (
               filteredOptions.map((opt, index) => (
                 <li
                   key={opt.value}
+                  id={id ? `${id}-option-${index}` : `searchable-select-option-${index}`}
                   role="option"
                   aria-selected={value === opt.value}
                   aria-disabled={opt.disabled}
                   className={cn(
-                    "px-3 py-2 text-sm",
+                    "px-3 py-2 text-sm transition-colors",
                     opt.disabled
                       ? "cursor-not-allowed bg-secondary-50 text-secondary-400"
                       : "cursor-pointer",
                     !opt.disabled && value === opt.value
                       ? "bg-primary-100 text-primary-800"
                       : !opt.disabled && index === highlightIndex
-                        ? "bg-secondary-100 text-text"
+                        ? "bg-secondary-100 text-text outline-none"
                         : !opt.disabled && "text-text hover:bg-secondary-50",
                   )}
                   onClick={() => {
@@ -229,8 +260,9 @@ export function SearchableSelect({
       )}
 
       {error && (
-        <p className="text-sm text-red-600 mt-1">{error}</p>
+        <p className="text-sm text-red-600 mt-1" role="alert">{error}</p>
       )}
     </div>
   );
 }
+

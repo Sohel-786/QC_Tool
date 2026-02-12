@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
@@ -41,22 +41,81 @@ export function Dialog({
   hideHeader = false,
   className,
 }: DialogProps) {
-  // Lock body scroll and handle ESC key when dialog is open
-  useEffect(() => {
-    const closeFn = () => onClose();
+  // Store the element that had focus before the dialog opened
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
 
+  // Keep onCloseRef up to date
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  // Handle focus storage and return only on open/close transitions
+  useEffect(() => {
+    if (isOpen) {
+      previousFocusRef.current = document.activeElement as HTMLElement;
+    } else {
+      // When closing, return focus to previous element if it still exists
+      if (previousFocusRef.current && document.body.contains(previousFocusRef.current)) {
+        // Small delay to ensure the dialog is gone and no race conditions with other focus events
+        const timer = setTimeout(() => {
+          previousFocusRef.current?.focus();
+          previousFocusRef.current = null;
+        }, 30);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [isOpen]);
+
+  // Lock body scroll and handle accessibility event listeners
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen && !closeButtonDisabled) {
-        // Only trigger onClose if this dialog is at the top of the stack
-        if (isTopDialog(closeFn)) {
-          onClose();
+      if (!isOpen) return;
+
+      // Handle ESC key
+      if (e.key === "Escape" && !closeButtonDisabled) {
+        if (isTopDialog(onCloseRef.current)) {
+          onCloseRef.current();
+        }
+      }
+
+      // Handle Tab key (Focus Wrap)
+      if (e.key === "Tab") {
+        if (!dialogRef.current) return;
+
+        const focusableElements = Array.from(dialogRef.current.querySelectorAll(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        )).filter(el => {
+          const style = window.getComputedStyle(el);
+          return style.display !== 'none' && style.visibility !== 'hidden';
+        }) as HTMLElement[];
+
+        if (focusableElements.length === 0) {
+          e.preventDefault();
+          return;
+        }
+
+        const firstElement = focusableElements[0];
+        const lastElement = focusableElements[focusableElements.length - 1];
+
+        if (e.shiftKey) { // Shift + Tab
+          if (document.activeElement === firstElement || !dialogRef.current.contains(document.activeElement)) {
+            e.preventDefault();
+            lastElement.focus();
+          }
+        } else { // Tab
+          if (document.activeElement === lastElement || !dialogRef.current.contains(document.activeElement)) {
+            e.preventDefault();
+            firstElement.focus();
+          }
         }
       }
     };
 
     if (isOpen) {
       // Add this dialog to the stack using the utility
-      const cleanup = registerDialog(closeFn);
+      const cleanup = registerDialog(onCloseRef.current);
 
       // Lock scroll only if it's the first dialog opening
       if (getOpenDialogCount() === 1) {
@@ -67,7 +126,7 @@ export function Dialog({
       window.addEventListener("keydown", handleKeyDown);
 
       return () => {
-        // Remove from stack on unmount or when closed using cleanup
+        // Remove from stack
         cleanup();
 
         // Unlock scroll only if No more dialogs are open
@@ -79,7 +138,36 @@ export function Dialog({
         window.removeEventListener("keydown", handleKeyDown);
       };
     }
-  }, [isOpen, onClose, closeButtonDisabled]);
+  }, [isOpen, closeButtonDisabled]);
+
+  // Handle initial focus only once when dialog opens
+  useEffect(() => {
+    let focusTimer: NodeJS.Timeout;
+
+    if (isOpen) {
+      focusTimer = setTimeout(() => {
+        if (dialogRef.current) {
+          // Find first focusable element that is NOT the close button in the header
+          const focusableElements = Array.from(dialogRef.current.querySelectorAll(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+          )) as HTMLElement[];
+
+          // Skip header close button if possible
+          const firstField = focusableElements.find(el =>
+            !el.classList.contains('p-0') &&
+            el.getAttribute('title') !== 'Close' &&
+            el.tagName !== 'BUTTON' || (el.tagName === 'BUTTON' && !el.querySelector('svg'))
+          ) || focusableElements[0];
+
+          firstField?.focus();
+        }
+      }, 150);
+    }
+
+    return () => {
+      if (focusTimer) clearTimeout(focusTimer);
+    };
+  }, [isOpen]);
 
   const sizeClasses: Record<NonNullable<DialogProps["size"]>, string> = {
     sm: "max-w-md",
@@ -94,7 +182,6 @@ export function Dialog({
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Backdrop – portaled to body so z-[100] is above sidebar (z-50) */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -108,14 +195,17 @@ export function Dialog({
               overlayClassName,
             )}
           >
-            {/* Dialog */}
             <motion.div
+              ref={dialogRef}
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="dialog-title"
               className={cn(
-                "bg-white rounded-xl shadow-2xl w-full max-h-[96vh] flex flex-col relative",
+                "bg-white rounded-xl shadow-2xl w-full max-h-[96vh] flex flex-col relative focus:outline-none",
                 sizeClasses[size],
                 className
               )}
@@ -123,7 +213,7 @@ export function Dialog({
               {/* Header */}
               {!hideHeader && (
                 <div className="flex items-center justify-between p-6 border-b border-secondary-200">
-                  <h2 className="text-xl font-semibold text-text">{title}</h2>
+                  <h2 id="dialog-title" className="text-xl font-semibold text-text">{title}</h2>
                   <Button
                     type="button"
                     variant="ghost"
@@ -142,17 +232,16 @@ export function Dialog({
                 </div>
               )}
 
-              {/* Special Close Button for hidden headers (optional, but requested for the modal phase) */}
               {hideHeader && !closeButtonDisabled && (
                 <button
                   onClick={onClose}
+                  aria-label="Close dialog"
                   className="absolute top-4 right-4 p-2 text-secondary-400 hover:text-secondary-600 hover:bg-secondary-100 rounded-full transition-all z-[1010]"
                 >
                   <X className="h-5 w-5" />
                 </button>
               )}
 
-              {/* Content - scrollable by default; use contentScroll={false} for internal scroll + sticky footer */}
               <div
                 className={cn(
                   "flex-1 min-h-0",

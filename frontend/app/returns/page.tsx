@@ -554,6 +554,18 @@ export default function ReturnsPage() {
   };
 
   useEffect(() => {
+    if (isFormOpen && !editingReturn) {
+      setTimeout(() => {
+        if (isFromOutwardMode) {
+          document.getElementById("inward-issue-id")?.focus();
+        } else if (isMissingItemMode) {
+          document.getElementById("inward-missing-company")?.focus();
+        }
+      }, 300);
+    }
+  }, [isFormOpen, editingReturn, isFromOutwardMode, isMissingItemMode]);
+
+  useEffect(() => {
     if (!prefillIssueId || isManager) return;
     const id = parseInt(prefillIssueId, 10);
     if (Number.isNaN(id)) return;
@@ -1223,9 +1235,12 @@ export default function ReturnsPage() {
                             id="inward-issue-id"
                             options={outwardOptions}
                             value={hasValidIssue ? numIssueId : ""}
-                            onChange={(v: any) =>
-                              setValue("issueId", Number(v))
-                            }
+                            onChange={(v: any) => {
+                              setValue("issueId", Number(v));
+                              setTimeout(() => {
+                                document.getElementById("inward-condition")?.focus();
+                              }, 100);
+                            }}
                             placeholder="Select outward entry"
                             searchPlaceholder="Search outward number..."
                             error={errors.issueId?.message}
@@ -1261,6 +1276,9 @@ export default function ReturnsPage() {
                                     v ? Number(v) : undefined,
                                   );
                                   setValue("locationId", undefined);
+                                  setTimeout(() => {
+                                    document.getElementById("inward-missing-location")?.focus();
+                                  }, 100);
                                 }}
                                 placeholder="Select company"
                                 searchPlaceholder="Search company..."
@@ -1285,12 +1303,15 @@ export default function ReturnsPage() {
                                     ? Number(watch("locationId"))
                                     : ""
                                 }
-                                onChange={(v) =>
+                                onChange={(v) => {
                                   setValue(
                                     "locationId",
                                     v ? Number(v) : undefined,
-                                  )
-                                }
+                                  );
+                                  setTimeout(() => {
+                                    document.getElementById("inward-missing-contractor")?.focus();
+                                  }, 100);
+                                }}
                                 disabled={!watchedCompanyId}
                                 placeholder={
                                   watchedCompanyId
@@ -1325,6 +1346,9 @@ export default function ReturnsPage() {
                                     v ? Number(v) : undefined,
                                   );
                                   setValue("machineId", undefined);
+                                  setTimeout(() => {
+                                    document.getElementById("inward-missing-machine")?.focus();
+                                  }, 100);
                                 }}
                                 placeholder="Select contractor"
                                 searchPlaceholder="Search contractor..."
@@ -1349,12 +1373,15 @@ export default function ReturnsPage() {
                                     ? Number(watch("machineId"))
                                     : ""
                                 }
-                                onChange={(v) =>
+                                onChange={(v) => {
                                   setValue(
                                     "machineId",
                                     v ? Number(v) : undefined,
-                                  )
-                                }
+                                  );
+                                  setTimeout(() => {
+                                    document.getElementById("inward-category-id")?.focus();
+                                  }, 100);
+                                }}
                                 disabled={!watchedContractorId}
                                 placeholder={
                                   watchedContractorId
@@ -1387,6 +1414,9 @@ export default function ReturnsPage() {
                                     v ? Number(v) : undefined,
                                   );
                                   setValue("itemId", 0);
+                                  setTimeout(() => {
+                                    document.getElementById("inward-item-id")?.focus();
+                                  }, 100);
                                 }}
                                 placeholder="Select category"
                                 searchPlaceholder="Search categories..."
@@ -1407,7 +1437,12 @@ export default function ReturnsPage() {
                                 id="inward-item-id"
                                 options={missingItemOptions}
                                 value={hasValidMissingItem ? numItemId : ""}
-                                onChange={(v) => setValue("itemId", Number(v))}
+                                onChange={(v) => {
+                                  setValue("itemId", Number(v));
+                                  setTimeout(() => {
+                                    document.getElementById("inward-condition")?.focus();
+                                  }, 100);
+                                }}
                                 placeholder={
                                   watchedCategoryId
                                     ? "Select missing item"
@@ -1437,6 +1472,12 @@ export default function ReturnsPage() {
                         <select
                           id="inward-condition"
                           {...register("condition")}
+                          onChange={(e) => {
+                            register("condition").onChange(e);
+                            setTimeout(() => {
+                              document.getElementById("inward-status-id")?.focus();
+                            }, 50);
+                          }}
                           className="mt-1 flex h-10 w-full rounded-md border border-secondary-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
                           aria-required="true"
                         >
@@ -1458,6 +1499,12 @@ export default function ReturnsPage() {
                         <select
                           id="inward-status-id"
                           {...register("statusId", { valueAsNumber: true })}
+                          onChange={(e) => {
+                            register("statusId", { valueAsNumber: true }).onChange(e);
+                            setTimeout(() => {
+                              document.getElementById("inward-received-by")?.focus();
+                            }, 50);
+                          }}
                           className="mt-1 flex h-10 w-full rounded-md border border-secondary-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
                         >
                           {statuses.map((s) => (
@@ -1478,6 +1525,12 @@ export default function ReturnsPage() {
                         <Input
                           id="inward-received-by"
                           {...register("receivedBy")}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              document.getElementById("inward-remarks")?.focus();
+                            }
+                          }}
                           placeholder="Who received"
                           className="mt-1 border-secondary-300 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 h-10"
                         />

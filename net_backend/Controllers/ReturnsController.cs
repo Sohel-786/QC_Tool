@@ -208,7 +208,7 @@ namespace net_backend.Controllers
         public async Task<ActionResult<ApiResponse<object>>> GetNextCode()
         {
             var count = await _context.Returns.CountAsync(r => r.DivisionId == CurrentDivisionId);
-            var nextCode = _codeGenerator.GenerateNextCode("INWARD", count);
+            var nextCode = _codeGenerator.GenerateNextCode("INWARD", count, CurrentDivisionName);
             return Ok(new ApiResponse<object> { Data = new { nextCode } });
         }
 
@@ -253,7 +253,7 @@ namespace net_backend.Controllers
             }
 
             var count = await _context.Returns.CountAsync(r => r.DivisionId == CurrentDivisionId);
-            var returnCode = _codeGenerator.GenerateNextCode("INWARD", count);
+            var returnCode = _codeGenerator.GenerateNextCode("INWARD", count, CurrentDivisionName);
 
             string? imagePath = null;
             if (image != null)

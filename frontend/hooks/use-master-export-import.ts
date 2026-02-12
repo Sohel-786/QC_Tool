@@ -1,15 +1,14 @@
+import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { toast } from "react-hot-toast";
-
-type ImportResult = {
-  imported: number;
-  totalRows: number;
-  errors: { row: number; message: string }[];
-};
+import { ValidationResult } from "@/types";
 
 export function useMasterExportImport(endpoint: string, queryKey: string[]) {
   const queryClient = useQueryClient();
+  const [validationData, setValidationData] = useState<ValidationResult | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [lastFile, setLastFile] = useState<File | null>(null);
 
   const exportMutation = useMutation({
     mutationFn: async () => {
@@ -41,23 +40,50 @@ export function useMasterExportImport(endpoint: string, queryKey: string[]) {
     },
   });
 
-  const importMutation = useMutation({
+  const validateMutation = useMutation({
     mutationFn: async (file: File) => {
+      setLastFile(file);
       const formData = new FormData();
       formData.append("file", file);
+      const res = await api.post(`/${endpoint}/validate`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      return res.data?.data as ValidationResult;
+    },
+    onSuccess: (data) => {
+      setValidationData(data);
+      setIsPreviewOpen(true);
+    },
+    onError: (e: unknown) => {
+      const msg =
+        (e as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message ?? "Validation failed.";
+      toast.error(msg);
+    },
+  });
+
+  const importMutation = useMutation({
+    mutationFn: async () => {
+      if (!lastFile) throw new Error("No file selected");
+      const formData = new FormData();
+      formData.append("file", lastFile);
       const res = await api.post(`/${endpoint}/import`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      return res.data?.data as ImportResult;
+      return res.data?.data;
     },
-    onSuccess: (data: ImportResult) => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey });
-      const { imported, totalRows } = data;
+      const imported = data.imported ?? 0;
+      const totalRows = data.totalRows ?? 0;
       toast.success(
         imported === totalRows
-          ? `Successfully imported all ${imported} record${imported === 1 ? "" : "s"}.`
-          : `Imported ${imported} from ${totalRows} masters.`
+          ? `Successfully imported all ${imported} records.`
+          : `Imported ${imported} from ${totalRows} records.`
       );
+      setIsPreviewOpen(false);
+      setValidationData(null);
+      setLastFile(null);
     },
     onError: (e: unknown) => {
       const msg =
@@ -67,10 +93,21 @@ export function useMasterExportImport(endpoint: string, queryKey: string[]) {
     },
   });
 
+  const closePreview = () => {
+    setIsPreviewOpen(false);
+    setValidationData(null);
+    setLastFile(null);
+  };
+
   return {
     handleExport: () => exportMutation.mutate(),
-    handleImport: (file: File) => importMutation.mutate(file),
+    handleImport: (file: File) => validateMutation.mutate(file),
+    confirmImport: () => importMutation.mutate(),
     exportLoading: exportMutation.isPending,
-    importLoading: importMutation.isPending,
+    importLoading: validateMutation.isPending || importMutation.isPending,
+    validationData,
+    isPreviewOpen,
+    setIsPreviewOpen,
+    closePreview,
   };
 }

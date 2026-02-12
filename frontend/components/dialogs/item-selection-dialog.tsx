@@ -192,11 +192,21 @@ export function ItemSelectionDialog({
                     return (
                       <tr
                         key={item.id}
+                        tabIndex={isSelectable ? 0 : -1}
+                        role="button"
+                        aria-disabled={!isSelectable}
+                        aria-label={`Select item ${item.itemName} (${item.serialNumber || "No serial number"})`}
                         onClick={() => isSelectable && handleSelectItem(item)}
+                        onKeyDown={(e) => {
+                          if (isSelectable && (e.key === "Enter" || e.key === " ")) {
+                            e.preventDefault();
+                            handleSelectItem(item);
+                          }
+                        }}
                         className={cn(
-                          "transition-colors",
+                          "transition-colors outline-none",
                           isSelectable
-                            ? "hover:bg-primary-50 cursor-pointer"
+                            ? "hover:bg-primary-50 focus:bg-primary-50 focus:ring-2 focus:ring-inset focus:ring-primary-500 cursor-pointer"
                             : "bg-secondary-50 opacity-60 cursor-not-allowed",
                         )}
                       >
@@ -261,6 +271,7 @@ export function ItemSelectionDialog({
                                     className="w-full h-full object-cover rounded-lg border-2 border-secondary-200"
                                   />
                                   <button
+                                    type="button"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       setFullScreenImage(imageUrl);

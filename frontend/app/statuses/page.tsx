@@ -17,6 +17,7 @@ import { Plus, Edit2, Search, Ban, CheckCircle, Download, Upload } from "lucide-
 import { useMasterExportImport } from "@/hooks/use-master-export-import";
 import { useCurrentUserPermissions } from "@/hooks/use-settings";
 import { toast } from "react-hot-toast";
+import { ImportPreviewModal } from "@/components/dialogs/import-preview-modal";
 
 const statusSchema = z.object({
   name: z.string().min(1, "Status name is required"),
@@ -40,8 +41,16 @@ export default function StatusesPage() {
   const canAddMaster = permissions?.addMaster ?? false;
   const canEditMaster = permissions?.editMaster ?? false;
   const canImportExportMaster = permissions?.importExportMaster ?? false;
-  const { handleExport, handleImport, exportLoading, importLoading } =
-    useMasterExportImport("statuses", ["statuses"]);
+  const {
+    handleExport,
+    handleImport,
+    exportLoading,
+    importLoading,
+    validationData,
+    isPreviewOpen,
+    confirmImport,
+    closePreview,
+  } = useMasterExportImport("statuses", ["statuses"]);
 
   const { data: statuses = [], isLoading } = useQuery<Status[]>({
     queryKey: ["statuses"],
@@ -61,13 +70,6 @@ export default function StatusesPage() {
     resolver: zodResolver(statusSchema),
   });
 
-  useEffect(() => {
-    if (!isFormOpen) return;
-    const t = setTimeout(() => {
-      document.getElementById("status-name-input")?.focus();
-    }, 100);
-    return () => clearTimeout(t);
-  }, [isFormOpen]);
 
   const createMutation = useMutation({
     mutationFn: async (data: {
@@ -509,6 +511,15 @@ export default function StatusesPage() {
             </div>
           </form>
         </Dialog>
+
+        <ImportPreviewModal
+          isOpen={isPreviewOpen}
+          onClose={closePreview}
+          data={validationData}
+          onConfirm={confirmImport}
+          isLoading={importLoading}
+          title="Import Statuses Preview"
+        />
       </motion.div>
     </div>
   );

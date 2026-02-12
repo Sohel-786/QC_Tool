@@ -165,7 +165,7 @@ namespace net_backend.Controllers
         public async Task<ActionResult<ApiResponse<object>>> GetNextCode()
         {
             var count = await _context.Issues.CountAsync(i => i.DivisionId == CurrentDivisionId);
-            var nextCode = _codeGenerator.GenerateNextCode("OUTWARD", count);
+            var nextCode = _codeGenerator.GenerateNextCode("OUTWARD", count, CurrentDivisionName);
             return Ok(new ApiResponse<object> { Data = new { nextCode } });
         }
 
@@ -216,7 +216,7 @@ namespace net_backend.Controllers
             }
 
             var count = await _context.Issues.CountAsync(i => i.DivisionId == CurrentDivisionId);
-            var issueNo = _codeGenerator.GenerateNextCode("OUTWARD", count);
+            var issueNo = _codeGenerator.GenerateNextCode("OUTWARD", count, CurrentDivisionName);
 
             var userIdStr = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             var currentUserId = int.TryParse(userIdStr, out var uId) ? uId : 1;
@@ -249,7 +249,7 @@ namespace net_backend.Controllers
         }
 
         [HttpPut("{id}")]
-        public async Task<ActionResult<ApiResponse<Issue>>> Update(int id, [FromBody] UpdateIssueRequest request)
+        public async Task<ActionResult<ApiResponse<Issue>>> Update(int id, [FromForm] UpdateIssueRequest request)
         {
             if (!await CheckPermission("editOutward")) return Forbidden();
 
@@ -281,6 +281,33 @@ namespace net_backend.Controllers
 
                 issue.ItemId = request.ItemId.Value;
                 newItem.Status = ItemStatus.ISSUED;
+            }
+
+            // Handle Image Update
+            if (request.Image != null && request.Image.Length > 0)
+            {
+                var item = await _context.Items.FindAsync(issue.ItemId);
+                var serialNumber = item?.SerialNumber ?? "unknown";
+                var safeSerial = PathUtils.SanitizeSerialForPath(serialNumber);
+
+                var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "storage", "items", safeSerial, "outward");
+                if (!Directory.Exists(uploadsFolder)) Directory.CreateDirectory(uploadsFolder);
+
+                // Optionally delete old image if it exists
+                if (!string.IsNullOrEmpty(issue.IssueImage))
+                {
+                    var oldPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "storage", issue.IssueImage);
+                    if (System.IO.File.Exists(oldPath)) System.IO.File.Delete(oldPath);
+                }
+
+                var uniqueFileName = Guid.NewGuid().ToString() + "_" + request.Image.FileName;
+                var filePath = Path.Combine(uploadsFolder, uniqueFileName);
+
+                using (var fileStream = new FileStream(filePath, FileMode.Create))
+                {
+                    await request.Image.CopyToAsync(fileStream);
+                }
+                issue.IssueImage = $"items/{safeSerial}/outward/{uniqueFileName}";
             }
 
             if (request.IssuedTo != null)

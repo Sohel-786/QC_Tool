@@ -17,6 +17,7 @@ import { Plus, Edit2, Search, Ban, CheckCircle, Download, Upload } from "lucide-
 import { useMasterExportImport } from "@/hooks/use-master-export-import";
 import { useCurrentUserPermissions } from "@/hooks/use-settings";
 import { toast } from "react-hot-toast";
+import { ImportPreviewModal } from "@/components/dialogs/import-preview-modal";
 
 const companySchema = z.object({
   name: z.string().min(1, "Company name is required"),
@@ -39,8 +40,16 @@ export default function CompaniesPage() {
   const canAddMaster = permissions?.addMaster ?? false;
   const canEditMaster = permissions?.editMaster ?? false;
   const canImportExportMaster = permissions?.importExportMaster ?? false;
-  const { handleExport, handleImport, exportLoading, importLoading } =
-    useMasterExportImport("companies", ["companies"]);
+  const {
+    handleExport,
+    handleImport,
+    exportLoading,
+    importLoading,
+    validationData,
+    isPreviewOpen,
+    confirmImport,
+    closePreview,
+  } = useMasterExportImport("companies", ["companies"]);
 
   const { data: companies = [], isLoading } = useQuery<Company[]>({
     queryKey: ["companies"],
@@ -60,13 +69,6 @@ export default function CompaniesPage() {
     resolver: zodResolver(companySchema),
   });
 
-  useEffect(() => {
-    if (!isFormOpen) return;
-    const t = setTimeout(() => {
-      document.getElementById("company-name-input")?.focus();
-    }, 100);
-    return () => clearTimeout(t);
-  }, [isFormOpen]);
 
   const createMutation = useMutation({
     mutationFn: async (data: {
@@ -515,6 +517,15 @@ export default function CompaniesPage() {
             </div>
           </form>
         </Dialog>
+
+        <ImportPreviewModal
+          isOpen={isPreviewOpen}
+          onClose={closePreview}
+          data={validationData}
+          onConfirm={confirmImport}
+          isLoading={importLoading}
+          title="Import Companies Preview"
+        />
       </motion.div>
     </div>
   );

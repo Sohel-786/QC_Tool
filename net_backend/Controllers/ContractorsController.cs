@@ -68,7 +68,9 @@ namespace net_backend.Controllers
                         Name = validRow.Data.Name.Trim(), 
                         PhoneNumber = validRow.Data.PhoneNumber.Trim(), 
                         DivisionId = CurrentDivisionId,
-                        IsActive = true 
+                        IsActive = true,
+                        CreatedAt = DateTime.Now,
+                        UpdatedAt = DateTime.Now
                     });
                 }
 

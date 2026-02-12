@@ -27,6 +27,7 @@ import { useMasterExportImport } from "@/hooks/use-master-export-import";
 import { useCurrentUserPermissions } from "@/hooks/use-settings";
 import { Contractor } from "@/types";
 import { Select } from "@/components/ui/select";
+import { ImportPreviewModal } from "@/components/dialogs/import-preview-modal";
 
 const machineSchema = z.object({
   name: z.string().min(1, "Machine name is required"),
@@ -51,8 +52,16 @@ export default function MachinesPage() {
   const canAddMaster = permissions?.addMaster ?? false;
   const canEditMaster = permissions?.editMaster ?? false;
   const canImportExportMaster = permissions?.importExportMaster ?? false;
-  const { handleExport, handleImport, exportLoading, importLoading } =
-    useMasterExportImport("machines", ["machines"]);
+  const {
+    handleExport,
+    handleImport,
+    exportLoading,
+    importLoading,
+    validationData,
+    isPreviewOpen,
+    confirmImport,
+    closePreview,
+  } = useMasterExportImport("machines", ["machines"]);
 
   const { data: machines = [], isLoading } = useQuery<Machine[]>({
     queryKey: ["machines"],
@@ -84,13 +93,6 @@ export default function MachinesPage() {
     },
   });
 
-  useEffect(() => {
-    if (!isFormOpen) return;
-    const t = setTimeout(() => {
-      document.getElementById("machine-contractor-select")?.focus();
-    }, 100);
-    return () => clearTimeout(t);
-  }, [isFormOpen]);
 
   const createMutation = useMutation({
     mutationFn: async (data: {
@@ -581,6 +583,15 @@ export default function MachinesPage() {
             </div>
           </form>
         </Dialog>
+
+        <ImportPreviewModal
+          isOpen={isPreviewOpen}
+          onClose={closePreview}
+          data={validationData}
+          onConfirm={confirmImport}
+          isLoading={importLoading}
+          title="Import Machines Preview"
+        />
       </motion.div>
     </div>
   );

@@ -17,6 +17,7 @@ import { Plus, Edit2, Search, Ban, CheckCircle, Download, Upload } from "lucide-
 import { toast } from "react-hot-toast";
 import { useMasterExportImport } from "@/hooks/use-master-export-import";
 import { useCurrentUserPermissions } from "@/hooks/use-settings";
+import { ImportPreviewModal } from "@/components/dialogs/import-preview-modal";
 
 const categorySchema = z.object({
   name: z
@@ -46,8 +47,16 @@ export default function ItemCategoriesPage() {
   const canAddMaster = permissions?.addMaster ?? false;
   const canEditMaster = permissions?.editMaster ?? false;
   const canImportExportMaster = permissions?.importExportMaster ?? false;
-  const { handleExport, handleImport, exportLoading, importLoading } =
-    useMasterExportImport("item-categories", ["item-categories"]);
+  const {
+    handleExport,
+    handleImport,
+    exportLoading,
+    importLoading,
+    validationData,
+    isPreviewOpen,
+    confirmImport,
+    closePreview,
+  } = useMasterExportImport("item-categories", ["item-categories"]);
 
   const { data: categories = [], isLoading } = useQuery<ItemCategory[]>({
     queryKey: ["item-categories"],
@@ -67,13 +76,6 @@ export default function ItemCategoriesPage() {
     resolver: zodResolver(categorySchema),
   });
 
-  useEffect(() => {
-    if (!isFormOpen) return;
-    const t = setTimeout(() => {
-      document.getElementById("category-name-input")?.focus();
-    }, 100);
-    return () => clearTimeout(t);
-  }, [isFormOpen]);
 
   const createMutation = useMutation({
     mutationFn: async (data: {
@@ -531,6 +533,15 @@ export default function ItemCategoriesPage() {
             </div>
           </form>
         </Dialog>
+
+        <ImportPreviewModal
+          isOpen={isPreviewOpen}
+          onClose={closePreview}
+          data={validationData}
+          onConfirm={confirmImport}
+          isLoading={importLoading}
+          title="Import Item Categories Preview"
+        />
       </motion.div>
     </div>
   );

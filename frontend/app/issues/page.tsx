@@ -286,9 +286,7 @@ export default function IssuesPage() {
         formData.append("Image", imageFile);
       }
 
-      const res = await api.put(`/issues/${id}`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      const res = await api.put(`/issues/${id}`, formData);
       return res.data;
     },
     onSuccess: () => {
@@ -353,17 +351,6 @@ export default function IssuesPage() {
     },
   });
 
-  useEffect(() => {
-    if (!isFormOpen) return;
-    const t = setTimeout(() => {
-      const el = editingIssue
-        ? document.getElementById("outward-company-id")
-        : document.getElementById("outward-category-id");
-      el?.focus();
-    }, 100);
-    return () => clearTimeout(t);
-  }, [isFormOpen, editingIssue]);
-
   const handleOpenForm = async () => {
     setEditingIssue(null);
     reset();
@@ -414,6 +401,14 @@ export default function IssuesPage() {
     updateMutation.reset();
   };
 
+  useEffect(() => {
+    if (isFormOpen && !editingIssue) {
+      setTimeout(() => {
+        document.getElementById("outward-company-id")?.focus();
+      }, 300);
+    }
+  }, [isFormOpen, editingIssue]);
+
   const handleImageCapture = (file: File | null) => {
     if (file) {
       setImageFile(file);
@@ -440,6 +435,7 @@ export default function IssuesPage() {
         id: editingIssue.id,
         data: {
           itemId: data.itemId,
+          categoryId: data.categoryId,
           companyId: data.companyId,
           contractorId: data.contractorId,
           machineId: data.machineId,
@@ -476,8 +472,8 @@ export default function IssuesPage() {
     const filteredItems =
       filters.itemCategoryIds.length > 0
         ? filterItems.filter((i) =>
-          filters.itemCategoryIds.includes(i.categoryId!),
-        )
+            filters.itemCategoryIds.includes(i.categoryId!),
+          )
         : filterItems;
 
     return {
@@ -670,10 +666,11 @@ export default function IssuesPage() {
                           </td>
                           <td className="px-4 py-3 text-center">
                             <span
-                              className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${issue.isActive
-                                ? "bg-green-100 text-green-700 border border-green-200"
-                                : "bg-red-100 text-red-700 border border-red-200"
-                                }`}
+                              className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${
+                                issue.isActive
+                                  ? "bg-green-100 text-green-700 border border-green-200"
+                                  : "bg-red-100 text-red-700 border border-red-200"
+                              }`}
                             >
                               {issue.isActive ? "Active" : "Inactive"}
                             </span>
@@ -844,11 +841,10 @@ export default function IssuesPage() {
           }
           size="3xl"
           contentScroll={false}
-          className="rounded-[2rem]"
         >
           <form
             onSubmit={handleSubmit(onSubmit)}
-            className="flex flex-col h-full overflow-hidden bg-white rounded-[2rem]"
+            className="flex flex-col h-full overflow-hidden"
             aria-label="Outward entry form"
           >
             <div className="flex-1 overflow-y-auto px-6 py-4 custom-scrollbar">
@@ -892,6 +888,11 @@ export default function IssuesPage() {
                           onChange={(v) => {
                             setValue("companyId", Number(v));
                             setValue("locationId", 0);
+                            setTimeout(() => {
+                              document
+                                .getElementById("outward-location-id")
+                                ?.focus();
+                            }, 100);
                           }}
                           disabled={isViewOnly}
                           placeholder="Select company"
@@ -910,7 +911,14 @@ export default function IssuesPage() {
                           id="outward-location-id"
                           options={locationSelectOptions}
                           value={watchedLocationId ?? ""}
-                          onChange={(v) => setValue("locationId", Number(v))}
+                          onChange={(v) => {
+                            setValue("locationId", Number(v));
+                            setTimeout(() => {
+                              document
+                                .getElementById("outward-contractor-id")
+                                ?.focus();
+                            }, 100);
+                          }}
                           disabled={isViewOnly || !watchedCompanyId}
                           placeholder={
                             watchedCompanyId
@@ -935,6 +943,11 @@ export default function IssuesPage() {
                           onChange={(v) => {
                             setValue("contractorId", Number(v));
                             setValue("machineId", 0);
+                            setTimeout(() => {
+                              document
+                                .getElementById("outward-machine-id")
+                                ?.focus();
+                            }, 100);
                           }}
                           disabled={isViewOnly}
                           placeholder="Select contractor"
@@ -953,7 +966,14 @@ export default function IssuesPage() {
                           id="outward-machine-id"
                           options={machineSelectOptions}
                           value={watchedMachineId ?? ""}
-                          onChange={(v) => setValue("machineId", Number(v))}
+                          onChange={(v) => {
+                            setValue("machineId", Number(v));
+                            setTimeout(() => {
+                              document
+                                .getElementById("outward-category-id")
+                                ?.focus();
+                            }, 100);
+                          }}
                           disabled={isViewOnly || !watchedContractorId}
                           placeholder={
                             watchedContractorId
@@ -987,7 +1007,7 @@ export default function IssuesPage() {
                         />
                       </div>
 
-                      <div>
+                      <div id="outward-item-block">
                         <Label
                           htmlFor="outward-item-id"
                           className="text-xs font-bold text-secondary-500 uppercase tracking-wider mb-1 block"
@@ -995,13 +1015,23 @@ export default function IssuesPage() {
                           Item <span className="text-red-500">*</span>
                         </Label>
                         <div
+                          id="outward-item-id"
+                          tabIndex={isViewOnly || !selectedCategoryId ? -1 : 0}
                           onClick={() =>
                             !isViewOnly &&
                             selectedCategoryId &&
                             setIsItemDialogOpen(true)
                           }
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              !isViewOnly &&
+                                selectedCategoryId &&
+                                setIsItemDialogOpen(true);
+                            }
+                          }}
                           className={cn(
-                            "flex h-10 w-full items-center justify-between rounded-lg border px-3 py-2 text-sm transition-all",
+                            "flex h-10 w-full items-center justify-between rounded-lg border px-3 py-2 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-primary-500",
                             isViewOnly || !selectedCategoryId
                               ? "bg-secondary-50 cursor-not-allowed opacity-60 border-secondary-200"
                               : "bg-white border-secondary-300 hover:border-primary-400 cursor-pointer shadow-sm hover:shadow-md active:scale-[0.98]",
@@ -1017,7 +1047,7 @@ export default function IssuesPage() {
                           >
                             {selectedItemId
                               ? filterItems.find((i) => i.id === selectedItemId)
-                                ?.itemName || "Select item"
+                                  ?.itemName || "Select item"
                               : "Browse..."}
                           </span>
                         </div>
@@ -1041,6 +1071,12 @@ export default function IssuesPage() {
                         {...register("issuedTo")}
                         placeholder="Type operator name"
                         disabled={isViewOnly}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            document.getElementById("outward-remarks")?.focus();
+                          }
+                        }}
                         className="h-10 border-secondary-300 shadow-sm focus:ring-primary-500 text-sm"
                       />
                       {errors.issuedTo && (
@@ -1093,7 +1129,7 @@ export default function IssuesPage() {
                             activeImageTab === "live" ? "animate-pulse" : "",
                           )}
                         />
-                        Handover Photo
+                        Material With Person
                       </button>
                       <button
                         type="button"
@@ -1254,7 +1290,12 @@ export default function IssuesPage() {
           items={itemsByCategory}
           categories={categories}
           selectedCategoryId={selectedCategoryId ?? null}
-          onSelectItem={(item) => setValue("itemId", item.id)}
+          onSelectItem={(item) => {
+            setValue("itemId", item.id);
+            setTimeout(() => {
+              document.getElementById("outward-operator")?.focus();
+            }, 100);
+          }}
           currentItemId={editingIssue?.itemId}
         />
       </motion.div>

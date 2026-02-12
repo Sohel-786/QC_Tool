@@ -80,7 +80,9 @@ namespace net_backend.Controllers
                             Name = validRow.Data.Name.Trim(), 
                             ContractorId = contractor.Id,
                             IsActive = isActive,
-                            DivisionId = CurrentDivisionId
+                            DivisionId = CurrentDivisionId,
+                            CreatedAt = DateTime.Now,
+                            UpdatedAt = DateTime.Now
                         });
                     }
                 }

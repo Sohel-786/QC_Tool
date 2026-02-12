@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import api from "@/lib/api";
@@ -34,6 +34,7 @@ import { useMasterExportImport } from "@/hooks/use-master-export-import";
 import { useCurrentUserPermissions } from "@/hooks/use-settings";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { toast } from "react-hot-toast";
+import { ImportPreviewModal } from "@/components/dialogs/import-preview-modal";
 
 import { Autocomplete } from "@/components/ui/autocomplete";
 
@@ -73,8 +74,16 @@ export default function ItemsPage() {
   const canAddMaster = permissions?.addMaster ?? false;
   const canEditMaster = permissions?.editMaster ?? false;
   const canImportExportMaster = permissions?.importExportMaster ?? false;
-  const { handleExport, handleImport, exportLoading, importLoading } =
-    useMasterExportImport("items", ["items"]);
+  const {
+    handleExport,
+    handleImport,
+    exportLoading,
+    importLoading,
+    validationData,
+    isPreviewOpen,
+    confirmImport,
+    closePreview,
+  } = useMasterExportImport("items", ["items"]);
 
   const { data: items = [], isLoading } = useQuery<Item[]>({
     queryKey: ["items"],
@@ -147,14 +156,6 @@ export default function ItemsPage() {
     ? !imageRemovedByUser || !!imageFile
     : !!imageFile;
 
-  useEffect(() => {
-    if (!isFormOpen) return;
-    const t = setTimeout(() => {
-      // Focus Category first as per new flow
-      document.getElementById("categoryId")?.focus();
-    }, 100);
-    return () => clearTimeout(t);
-  }, [isFormOpen]);
 
   const createMutation = useMutation({
     mutationFn: async (fd: FormData) => {
@@ -234,7 +235,7 @@ export default function ItemsPage() {
     },
   });
 
-  const handleOpenForm = (item?: Item) => {
+  const handleOpenForm = useCallback((item?: Item) => {
     if (item) {
       setEditingItem(item);
       setValue("itemName", item.itemName);
@@ -256,9 +257,9 @@ export default function ItemsPage() {
     setImageError(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
     setIsFormOpen(true);
-  };
+  }, [categories, reset, setValue]);
 
-  const handleCloseForm = () => {
+  const handleCloseForm = useCallback(() => {
     if (imagePreview && imagePreview.startsWith("blob:")) {
       URL.revokeObjectURL(imagePreview);
     }
@@ -272,9 +273,9 @@ export default function ItemsPage() {
     createMutation.reset();
     updateMutation.reset();
     if (fileInputRef.current) fileInputRef.current.value = "";
-  };
+  }, [imagePreview, reset, createMutation, updateMutation]);
 
-  const handleImageCapture = (file: File | null) => {
+  const handleImageCapture = useCallback((file: File | null) => {
     if (imagePreview && imagePreview.startsWith("blob:")) {
       URL.revokeObjectURL(imagePreview);
     }
@@ -282,7 +283,7 @@ export default function ItemsPage() {
     setImagePreview(file ? URL.createObjectURL(file) : null);
     setImageError(null);
     if (!file) setImageRemovedByUser(true);
-  };
+  }, [imagePreview]);
 
   const checkDuplicateSerial = (serial: string, excludeId?: number) => {
     return items.some(
@@ -716,6 +717,15 @@ export default function ItemsPage() {
                     <select
                       id="categoryId"
                       {...register("categoryId", { valueAsNumber: true })}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setValue("categoryId", val ? Number(val) : 0, { shouldValidate: true });
+                        if (val) {
+                          setTimeout(() => {
+                            document.getElementById("item-name-input")?.focus();
+                          }, 100);
+                        }
+                      }}
                       className="mt-1.5 flex h-10 w-full rounded-md border border-secondary-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
                       aria-required="true"
                       aria-invalid={!!errors.categoryId}
@@ -776,6 +786,12 @@ export default function ItemsPage() {
                         id="serialNumber"
                         {...register("serialNumber")}
                         placeholder="e.g. SN-12345"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            document.getElementById("inHouseLocation")?.focus();
+                          }
+                        }}
                         className="mt-1.5 h-10 border-secondary-300 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
                         aria-required="true"
                         aria-invalid={!!errors.serialNumber}
@@ -802,6 +818,16 @@ export default function ItemsPage() {
                         value={watchedInHouseLocation || ""}
                         onChange={(val) => setValue("inHouseLocation", val)}
                         options={filteredInHouseLocations}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            // Only prevent default if we're not selecting an option in the autocomplete
+                            // But usually autocomplete Enter selects, so we might need to handle it carefully
+                            // For simplicity, let's just focus description if they press Enter again or if not open
+                            setTimeout(() => {
+                              document.getElementById("description")?.focus();
+                            }, 50);
+                          }
+                        }}
                         placeholder="e.g. Rack A-1"
                         className="mt-1.5"
                       />
@@ -1093,6 +1119,15 @@ export default function ItemsPage() {
             </div>
           </form>
         </Dialog>
+
+        <ImportPreviewModal
+          isOpen={isPreviewOpen}
+          onClose={closePreview}
+          data={validationData}
+          onConfirm={confirmImport}
+          isLoading={importLoading}
+          title="Import Items Preview"
+        />
 
         <FullScreenImageViewer
           isOpen={!!fullScreenImageSrc}
