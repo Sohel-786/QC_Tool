@@ -58,7 +58,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowAll",
         policy =>
         {
-            policy.WithOrigins("http://localhost:3000", "http://localhost:3001", "http://localhost:5173")
+            policy.WithOrigins("http://localhost:3000", "http://localhost:3001")
                    .AllowAnyMethod()
                    .AllowAnyHeader()
                    .AllowCredentials();
@@ -66,10 +66,7 @@ builder.Services.AddCors(options =>
 });
 
 // Configure Port (matching Node.js backend)
-builder.WebHost.ConfigureKestrel(options =>
-{
-    options.ListenAnyIP(3001);
-});
+// Port configuration will be handled by environment variables (e.g., ASPNETCORE_URLS)
 
 var app = builder.Build();
 

@@ -1,6 +1,16 @@
 # QC Tool Management System
 
-A complete internal QC Tool Management Web CRM built with NestJS backend and Next.js frontend.
+A complete internal QC Tool Management Web CRM built with .NET Core backend and Next.js frontend.
+
+## 🚀 Quick Start (Docker - Recommended)
+
+```powershell
+docker compose up -d
+```
+
+Access the application at: **http://localhost:83**
+
+For detailed Docker setup, configuration, and troubleshooting, see [DOCKER_SETUP.md](DOCKER_SETUP.md)
 
 ## Tech Stack
 

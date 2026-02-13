@@ -1,60 +1,80 @@
-
-
 services:
-  mysql:
-    image: mysql:8.0
-    container_name: qc-tool-mysql
-    restart: unless-stopped
+  database:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: qc-tool-db
     environment:
-      MYSQL_ROOT_PASSWORD: password
-      MYSQL_DATABASE: qc_tool
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=${DB_PASSWORD}
+      - MSSQL_PID=Developer
     ports:
-      - "3307:3306"
+      - "${DB_PORT}:1433"
     volumes:
-      - mysql_data:/var/lib/mysql
+      - sql_data:/var/opt/mssql
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "timeout 1 bash -c 'cat < /dev/null > /dev/tcp/127.0.0.1/1433' || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
     networks:
-      - qc-tool-network
+      - qc-network
 
   backend:
     build:
-      context: ./backend
+      context: ./net_backend
       dockerfile: Dockerfile
     container_name: qc-tool-backend
-    restart: unless-stopped
     environment:
-      NODE_ENV: production
-      PORT: 3001
-      DATABASE_URL: mysql://root:password@mysql:3306/qc_tool
-      JWT_SECRET: your-super-secret-jwt-key-change-in-production
-      JWT_EXPIRES_IN: 24h
-      FRONTEND_URL: http://localhost:3000
-    ports:
-      - "3001:3001"
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80
+      - ConnectionStrings__DefaultConnection=${DB_CONNECTION_STRING}
+      - Jwt__Key=YourSuperSecretKeyForJWTAuthentication1234567890
+      - Jwt__Issuer=QC_Tool_API
+      - Jwt__Audience=QC_Tool_Frontend
     volumes:
-      - ./backend/storage:/app/storage
+      - backend_storage:/app/wwwroot/storage
     depends_on:
-      - mysql
+      database:
+        condition: service_healthy
     networks:
-      - qc-tool-network
+      - qc-network
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
     container_name: qc-tool-frontend
-    restart: unless-stopped
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:3001
-    ports:
-      - "3000:3000"
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
     depends_on:
       - backend
     networks:
-      - qc-tool-network
+      - qc-network
 
-volumes:
-  mysql_data:
+  proxy:
+    image: nginx:alpine
+    container_name: qc-tool-proxy
+    ports:
+      - "${APP_PORT}:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - qc-network
 
 networks:
-  qc-tool-network:
+  qc-network:
     driver: bridge
+
+volumes:
+  sql_data:
+  backend_storage:

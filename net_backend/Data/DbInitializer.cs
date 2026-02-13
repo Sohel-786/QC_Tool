@@ -26,15 +26,15 @@ namespace net_backend.Data
             var defaultDivision = context.Divisions.First();
 
             // 1. Ensure Admin User Exists with Correct Password
-            var adminUser = context.Users.FirstOrDefault(u => u.Username == "qc_admin");
+            var adminUser = context.Users.FirstOrDefault(u => u.Username == "mitul");
             if (adminUser == null)
             {
                 adminUser = new User 
                 { 
-                    Username = "qc_admin", 
-                    Password = BCrypt.Net.BCrypt.HashPassword("admin123"), 
-                    FirstName = "QC", 
-                    LastName = "Admin", 
+                    Username = "mitul", 
+                    Password = BCrypt.Net.BCrypt.HashPassword("admin"), 
+                    FirstName = "Mitul", 
+                    LastName = "Modi", 
                     Role = Role.QC_ADMIN, 
                     IsActive = true, 
                     CreatedAt = DateTime.Now, 
@@ -46,7 +46,7 @@ namespace net_backend.Data
             else
             {
                 // Reset password to ensure access
-                adminUser.Password = BCrypt.Net.BCrypt.HashPassword("admin123");
+                adminUser.Password = BCrypt.Net.BCrypt.HashPassword("admin");
                 context.SaveChanges();
             }
 
@@ -67,17 +67,17 @@ namespace net_backend.Data
             {
                 context.AppSettings.Add(new AppSettings 
                 { 
-                    CompanyName = "QC Item System", 
-                    SoftwareName = "QC Tool",
+                    CompanyName = "Aira Euro Automation Pvt Ltd", 
+                    SoftwareName = "QC Tool Management",
                     CreatedAt = DateTime.Now, 
                     UpdatedAt = DateTime.Now 
                 });
             }
             else
             {
-                settings.CompanyName = "QC Item System";
+                settings.CompanyName = "Aira Euro Automation Pvt Ltd";
                 settings.CompanyLogo = null;
-                settings.SoftwareName = "QC Tool";
+                settings.SoftwareName = "QC Tool Management";
                 settings.PrimaryColor = null;
                 settings.SupportEmail = null;
                 settings.SupportPhone = null;
@@ -100,7 +100,7 @@ namespace net_backend.Data
             // 4. Seed User Permissions
             if (!context.UserPermissions.Any())
             {
-                var adminUserForPerms = context.Users.FirstOrDefault(u => u.Username == "qc_admin");
+                var adminUserForPerms = context.Users.FirstOrDefault(u => u.Username == "mitul");
                 if (adminUserForPerms != null)
                 {
                     var adminPerm = new UserPermission
