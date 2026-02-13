@@ -34,7 +34,7 @@ namespace net_backend.Data
                     Username = "mitul", 
                     Password = BCrypt.Net.BCrypt.HashPassword("admin"), 
                     FirstName = "Mitul", 
-                    LastName = "Modi", 
+                    LastName = "Admin", 
                     Role = Role.QC_ADMIN, 
                     IsActive = true, 
                     CreatedAt = DateTime.Now, 

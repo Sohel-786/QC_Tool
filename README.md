@@ -1,106 +1,111 @@
 # QC Tool Management System
 
-A complete internal QC Tool Management Web CRM built with .NET Core backend and Next.js frontend.
+A complete internal QC Tool Management Web CRM built with **.NET Core 6** backend and **Next.js** frontend.
 
 ## 🚀 Quick Start (Docker - Recommended)
 
-```powershell
-docker compose up -d
+We recommend running the application using the provided batch script, which handles the entire Docker build and startup process:
+
+```cmd
+.\start.bat
 ```
 
-Access the application at: **http://localhost:83**
+- **Application URL**: [http://localhost:83](http://localhost:83)
+- **API Endpoint**: [http://localhost:83/api](http://localhost:83/api)
 
-For detailed Docker setup, configuration, and troubleshooting, see [DOCKER_SETUP.md](DOCKER_SETUP.md)
+---
 
-## Tech Stack
+## 🔑 Default Credentials
+
+The system automatically seeds an admin user on first run (defined in `DbInitializer.cs`):
+
+- **Username**: `mitul`
+- **Password**: `admin`
+- **Division**: `QC`
+
+---
+
+## 🐳 Docker Setup & Configuration
+
+### 1. Starting the Application
+Simply run the `start.bat` file in the root directory. This script will:
+1.  Build the Backend and Frontend images.
+2.  Start the SQL Server, Backend, Frontend, and Nginx Proxy containers.
+3.  Ensure network connectivity between services.
+
+To stop the application, you can run:
+```bash
+docker compose down
+```
+
+### 2. Database Connection (.env)
+The database connection string is configured in the `.env` file using the `DB_CONNECTION_STRING` variable.
+
+-   **Docker Internal (Default)**: The application connects to the containerized SQL Server (`Server=database`). This ensures it works out-of-the-box.
+-   **Local Database (Optional)**: If you need to connect to your local SQL Express instance, you must:
+    1.  Enable TCP/IP and SQL Authentication (sa user) on your local SQL Server.
+    2.  Edit `.env` to uncomment the "Local" connection string example provided.
+
+### 3. Environment Variables
+The `.env` file controls key configurations:
+-   `APP_PORT`: Port to access the app (default: 83).
+-   `DB_PASSWORD`: Password for the internal Docker SQL database.
+-   `DB_CONNECTION_STRING`: Full connection string used by the backend.
+
+---
+
+## 🛠 Tech Stack
 
 ### Backend
-
-- NestJS + TypeScript
-- MySQL with TypeORM
-- JWT Authentication
-- Role-based access control (QC_USER, QC_MANAGER)
+- **Framework**: .NET 6 Web API (C#)
+- **Database**: SQL Server 2022
+- **ORM**: Entity Framework Core
+- **Authentication**: JWT Bearer Auth
+- **Documentation**: Swagger UI (in Dev mode)
 
 ### Frontend
+- **Framework**: Next.js 14 App Router + TypeScript
+- **Styling**: Tailwind CSS + ShadCN UI
+- **State Management**: TanStack Query
+- **Validation**: React Hook Form + Zod
+- **Type Safety**: Full TypeScript support
 
-- Next.js 14 App Router + TypeScript
-- Tailwind CSS + ShadCN UI
-- Framer Motion for animations
-- TanStack Query for API calls
-- React Hook Form + Zod validation
-- React Hot Toast for notifications
+---
 
-## Features
+## 🏃 Local Development
 
-- User Management (Manager creates users)
-- QC Tool Master (1 record = 1 physical tool)
-- Division Master (inactive divisions blocked)
-- Issue Tool (only AVAILABLE tools)
-- Return Tool (image mandatory)
-- Tool Status flow: AVAILABLE → ISSUED → AVAILABLE / MISSING
-- Dashboard with metrics
-- Reports: Issued tools, Missing tools, Tool history ledger
-- Audit logs for all operations
+If you prefer to run the services locally without Docker (e.g., for debugging):
 
-## Getting Started
+### 1. Database Setup
+Ensure you have **SQL Server Express** or similar installed locally. Update `net_backend/appsettings.json` with your local connection string.
 
-### Prerequisites
-
-- Docker and Docker Compose
-- Node.js 18+ (for local development)
-
-### Running with Docker
-
+### 2. Backend (.NET)
 ```bash
-docker-compose up -d
+cd net_backend
+dotnet restore
+dotnet run
 ```
+*Runs on: https://localhost:3001*
 
-The application will be available at:
-
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:3001
-- MySQL: localhost:3306
-
-### Local Development
-
-#### Backend
-
-```bash
-cd backend
-npm install
-npm run start:dev
-```
-
-#### Frontend
-
+### 3. Frontend (Next.js)
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
+*Runs on: http://localhost:3000*
 
-## Default Credentials
+---
 
-- Manager: qc_manager / password123
-- User: qc_user / password123
-- User: qc_admin / admin123
-
-## Seed Data for realtime results
-
-```bash
-cd backend
-npm run seed:fresh
-
-## Project Structure
+## 📂 Project Structure
 
 ```
-
 QC_Tool/
-├── backend/ # NestJS backend
-├── frontend/ # Next.js frontend
-├── docker-compose.yml
+├── net_backend/        # .NET 6 Web API
+├── frontend/           # Next.js 14 Frontend
+├── nginx/              # Nginx Proxy Configuration
+├── docker-compose.yml  # Docker Orchestration
+├── start.bat           # Quick Start Script
+├── .env                # Environment Configuration
 └── README.md
-
-```
-
 ```
