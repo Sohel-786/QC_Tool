@@ -258,29 +258,29 @@ namespace net_backend.Models
     {
         public int Id { get; set; }
         public int UserId { get; set; }
-        public bool ViewDashboard { get; set; } = true;
-        public bool ViewMaster { get; set; } = true;
-        public bool ViewDivisionMaster { get; set; } = true;
-        public bool ViewCompanyMaster { get; set; } = true;
-        public bool ViewLocationMaster { get; set; } = true;
-        public bool ViewContractorMaster { get; set; } = true;
-        public bool ViewStatusMaster { get; set; } = true;
-        public bool ViewMachineMaster { get; set; } = true;
-        public bool ViewItemMaster { get; set; } = true;
-        public bool ViewItemCategoryMaster { get; set; } = true;
-        public bool ViewOutward { get; set; } = true;
-        public bool ViewInward { get; set; } = true;
-        public bool ViewReports { get; set; } = true;
-        public bool ViewActiveIssuesReport { get; set; } = true;
-        public bool ViewMissingItemsReport { get; set; } = true;
-        public bool ViewItemHistoryLedgerReport { get; set; } = true;
+        public bool ViewDashboard { get; set; } = false;
+        public bool ViewMaster { get; set; } = false;
+        public bool ViewDivisionMaster { get; set; } = false;
+        public bool ViewCompanyMaster { get; set; } = false;
+        public bool ViewLocationMaster { get; set; } = false;
+        public bool ViewContractorMaster { get; set; } = false;
+        public bool ViewStatusMaster { get; set; } = false;
+        public bool ViewMachineMaster { get; set; } = false;
+        public bool ViewItemMaster { get; set; } = false;
+        public bool ViewItemCategoryMaster { get; set; } = false;
+        public bool ViewOutward { get; set; } = false;
+        public bool ViewInward { get; set; } = false;
+        public bool ViewReports { get; set; } = false;
+        public bool ViewActiveIssuesReport { get; set; } = false;
+        public bool ViewMissingItemsReport { get; set; } = false;
+        public bool ViewItemHistoryLedgerReport { get; set; } = false;
         public bool ImportExportMaster { get; set; } = false;
-        public bool AddOutward { get; set; } = true;
-        public bool EditOutward { get; set; } = true;
-        public bool AddInward { get; set; } = true;
-        public bool EditInward { get; set; } = true;
-        public bool AddMaster { get; set; } = true;
-        public bool EditMaster { get; set; } = true;
+        public bool AddOutward { get; set; } = false;
+        public bool EditOutward { get; set; } = false;
+        public bool AddInward { get; set; } = false;
+        public bool EditInward { get; set; } = false;
+        public bool AddMaster { get; set; } = false;
+        public bool EditMaster { get; set; } = false;
         public bool ManageUsers { get; set; } = false;
         public bool AccessSettings { get; set; } = false;
         [MaxLength(20)]

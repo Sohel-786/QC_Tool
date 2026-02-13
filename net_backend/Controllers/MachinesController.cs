@@ -54,6 +54,8 @@ namespace net_backend.Controllers
         [HttpPost("import")]
         public async Task<ActionResult<ApiResponse<object>>> Import(IFormFile file)
         {
+            if (!await CheckPermission("addMaster")) return Forbidden();
+
             if (file == null || file.Length == 0) return Ok(new ApiResponse<object> { Success = false, Message = "No file" });
             try
             {
@@ -184,6 +186,8 @@ namespace net_backend.Controllers
         [HttpPost]
         public async Task<ActionResult<ApiResponse<Machine>>> Create([FromBody] CreateMachineRequest request)
         {
+            if (!await CheckPermission("addMaster")) return Forbidden();
+
             if (string.IsNullOrWhiteSpace(request.Name))
                 return BadRequest(new ApiResponse<Machine> { Success = false, Message = "Name is required" });
 
@@ -209,6 +213,8 @@ namespace net_backend.Controllers
         [HttpPut("{id}")]
         public async Task<ActionResult<ApiResponse<Machine>>> Update(int id, [FromBody] CreateMachineRequest request)
         {
+            if (!await CheckPermission("editMaster")) return Forbidden();
+
             var item = await _context.Machines.FirstOrDefaultAsync(m => m.Id == id && m.DivisionId == CurrentDivisionId);
             if (item == null) return NotFound();
 
@@ -244,6 +250,8 @@ namespace net_backend.Controllers
         [HttpDelete("{id}")]
         public async Task<ActionResult<ApiResponse<bool>>> Delete(int id)
         {
+            if (!await CheckPermission("editMaster")) return Forbidden();
+
             var item = await _context.Machines.FirstOrDefaultAsync(m => m.Id == id && m.DivisionId == CurrentDivisionId);
             if (item == null) return NotFound();
 
@@ -257,6 +265,31 @@ namespace net_backend.Controllers
             _context.Machines.Remove(item);
             await _context.SaveChangesAsync();
             return Ok(new ApiResponse<bool> { Data = true });
+        }
+        private async Task<bool> CheckPermission(string permissionKey)
+        {
+            var userIdStr = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdStr) || !int.TryParse(userIdStr, out int userId)) return false;
+
+            var permissions = await _context.UserPermissions.FirstOrDefaultAsync(p => p.UserId == userId);
+            if (permissions == null)
+            {
+                var role = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+                if (role == "QC_ADMIN") return true;
+                return false;
+            }
+
+            return permissionKey switch
+            {
+                "addMaster" => permissions.AddMaster,
+                "editMaster" => permissions.EditMaster,
+                _ => false
+            };
+        }
+
+        private ActionResult Forbidden()
+        {
+            return StatusCode(403, new ApiResponse<object> { Success = false, Message = "You do not have permission to perform this action." });
         }
     }
 }

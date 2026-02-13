@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
@@ -68,6 +68,13 @@ export function Dialog({
     }
   }, [isOpen]);
 
+  // We need a stable function to register in the stack.
+  // This ensures that even if the onClose prop changes (causing are-render),
+  // the identity of the entry in the stack stays the same, allowing isTopDialog to work.
+  const handleClose = useCallback(() => {
+    onCloseRef.current();
+  }, []);
+
   // Lock body scroll and handle accessibility event listeners
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -75,8 +82,8 @@ export function Dialog({
 
       // Handle ESC key
       if (e.key === "Escape" && !closeButtonDisabled) {
-        if (isTopDialog(onCloseRef.current)) {
-          onCloseRef.current();
+        if (isTopDialog(handleClose)) {
+          handleClose();
         }
       }
 
@@ -115,7 +122,7 @@ export function Dialog({
 
     if (isOpen) {
       // Add this dialog to the stack using the utility
-      const cleanup = registerDialog(onCloseRef.current);
+      const cleanup = registerDialog(handleClose);
 
       // Lock scroll only if it's the first dialog opening
       if (getOpenDialogCount() === 1) {
@@ -138,7 +145,7 @@ export function Dialog({
         window.removeEventListener("keydown", handleKeyDown);
       };
     }
-  }, [isOpen, closeButtonDisabled]);
+  }, [isOpen, closeButtonDisabled, handleClose]);
 
   // Handle initial focus only once when dialog opens
   useEffect(() => {
