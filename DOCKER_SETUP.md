@@ -1,265 +1,99 @@
-# QC Tool - Professional Docker Setup
+# Docker Setup & Architecture Guide
 
-This project is fully containerized with Docker, providing a one-command startup experience for the entire application stack.
+This guide details the Docker architecture for the QC Tool Management System.
 
-## 🚀 Quick Start
+## 🏗 Architecture
 
-Simply run:
+The application runs as a multi-container Docker application with the following services:
 
-```powershell
-docker compose up -d
-```
-
-Access the application at: **http://localhost:83**
-
-## 📦 What's Included
-
-The Docker setup includes:
-
-- **Frontend**: Next.js 14 application (port 3000 internally)
-- **Backend**: .NET 6.0 Web API (port 80 internally)
-- **Database**: SQL Server 2022 (port 1433)
-- **Proxy**: Nginx reverse proxy (exposes everything on port 83)
-
-## ⚙️ Configuration
-
-All configuration is managed through the `.env` file:
-
-```env
-# Main application port (change this to access the app on a different port)
-APP_PORT=83
-
-# Internal service ports (can be changed if needed)
-FRONTEND_PORT=3000
-BACKEND_PORT=3001
-
-# Database configuration
-DB_PASSWORD=Password123!
-DB_DATABASE=QC_Tool_DB
-DB_PORT=1433
-
-# API Configuration
-NEXT_PUBLIC_API_URL=http://localhost:86/api
-```
-
-### Changing the Application Port
-
-To run the application on a different port (e.g., port 8080):
-
-1. Edit `.env` file:
-
-   ```env
-   APP_PORT=8080
-   NEXT_PUBLIC_API_URL=http://localhost:8080
-   ```
-
-2. Restart the containers:
-
-   ```powershell
-   docker compose down
-   docker compose up -d
-   ```
-
-3. Access at: **http://localhost:8080**
-
-## 🏗️ Architecture
-
-```
-                    ┌─────────────────┐
-                    │   Port 83       │
-                    │  Nginx Proxy    │
-                    └────────┬────────┘
-                             │
-                ┌────────────┴────────────┐
-                │                         │
-         ┌──────▼──────┐          ┌──────▼──────┐
-         │  Frontend   │          │   Backend   │
-         │  (Next.js)  │          │   (.NET 6)  │
-         │  Port 3000  │          │   Port 80   │
-         └─────────────┘          └──────┬──────┘
-                                         │
-                                  ┌──────▼──────┐
-                                  │  Database   │
-                                  │ SQL Server  │
-                                  │  Port 1433  │
-                                  └─────────────┘
-```
+1.  **Frontend (`qc-tool-frontend`)**: Next.js 14 application serving the UI.
+2.  **Backend (`qc-tool-backend`)**: .NET 6 Web API handling business logic and data.
+3.  **Database (`qc-tool-db`)**: SQL Server 2022 (Developer Edition) storing all data.
+4.  **Proxy (`qc-tool-proxy`)**: Nginx reverse proxy that routes requests to Frontend and Backend.
 
 ### Request Routing
 
-- **`/api/*`** → Backend API
-- **`/storage/*`** → Backend static files
-- **`/*`** → Frontend application
+-   **`http://localhost:86/`** → **Frontend** (Next.js)
+-   **`http://localhost:86/api/*`** → **Backend** (API)
+-   **`http://localhost:86/storage/*`** → **Backend** (Static Files)
 
-## 🛠️ Commands
+All services communicate through an internal Docker network `qc-network`.
 
-### Start the application
+---
 
-```powershell
-docker compose up -d
+## ⚙️ Configuration (.env)
+
+The `.env` file is the `source of truth` for the configuration.
+
+### Port Configuration
+-   **APP_PORT**: Check `.env` (Default: **86**)
+    -   This is the ONLY port you need to access the app.
+    -   Example: `http://localhost:86`
+
+### Database Configuration
+-   **DB_CONNECTION_STRING**: Controls where the backend connects.
+    -   **Default**: Connects to the internal `database` container.
+    -   **Optional**: Can be changed to connect to a local SQL Express instance (see `.env` comments).
+
+### Credentials
+-   **DB_PASSWORD**: `Password123!` (Internal SQL Server password)
+-   **Default Admin**: `mitul` / `admin`
+
+---
+
+## 🚀 Commands
+
+### Start Application (Recommended)
+Use the provided batch script for a one-click start:
+```cmd
+.\start.bat
 ```
+*This script automatically builds images and starts containers.*
 
-### Stop the application
+### Manual Docker Commands
 
-```powershell
-docker compose down
-```
+1.  **Start Services**:
+    ```bash
+    docker compose up -d --build
+    ```
 
-### View logs
+2.  **Stop Services**:
+    ```bash
+    docker compose down
+    ```
 
-```powershell
-# All services
-docker compose logs -f
+3.  **View Logs**:
+    ```bash
+    docker compose logs -f
+    ```
 
-# Specific service
-docker compose logs -f backend
-docker compose logs -f frontend
-docker compose logs -f database
-docker compose logs -f proxy
-```
+4.  **Reset Database (Destructive)**:
+    To clear all data, stop the containers and remove the volume:
+    ```bash
+    docker compose down -v
+    ```
 
-### Rebuild and restart
+---
 
-```powershell
-docker compose up -d --build
-```
+## ⚠️ Troubleshooting
 
-### Check status
+### "Port 86 is already in use"
+If you cannot start the app because port 86 is taken:
+1.  Open `.env`.
+2.  Change `APP_PORT=86` to another port (e.g., `APP_PORT=8080`).
+3.  Run `start.bat` again.
+4.  Access at `http://localhost:8080`.
 
-```powershell
-docker compose ps
-```
+### "Database Connection Failed"
+-   Ensure the `database` container is healthy (`docker compose ps`).
+-   If you modified `DB_CONNECTION_STRING` in `.env` to point to a local DB, verify TCP/IP is enabled and Firewall allows connection.
 
-### Access database
+### "Login Failed"
+-   Use default credentials: `mitul` / `admin`.
+-   If you changed the database, the seed data might be missing.
 
-```powershell
-# Using docker exec
-docker exec -it qc-tool-db /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "Password123!"
-
-# Or connect from your host machine
-Server: localhost,1433
-Username: sa
-Password: Password123!
-Database: QC_Tool_DB
-```
-
-## 📁 Volumes
-
-The setup uses Docker volumes for data persistence:
-
-- **sql_data**: SQL Server database files
-- **backend_storage**: Uploaded files and images
-
-Data persists even when containers are stopped or removed.
-
-## 🔧 Troubleshooting
-
-### Port already in use
-
-If port 83 is already in use, change `APP_PORT` in `.env` to a different port.
-
-### Database connection errors
-
-Wait 60 seconds after starting for the database to fully initialize. Check status:
-
-```powershell
-docker compose ps
-```
-
-The database should show as "healthy".
-
-### Backend not connecting to database
-
-Check backend logs:
-
-```powershell
-docker logs qc-tool-backend
-```
-
-### Frontend can't reach backend
-
-Check proxy logs:
-
-```powershell
-docker logs qc-tool-proxy
-```
-
-### Clean slate restart
-
-```powershell
-# Remove all containers and volumes
-docker compose down -v
-
-# Start fresh
-docker compose up -d
-```
+---
 
 ## 🔐 Security Notes
-
-**For Production:**
-
-1. Change `DB_PASSWORD` in `.env` to a strong password
-2. Update JWT secret in `docker-compose.yml` (backend environment)
-3. Enable HTTPS with proper SSL certificates
-4. Review CORS settings in backend `Program.cs`
-5. Use environment-specific configuration files
-
-## 📝 Development vs Production
-
-### Development (Current Setup)
-
-- Uses development database
-- Includes debugging symbols
-- Hot reload disabled (use local development for that)
-
-### For Local Development
-
-If you want hot reload and faster iteration:
-
-**Backend:**
-
-```powershell
-cd net_backend
-dotnet run
-```
-
-**Frontend:**
-
-```powershell
-cd frontend
-npm run dev
-```
-
-## 🎯 Default Credentials
-
-After the database initializes, you can log in with:
-
-- **Admin**: Check your database seeding script
-- **Username**: admin@qc.com
-- **Password**: (as configured in your DbInitializer)
-
-## 📊 Monitoring
-
-View real-time container stats:
-
-```powershell
-docker stats
-```
-
-## 🆘 Support
-
-For issues:
-
-1. Check logs: `docker compose logs -f`
-2. Verify all containers are running: `docker compose ps`
-3. Ensure ports are not in use: `netstat -ano | findstr :83`
-4. Check `.env` configuration
-
-## 🎉 Success!
-
-If everything is working, you should see:
-
-- ✅ All 4 containers running
-- ✅ Database showing as "healthy"
-- ✅ Application accessible at http://localhost:83
-- ✅ API responding at http://localhost:83/api
+-   The internal SQL Server password (`Password123!`) is for the isolated container.
+-   The application runs in Production mode inside commands defined in `docker-compose.yml`.

@@ -10,8 +10,8 @@ We recommend running the application using the provided batch script, which hand
 .\start.bat
 ```
 
-- **Application URL**: [http://localhost:83](http://localhost:83)
-- **API Endpoint**: [http://localhost:83/api](http://localhost:83/api)
+- **Application URL**: [http://localhost:86](http://localhost:86)
+- **API Endpoint**: [http://localhost:86/api](http://localhost:86/api)
 
 ---
 
@@ -48,7 +48,7 @@ The database connection string is configured in the `.env` file using the `DB_CO
 
 ### 3. Environment Variables
 The `.env` file controls key configurations:
--   `APP_PORT`: Port to access the app (default: 83).
+-   `APP_PORT`: Port to access the app (default: 86).
 -   `DB_PASSWORD`: Password for the internal Docker SQL database.
 -   `DB_CONNECTION_STRING`: Full connection string used by the backend.
 
