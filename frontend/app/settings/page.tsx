@@ -726,7 +726,7 @@ export default function SettingsPage() {
                   </CardContent>
                 </Card>
 
-                {currentUser?.role === Role.QC_ADMIN && (
+{/* {currentUser?.role === Role.QC_ADMIN && (
                   <Card className="border-red-200 shadow-sm overflow-hidden mt-6">
                     <CardHeader className="bg-red-50 border-b border-red-100">
                       <div className="flex items-center gap-2 text-red-700">
@@ -761,11 +761,11 @@ export default function SettingsPage() {
                       </div>
                     </CardContent>
                   </Card>
-                )}
+                )} */}
               </motion.div>
             )}
 
-            <Dialog
+{/* <Dialog
               isOpen={isResetDialogOpen}
               onClose={() => setIsResetDialogOpen(false)}
               title="Full System Reset?"
@@ -816,7 +816,7 @@ export default function SettingsPage() {
                   </Button>
                 </div>
               </div>
-            </Dialog>
+            </Dialog> */}
 
             {activeTab === "access" && (
               <motion.div
